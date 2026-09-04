@@ -3,7 +3,11 @@ import type { Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import type { BackendDependencies } from "./application/ports.js";
-import { IdentityProviderNotConfiguredError } from "./adapters/identity.js";
+import {
+  IdentityProviderNotConfiguredError,
+  UnconfiguredIdentityProvider,
+} from "./adapters/identity.js";
+import { InMemoryPortalRepository } from "./adapters/in-memory-repository.js";
 import type { EffectiveRole, Entitlement, PortalUser, UsageObservation } from "./domain/models.js";
 import { calculateCostPerUsage } from "./domain/usage.js";
 
@@ -765,3 +769,12 @@ function error<const Status extends 401 | 403 | 404 | 422 | 500 | 503>(
 function notFound(c: Context<AppEnvironment>) {
   return error(c, 404, "not_found", "Resursen hittades inte.");
 }
+
+const productionApp = createApp({
+  identityProvider: new UnconfiguredIdentityProvider(),
+  repository: new InMemoryPortalRepository(),
+  clock: () => new Date(),
+  createId: () => crypto.randomUUID(),
+});
+
+export default productionApp;

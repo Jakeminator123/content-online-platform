@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
+import productionApp, { createApp } from "../src/app.js";
 import {
   StaticBearerIdentityProvider,
   UnconfiguredIdentityProvider,
@@ -16,6 +16,19 @@ describe("Content Online backend API", () => {
   beforeEach(async () => {
     dependencies = await createDemoDependencies();
     app = createApp(dependencies);
+  });
+
+  it("exports a Vercel-compatible production app without enabling demo auth", async () => {
+    const health = await productionApp.request("/health");
+    expect(health.status).toBe(200);
+
+    const protectedRoute = await productionApp.request("/v1/me", {
+      headers: { authorization: `Bearer ${DEMO_TOKENS.adminA}` },
+    });
+    expect(protectedRoute.status).toBe(503);
+    await expect(protectedRoute.json()).resolves.toMatchObject({
+      error: "identity_provider_not_configured",
+    });
   });
 
   it("keeps health and OpenAPI public but protects every v1 route", async () => {
