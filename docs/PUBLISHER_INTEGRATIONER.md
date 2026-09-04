@@ -1,7 +1,9 @@
 # Publisherintegrationer
 
-**Version:** 0.1  
-**Datum:** 2026-09-04  
+**Version:** 0.1
+
+**Datum:** 2026-09-04
+
 **Status:** Första verifieringsmatris; inga live-credentials används
 
 ## Princip

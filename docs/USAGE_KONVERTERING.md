@@ -1,7 +1,9 @@
 # Usage-konvertering och gemensamt datakontrakt
 
-**Version:** 0.1  
-**Datum:** 2026-09-04  
+**Version:** 0.1
+
+**Datum:** 2026-09-04
+
 **Status:** Föreslagen teknisk grund; liveåtkomst och datarättigheter är inte verifierade
 
 ## Syfte

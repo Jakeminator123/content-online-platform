@@ -1,7 +1,9 @@
 # Vercel för Content Online B2B
 
-**Version:** 0.1  
-**Bedömningsdatum:** 2026-09-04  
+**Version:** 0.1
+
+**Bedömningsdatum:** 2026-09-04
+
 **Bedömning:** Villkorat go för demo och låg-risk-pilot; inget automatiskt produktionsgodkännande
 
 ## Kort svar
