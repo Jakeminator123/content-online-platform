@@ -5,6 +5,31 @@ import { secureHeaders } from "hono/secure-headers";
 import { CUSTOMER_PORTAL, PLATFORM_ORIGIN } from "./identity.js";
 import type { AdminAuthenticator, AdminConfig } from "./identity.js";
 
+const adminWorkspace = {
+  status: "synthetic_configuration",
+  generatedAt: "2026-09-05",
+  customers: [
+    { id: "customer-kth-demo", name: "KTH", users: 2, products: 4, status: "Pilot · syntetisk data" },
+  ],
+  publishers: [
+    { id: "publisher-ieee", name: "IEEE", route: "MPS / MPS Insight", status: "Inte ansluten" },
+    { id: "publisher-springer", name: "Springer Nature", route: "Källspecifik anslutning", status: "Inte kartlagd" },
+    { id: "publisher-elsevier", name: "Elsevier", route: "Källspecifik anslutning", status: "Inte kartlagd" },
+  ],
+  assignments: [
+    { customer: "KTH", publisher: "IEEE", product: "IEEE Xplore", status: "Demo-tilldelning" },
+    { customer: "KTH", publisher: "Springer Nature", product: "SpringerLink", status: "Demo-tilldelning" },
+    { customer: "KTH", publisher: "Elsevier", product: "ScienceDirect", status: "Demo-tilldelning" },
+  ],
+  connections: [
+    { name: "MPS / MPS Insight", owner: "IEEE", mode: "Källspecifik", status: "Inte ansluten", lastImport: null },
+    { name: "Övriga publicister", owner: "Flera", mode: "API, fil eller manuell källa", status: "Ej kartlagda", lastImport: null },
+    { name: "Salesforce", owner: "Content Online", mode: "Framtida datakälla", status: "Inte ansluten", lastImport: null },
+    { name: "Fortnox", owner: "Content Online", mode: "Framtida datakälla", status: "Inte ansluten", lastImport: null },
+  ],
+  storage: { status: "blocked_by_decision", label: "Beständig lagring saknas – skrivfunktioner är avstängda" },
+} as const;
+
 export function clerkFrontendHost(key: string): string | null {
   if (!/^pk_(test|live)_[A-Za-z0-9+/=]+$/.test(key)) return null;
   const decoded = Buffer.from(key.slice(8), "base64").toString("utf8");
@@ -46,8 +71,11 @@ export function createAdminPortal(authenticator: AdminAuthenticator, config: Adm
           admin: auth.identity,
           authentication: config.publishableKey.startsWith("pk_live_") ? "production" : "development_instance",
           customerPortalUrl: `${CUSTOMER_PORTAL}/login`,
-          administration: { users: "not_connected", publishers: "not_connected", customerAssignments: "not_connected" },
+          administration: { users: "read_only_demo", publishers: "read_only_demo", customerAssignments: "read_only_demo" },
         });
+      }
+      if (c.req.path === "/admin/api/workspace" && c.req.method === "GET") {
+        return c.json(adminWorkspace);
       }
       await next();
     } catch {
@@ -64,7 +92,7 @@ function page(mode: "start" | "login" | "register" | "admin", host: string | nul
     <meta name="description" content="Content Onlines plattform med separata ingångar för kunder och intern administration.">
     <title>${mode === "start" ? "Välj portal" : "Administration"} · Content Online</title>
     <style>
-      :root{font-family:Arial,Helvetica,sans-serif;color:#111827;background:#f3f6fa;color-scheme:light}*{box-sizing:border-box}body{margin:0}a{color:#134a79}a:focus-visible,button:focus-visible{outline:3px solid #d59b00;outline-offset:4px}header{background:#102c46;color:white;padding:22px 6vw;display:flex;justify-content:space-between;align-items:center;gap:20px}header a{color:white;text-decoration:none}.brand{font-size:21px;font-weight:700;letter-spacing:-.5px}.brand span{font-weight:400;color:#b9d5eb}main{max-width:1040px;margin:0 auto;padding:58px 24px}h1{font-size:clamp(28px,4vw,42px);letter-spacing:-1px;margin:12px 0 18px}h2{font-size:22px;margin:0 0 14px}p{font-size:16px;line-height:1.65;margin:0 0 20px}.eyebrow{text-transform:uppercase;letter-spacing:2px;font-size:13px;font-weight:700;color:#305e80}.lead{max-width:680px;color:#4b5563}.grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin:30px 0}.card{border:1px solid #d9e1e9;border-radius:12px;background:white;padding:30px;box-shadow:0 3px 16px #102c4606}.card p{color:#4b5563}.button,button{display:inline-block;border:0;border-radius:6px;background:#174f7c;color:white;padding:13px 18px;font:600 16px Arial;text-decoration:none;cursor:pointer}.secondary{background:#eaf1f8;color:#174f7c}.small{font-size:14px;color:#4b5563}.notice{border-left:4px solid #d39419;background:#fff8e7;padding:16px 20px;margin:24px 0;font-size:14px;line-height:1.6}.auth{max-width:490px;margin:auto}.auth .card{padding:24px}#auth-widget{min-height:160px;display:flex;justify-content:center}#user-button{display:flex;justify-content:flex-end}.actions{display:flex;gap:15px;align-items:center;flex-wrap:wrap}.status{color:#305e80;font-size:14px;font-weight:700}dl{margin:0}dt{font-weight:700;margin-top:14px}dd{margin:6px 0;line-height:1.6;overflow-wrap:anywhere}footer{max-width:1040px;margin:0 auto;padding:18px 24px 35px;border-top:1px solid #d9e1e9;font-size:14px;color:#4b5563}[hidden]{display:none!important}@media(max-width:660px){.grid{grid-template-columns:1fr}main{padding-top:32px}.card{padding:24px}header{padding:20px 24px}.brand{font-size:18px}}
+      :root{font-family:Inter,Arial,sans-serif;color:#10243a;background:#f4f7fa;color-scheme:light}*{box-sizing:border-box}body{margin:0}a{color:#135b8a}a:focus-visible,button:focus-visible{outline:3px solid #d59b00;outline-offset:4px}header{background:#0c263d;color:white;padding:20px 6vw;display:flex;justify-content:space-between;align-items:center;gap:20px}header a{color:white;text-decoration:none}.brand{font-size:21px;font-weight:750;letter-spacing:-.5px}.brand span{font-weight:400;color:#a9d7ef}main{max-width:1180px;margin:0 auto;padding:48px 24px}h1{font-size:clamp(30px,4vw,46px);letter-spacing:-1.4px;margin:10px 0 14px}h2{font-size:20px;margin:0 0 10px}h3{font-size:15px;margin:0}p{font-size:15px;line-height:1.6;margin:0 0 18px}.eyebrow{text-transform:uppercase;letter-spacing:2px;font-size:12px;font-weight:800;color:#34759e}.lead{max-width:760px;color:#526477}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:26px 0}.workspace-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;margin:26px 0}.wide{grid-column:span 8}.narrow{grid-column:span 4}.full{grid-column:1/-1}.card{border:1px solid #d9e3ec;border-radius:14px;background:white;padding:25px;box-shadow:0 8px 28px #102c4609}.card p{color:#526477}.button,button{display:inline-block;border:0;border-radius:8px;background:#14608f;color:white;padding:12px 17px;font:700 15px Arial;text-decoration:none;cursor:pointer}.secondary{background:#e8f1f7;color:#174f7c}.small{font-size:13px;color:#607285}.notice{border-left:4px solid #d39419;background:#fff8e7;padding:15px 18px;margin:22px 0;font-size:14px;line-height:1.55}.auth{max-width:490px;margin:auto}.auth .card{padding:24px}#auth-widget{min-height:160px;display:flex;justify-content:center}#user-button{display:flex;justify-content:flex-end}.actions{display:flex;gap:15px;align-items:center;flex-wrap:wrap}.status,.pill{display:inline-block;border-radius:999px;background:#e9f2f7;color:#225a78;padding:5px 9px;font-size:12px;font-weight:750}.warning{background:#fff1cf;color:#76520b}.section-head{display:flex;justify-content:space-between;gap:16px;align-items:start;margin-bottom:18px}.metric{font-size:32px;font-weight:800;letter-spacing:-1px;color:#10243a}.muted{color:#657789}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:#657789;font-size:11px;text-transform:uppercase;letter-spacing:.08em}th,td{padding:12px 8px;border-bottom:1px solid #e8eef3;vertical-align:top}tr:last-child td{border-bottom:0}.table-wrap{overflow-x:auto}dl{margin:0}dt{font-weight:700;margin-top:14px}dd{margin:6px 0;line-height:1.6;overflow-wrap:anywhere}footer{max-width:1180px;margin:0 auto;padding:18px 24px 35px;border-top:1px solid #d9e1e9;font-size:13px;color:#607285}[hidden]{display:none!important}@media(max-width:800px){.wide,.narrow{grid-column:1/-1}}@media(max-width:660px){.grid{grid-template-columns:1fr}main{padding-top:30px}.card{padding:21px}header{padding:18px 22px}.brand{font-size:18px}.workspace-grid{display:block}.workspace-grid .card{margin-bottom:16px}}
     </style>
     ${configured && mode !== "start" && host ? html`
       <script defer crossorigin="anonymous" src="https://${host}/npm/@clerk/ui@1/dist/ui.browser.js"></script>
@@ -75,10 +103,16 @@ function page(mode: "start" | "login" | "register" | "admin", host: string | nul
       <p class="lead">Välj kundportalen för din organisations resurser eller administrationen för Content Onlines personal.</p>
       <div class="grid"><section class="card"><h2>Kundportalen</h2><p>Resurser, användning och dokument för din organisation. KTH är vår testkund.</p><a class="button" href="/kundportal">Öppna kundportalen →</a><p class="small" style="margin-top:18px">Befintlig kundfrontend · separat inloggning · demodata</p></section>
       <section class="card"><h2>Content Online-admin</h2><p>Separat åtkomst för Content Onlines interna administration. Kundkonton ger inte adminbehörighet.</p><a class="button secondary" href="/admin/login">Logga in som Content Online →</a><p class="small" style="margin-top:18px">Hanteringen av kunder och publicister är under uppbyggnad.</p></section></div>` : mode === "admin" ? html`
-      <div id="user-button"></div><div class="eyebrow">Content Online</div><h1>Administration</h1>
+      <div id="user-button"></div><div class="eyebrow">Content Online · intern arbetsyta</div><h1>Systemadministration</h1>
       <p id="message" role="status">${configured ? "Kontrollerar din inloggning…" : "Inloggningen är inte konfigurerad ännu."}</p>
       <section id="account" class="card" hidden><h2>Du är inloggad</h2><dl><dt>Konto</dt><dd id="account-email"></dd><dt>Behörighet</dt><dd>Content Online-administratör — inte kundadministratör på KTH.</dd></dl></section>
-      <div id="workspace" hidden><div class="grid"><section class="card"><h2>Kunder och användare</h2><p>Kundorganisationer, konton och behörigheter ska hanteras här.</p><span class="status">Inte aktiverat — väntar på databas och administrationsfunktioner</span></section><section class="card"><h2>Publicister och kundåtkomst</h2><p>Content Onlines publicistregister och kopplingen mellan kund, publicist och produkt ska hanteras här.</p><span class="status">Inte aktiverat — väntar på databas och administrationsfunktioner</span></section></div>
+      <div id="workspace" hidden><p class="lead">Överblick över kundorganisationer, publicister, produkter och datakällor. Den här pilotvyn är skrivskyddad tills beständig lagring är beslutad.</p><div class="workspace-grid">
+      <section class="card narrow"><div class="section-head"><h2>Kunder</h2><span class="pill">Pilot</span></div><div class="metric" id="customer-count">–</div><p>Kundorganisationer i den interna konfigurationen.</p></section>
+      <section class="card narrow"><div class="section-head"><h2>Publicister</h2><span class="pill">Partners</span></div><div class="metric" id="publisher-count">–</div><p>Dataleverantörer – inte kundorganisationer.</p></section>
+      <section class="card narrow"><div class="section-head"><h2>Lagring</h2><span class="pill warning">Beslut krävs</span></div><p id="storage-status">Kontrollerar…</p></section>
+      <section class="card wide"><div class="section-head"><div><h2>Kundtilldelningar</h2><p>Många-till-många via produkter.</p></div><span class="pill">Syntetisk demo</span></div><div class="table-wrap"><table><thead><tr><th>Kund</th><th>Publicist</th><th>Produkt</th><th>Status</th></tr></thead><tbody id="assignments"></tbody></table></div></section>
+      <section class="card narrow"><div class="section-head"><div><h2>Kundorganisationer</h2><p>Egen portal och egna roller.</p></div></div><div id="customers"></div></section>
+      <section class="card full"><div class="section-head"><div><h2>Anslutningar och importer</h2><p>Varje källa hanteras efter sina verkliga förutsättningar; ingen gemensam standard antas.</p></div><span class="pill warning">Inga livekopplingar</span></div><div class="table-wrap"><table><thead><tr><th>Källa</th><th>Ägare</th><th>Metod</th><th>Senaste import</th><th>Status</th></tr></thead><tbody id="connections"></tbody></table></div></section></div>
       <div class="actions"><a class="button" href="/kundportal">Öppna kundportalen separat →</a><button class="secondary" id="sign-out">Logga ut</button></div><p class="notice">Kundportalen visar fortfarande demodata. Ingen Salesforce-, Fortnox- eller publicistdata är inkopplad här.</p></div>` : html`
       <div class="auth"><div class="eyebrow">Endast Content Onlines personal</div><h1>${mode === "register" ? "Aktivera ditt adminkonto" : "Logga in som admin"}</h1>
       <p class="lead">${mode === "register" ? "Använd den godkända e-postadressen och verifiera den för att aktivera ditt personliga konto." : "Den här inloggningen är separat från kundportalen. Endast godkända och verifierade konton får adminåtkomst."}</p>
@@ -116,6 +150,26 @@ function page(mode: "start" | "login" | "register" | "admin", host: string | nul
           document.getElementById('account').hidden = false;
           document.getElementById('workspace').hidden = false;
           message.textContent = '';
+          var workspaceResponse = await fetch('/admin/api/workspace', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store', credentials: 'omit' });
+          if (!workspaceResponse.ok) throw new Error('workspace_unavailable');
+          var workspace = await workspaceResponse.json();
+          document.getElementById('customer-count').textContent = String(workspace.customers.length);
+          document.getElementById('publisher-count').textContent = String(workspace.publishers.length);
+          document.getElementById('storage-status').textContent = workspace.storage.label;
+          function appendRow(targetId, values) {
+            var row = document.createElement('tr');
+            values.forEach(function (value) { var cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); });
+            document.getElementById(targetId).appendChild(row);
+          }
+          workspace.assignments.forEach(function (item) { appendRow('assignments', [item.customer, item.publisher, item.product, item.status]); });
+          workspace.connections.forEach(function (item) { appendRow('connections', [item.name, item.owner, item.mode, item.lastImport || 'Ingen import', item.status]); });
+          workspace.customers.forEach(function (item) {
+            var block = document.createElement('div'); block.style.marginBottom = '18px';
+            var title = document.createElement('h3'); title.textContent = item.name;
+            var detail = document.createElement('p'); detail.className = 'small'; detail.textContent = item.users + ' användare · ' + item.products + ' produkter';
+            var state = document.createElement('span'); state.className = 'pill'; state.textContent = item.status;
+            block.appendChild(title); block.appendChild(detail); block.appendChild(state); document.getElementById('customers').appendChild(block);
+          });
           Clerk.mountUserButton(document.getElementById('user-button'), { afterSignOutUrl: '/admin/login' });
           document.getElementById('sign-out').addEventListener('click', function () { Clerk.signOut({ redirectUrl: '/admin/login' }); });
           Clerk.addListener(function (state) { if (!state.session) { document.getElementById('account').hidden = true; document.getElementById('workspace').hidden = true; window.location.replace('/admin/login'); } });

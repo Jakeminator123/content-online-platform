@@ -56,7 +56,7 @@ describe("Content Online admin identity boundary", () => {
 describe("Hosted portal entry and guarded admin API", () => {
   it.each(["unauthenticated", "forbidden", "unconfigured"] as const)("denies %s on every admin API path", async (status) => {
     const app = appFor({ status });
-    for (const path of ["/admin/api/session", "/admin/api/publishers", "/admin/api/users"]) {
+    for (const path of ["/admin/api/session", "/admin/api/workspace", "/admin/api/publishers", "/admin/api/users"]) {
       for (const method of ["GET", "POST"]) {
         const response = await app.request(path, { method });
         expect(response.status).toBe(status === "unauthenticated" ? 401 : status === "forbidden" ? 403 : 503);
@@ -70,7 +70,17 @@ describe("Hosted portal entry and guarded admin API", () => {
     const response = await appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }).request("/admin/api/session");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ admin: { role: "content_admin" }, authentication: "development_instance",
-      administration: { users: "not_connected", publishers: "not_connected" } });
+      administration: { users: "read_only_demo", publishers: "read_only_demo" } });
+  });
+
+  it("serves the read-only internal configuration only after admin authorization", async () => {
+    const response = await appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }).request("/admin/api/workspace");
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.status).toBe("synthetic_configuration");
+    expect(body.customers[0].name).toBe("KTH");
+    expect(body.publishers[0]).toMatchObject({ name: "IEEE", route: "MPS / MPS Insight", status: "Inte ansluten" });
+    expect(body.storage.status).toBe("blocked_by_decision");
   });
 
   it("fails closed without revealing provider errors", async () => {

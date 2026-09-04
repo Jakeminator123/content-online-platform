@@ -18,6 +18,9 @@ Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planera
 - API accepterar endast Clerk-bearertoken med plattformens uttryckliga `azp`/origin. Signatur och livslängd kontrolleras av SDK:n; servern kontrollerar även aktiv session, spärrstatus samt verifierad primär e-post mot serverns allowlist.
 - En separat registreringsallowlist finns i Clerk. Testverifiering är avstängd. Ingen automatisk e-postinbjudan har skickats.
 - Kundfrontendens `/content-online`-vägar leder till plattformens administration. KTH-demons cookies skickas inte vidare som behörighetsbevis.
+- Den skyddade, interna arbetsytan visar nu ett serverlevererat och skrivskyddat pilotregister för kunder, publicister, produkt-/kundtilldelningar samt anslutningar/importstatus. `/admin/api/workspace` har samma Clerk- och allowlistkontroll som övriga admin-API:er.
+- Pilotregistret är uttryckligen syntetiskt. Alla skrivåtgärder är avstängda eftersom beständig lagring ännu saknas; inget sparas i serverminne, webbläsarlagring eller Git.
+- Kundfrontendens meny och rollnamn säger nu `KTH:s portaladministration`, `Kundadministratör` och `Läsare`. Icke fungerande knappar för inbjudan/ändring har tagits bort och påståendet om automatisk COUNTER/SUSHI-hämtning har ersatts med korrekt demostatus.
 
 ## Första kontot
 
@@ -33,7 +36,7 @@ Ingen e-postadress, lösenord eller hemlig nyckel hör hemma i detta publika rep
 ## Återstår / får inte beskrivas som klart
 
 1. Databas: Neon Free föreslaget i Frankfurt; provisionering pausad på användarens begäran. Ingen ersättningsdatabas eller lagring i webbläsaren används.
-2. Administration: skapa/ändra/avaktivera kundkonton, organisationer, publicister och kundprodukttilldelningar samt beständig auditlogg.
+2. Skrivande administration: skapa/ändra/avaktivera kundkonton, organisationer, publicister och kundprodukttilldelningar samt beständig auditlogg. Den levererade överblicken är skrivskyddad.
 3. Kundauth: frontendens gamla demonstrationskonton och reservnyckel får inte användas med riktiga kunddata. Skyddat `/v1/*` är ännu inte anslutet till Clerk eller produktionsmedlemskap.
 4. Produktionsauth: nuvarande Clerk-nycklar är `pk_test_`/`sk_test_` trots att webbplatsen är publicerad på Vercel. Egen domän, DNS och Clerk-produktionsinstans krävs före skarp användning.
 5. Första administratören behöver själv slutföra e-postverifieringen. Automatiska tester kan inte ersätta denna kontroll.
