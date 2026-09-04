@@ -4,35 +4,9 @@ import { html } from "hono/html";
 import { secureHeaders } from "hono/secure-headers";
 import { CUSTOMER_PORTAL, PLATFORM_ORIGIN } from "./identity.js";
 import type { AdminAuthenticator, AdminConfig } from "./identity.js";
-
-const adminWorkspace = {
-  status: "synthetic_configuration",
-  generatedAt: "2026-09-05",
-  customers: [
-    { id: "customer-kth-demo", name: "KTH", users: 2, products: 4, status: "Pilot · syntetisk data" },
-  ],
-  users: [
-    { name: "Hampus", customer: "KTH", role: "Kundadministratör", status: "Demokonto" },
-    { name: "Bibbi", customer: "KTH", role: "Läsare", status: "Demokonto" },
-  ],
-  publishers: [
-    { id: "publisher-ieee", name: "IEEE", route: "MPS / MPS Insight", status: "Inte ansluten" },
-    { id: "publisher-springer", name: "Springer Nature", route: "Källspecifik anslutning", status: "Inte kartlagd" },
-    { id: "publisher-elsevier", name: "Elsevier", route: "Källspecifik anslutning", status: "Inte kartlagd" },
-  ],
-  assignments: [
-    { customer: "KTH", publisher: "IEEE", product: "IEEE Xplore", status: "Demo-tilldelning" },
-    { customer: "KTH", publisher: "Springer Nature", product: "SpringerLink", status: "Demo-tilldelning" },
-    { customer: "KTH", publisher: "Elsevier", product: "ScienceDirect", status: "Demo-tilldelning" },
-  ],
-  connections: [
-    { name: "MPS / MPS Insight", owner: "IEEE", mode: "Källspecifik", status: "Inte ansluten", lastImport: null },
-    { name: "Övriga publicister", owner: "Flera", mode: "API, fil eller manuell källa", status: "Ej kartlagda", lastImport: null },
-    { name: "Salesforce", owner: "Content Online", mode: "Framtida datakälla", status: "Inte ansluten", lastImport: null },
-    { name: "Fortnox", owner: "Content Online", mode: "Framtida datakälla", status: "Inte ansluten", lastImport: null },
-  ],
-  storage: { status: "blocked_by_decision", label: "Beständig lagring saknas – skrivfunktioner är avstängda" },
-} as const;
+import { demoWorkspace } from "./demo-data.js";
+import { workspaceCss } from "./workspace-style.js";
+import { workspaceClient } from "./workspace-client.js";
 
 export function clerkFrontendHost(key: string): string | null {
   if (!/^pk_(test|live)_[A-Za-z0-9+/=]+$/.test(key)) return null;
@@ -54,6 +28,11 @@ export function createAdminPortal(authenticator: AdminAuthenticator, config: Adm
     c.header("referrer-policy", "no-referrer");
   });
 
+  app.get("/admin/assets/style.css", c => c.body(workspaceCss, 200, { "content-type": "text/css; charset=utf-8" }));
+  app.get("/admin/assets/workspace.js", c => c.body(workspaceClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
+  // This public route returns only immutable presentation fixtures. It never authenticates or saves.
+  app.get("/demo/workspace", c => c.json(demoWorkspace));
+  app.get("/demo", c => c.html(page("demo", null, "", false)));
   app.get("/", (c) => c.html(page("start", host, config.publishableKey, configured)));
   app.get("/kundportal", (c) => c.redirect(`${CUSTOMER_PORTAL}/login`, 302));
   app.get("/content-online", (c) => c.redirect("/admin", 302));
@@ -79,7 +58,7 @@ export function createAdminPortal(authenticator: AdminAuthenticator, config: Adm
         });
       }
       if (c.req.path === "/admin/api/workspace" && c.req.method === "GET") {
-        return c.json(adminWorkspace);
+        return c.json(demoWorkspace);
       }
       await next();
     } catch {
@@ -91,95 +70,69 @@ export function createAdminPortal(authenticator: AdminAuthenticator, config: Adm
   return app;
 }
 
-function page(mode: "start" | "login" | "register" | "admin", host: string | null, key: string, configured: boolean) {
+function icon(name: string) {
+  const paths: Record<string, string> = {
+    grid: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
+    customers: 'M3 21V7l9-4v18M12 9h9v12M7 9v2m0 3v2m9-3v2m0 3v2M1 21h22',
+    users: 'M4 20v-2a6 6 0 0 1 12 0v2M6 8a3 3 0 1 0 6 0 3 3 0 1 0-6 0M17 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 2 4',
+    book: 'M12 6c-3-3-8-3-10-2v15c3-1 7-1 10 2 3-3 7-3 10-2V4c-3-1-7-1-10 2v15',
+    link: 'm9 15 6-6m-8 3-2 2a4 4 0 0 0 6 6l2-2m-2-12 2-2a4 4 0 0 1 6 6l-2 2',
+    arrow: 'M5 12h14m-6-6 6 6-6 6',
+    info: 'M12 11v6m0-10v1M21 12a9 9 0 1 0-18 0 9 9 0 1 0 18 0',
+    calendar: 'M3 5h18v16H3z M7 3v4m10-4v4M3 10h18',
+    search: 'M16 10a6 6 0 1 0-12 0 6 6 0 1 0 12 0m-1 5 6 6',
+    menu: 'M4 6h16M4 12h16M4 18h16',
+    close: 'm6 6 12 12M6 18 18 6',
+  };
+  return html`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${paths[name] || paths.grid}"/></svg>`;
+}
+function brand() { return html`<a class="brand" href="/"><span class="brand-logo">c.</span><span>Content Online<small>KNOWLEDGE. CONNECTED.</small></span></a>`; }
+function page(mode: "start" | "login" | "register" | "admin" | "demo", host: string | null, key: string, configured: boolean) {
+  const workspace = mode === "admin" || mode === "demo";
+  const demo = mode === "demo";
+  const navigation = [["overview","Överblick","grid"],["customers","Kundorganisationer","customers"],["users","Användare","users"],["publishers","Publicister","book"],["products","Produkter & tilldelningar","link"],["connections","Anslutningar","grid"]];
   return html`<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="description" content="Content Onlines plattform med separata ingångar för kunder och intern administration.">
-    <title>${mode === "start" ? "Välj portal" : "Administration"} · Content Online</title>
-    <style>
-      :root{font-family:Inter,Arial,sans-serif;color:#10243a;background:#f4f7fa;color-scheme:light}*{box-sizing:border-box}body{margin:0}a{color:#135b8a}a:focus-visible,button:focus-visible{outline:3px solid #d59b00;outline-offset:4px}header{background:#0c263d;color:white;padding:20px 6vw;display:flex;justify-content:space-between;align-items:center;gap:20px}header a{color:white;text-decoration:none}.brand{font-size:21px;font-weight:750;letter-spacing:-.5px}.brand span{font-weight:400;color:#a9d7ef}main{max-width:1180px;margin:0 auto;padding:48px 24px}h1{font-size:clamp(30px,4vw,46px);letter-spacing:-1.4px;margin:10px 0 14px}h2{font-size:20px;margin:0 0 10px}h3{font-size:15px;margin:0}p{font-size:15px;line-height:1.6;margin:0 0 18px}.eyebrow{text-transform:uppercase;letter-spacing:2px;font-size:12px;font-weight:800;color:#34759e}.lead{max-width:760px;color:#526477}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:26px 0}.workspace-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;margin:26px 0}.wide{grid-column:span 8}.narrow{grid-column:span 4}.full{grid-column:1/-1}.card{border:1px solid #d9e3ec;border-radius:14px;background:white;padding:25px;box-shadow:0 8px 28px #102c4609}.card p{color:#526477}.button,button{display:inline-block;border:0;border-radius:8px;background:#14608f;color:white;padding:12px 17px;font:700 15px Arial;text-decoration:none;cursor:pointer}.secondary{background:#e8f1f7;color:#174f7c}.small{font-size:13px;color:#607285}.notice{border-left:4px solid #d39419;background:#fff8e7;padding:15px 18px;margin:22px 0;font-size:14px;line-height:1.55}.auth{max-width:490px;margin:auto}.auth .card{padding:24px}#auth-widget{min-height:160px;display:flex;justify-content:center}#user-button{display:flex;justify-content:flex-end}.actions{display:flex;gap:15px;align-items:center;flex-wrap:wrap}.status,.pill{display:inline-block;border-radius:999px;background:#e9f2f7;color:#225a78;padding:5px 9px;font-size:12px;font-weight:750}.warning{background:#fff1cf;color:#76520b}.section-head{display:flex;justify-content:space-between;gap:16px;align-items:start;margin-bottom:18px}.metric{font-size:32px;font-weight:800;letter-spacing:-1px;color:#10243a}.muted{color:#657789}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:#657789;font-size:11px;text-transform:uppercase;letter-spacing:.08em}th,td{padding:12px 8px;border-bottom:1px solid #e8eef3;vertical-align:top}tr:last-child td{border-bottom:0}.table-wrap{overflow-x:auto}dl{margin:0}dt{font-weight:700;margin-top:14px}dd{margin:6px 0;line-height:1.6;overflow-wrap:anywhere}footer{max-width:1180px;margin:0 auto;padding:18px 24px 35px;border-top:1px solid #d9e1e9;font-size:13px;color:#607285}[hidden]{display:none!important}@media(max-width:800px){.wide,.narrow{grid-column:1/-1}}@media(max-width:660px){.grid{grid-template-columns:1fr}main{padding-top:30px}.card{padding:21px}header{padding:18px 22px}.brand{font-size:18px}.workspace-grid{display:block}.workspace-grid .card{margin-bottom:16px}}
-    </style>
-    ${configured && mode !== "start" && host ? html`
-      <script defer crossorigin="anonymous" src="https://${host}/npm/@clerk/ui@1/dist/ui.browser.js"></script>
-      <script defer crossorigin="anonymous" data-clerk-publishable-key="${key}" src="https://${host}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script>` : ""}
-    </head><body data-page="${mode}"><header><a class="brand" href="/">Content <span>Online</span></a><span>${mode === "start" ? "Kundplattform" : "Intern administration"}</span></header>
-    <main>${mode === "start" ? html`
-      <div class="eyebrow">Två separata arbetsytor</div><h1>Välkommen till Content Online</h1>
-      <p class="lead">Välj kundportalen för din organisations resurser eller administrationen för Content Onlines personal.</p>
-      <div class="grid"><section class="card"><h2>Kundportalen</h2><p>Resurser, användning och dokument för din organisation. KTH är vår testkund.</p><a class="button" href="/kundportal">Öppna kundportalen →</a><p class="small" style="margin-top:18px">Befintlig kundfrontend · separat inloggning · demodata</p></section>
-      <section class="card"><h2>Content Online-admin</h2><p>Separat åtkomst för Content Onlines interna administration. Kundkonton ger inte adminbehörighet.</p><a class="button secondary" href="/admin/login">Logga in som Content Online →</a><p class="small" style="margin-top:18px">Hanteringen av kunder och publicister är under uppbyggnad.</p></section></div>` : mode === "admin" ? html`
-      <div id="user-button"></div><div class="eyebrow">Content Online · intern arbetsyta</div><h1>Systemadministration</h1>
-      <p id="message" role="status">${configured ? "Kontrollerar din inloggning…" : "Inloggningen är inte konfigurerad ännu."}</p>
-      <section id="account" class="card" hidden><h2>Du är inloggad</h2><dl><dt>Konto</dt><dd id="account-email"></dd><dt>Behörighet</dt><dd>Content Online-administratör — inte kundadministratör på KTH.</dd></dl></section>
-      <div id="workspace" hidden><p class="lead">Överblick över kundorganisationer, publicister, produkter och datakällor. Den här pilotvyn är skrivskyddad tills beständig lagring är beslutad.</p><div class="workspace-grid">
-      <section class="card narrow"><div class="section-head"><h2>Kunder</h2><span class="pill">Pilot</span></div><div class="metric" id="customer-count">–</div><p>Kundorganisationer i den interna konfigurationen.</p></section>
-      <section class="card narrow"><div class="section-head"><h2>Publicister</h2><span class="pill">Partners</span></div><div class="metric" id="publisher-count">–</div><p>Dataleverantörer – inte kundorganisationer.</p></section>
-      <section class="card narrow"><div class="section-head"><h2>Lagring</h2><span class="pill warning">Beslut krävs</span></div><p id="storage-status">Kontrollerar…</p></section>
-      <section class="card wide"><div class="section-head"><div><h2>Kundtilldelningar</h2><p>Många-till-många via produkter.</p></div><span class="pill">Syntetisk demo</span></div><div class="table-wrap"><table><thead><tr><th>Kund</th><th>Publicist</th><th>Produkt</th><th>Status</th></tr></thead><tbody id="assignments"></tbody></table></div></section>
-      <section class="card narrow"><div class="section-head"><div><h2>Kundorganisationer</h2><p>Egen portal och egna roller.</p></div></div><div id="customers"></div></section>
-      <section class="card full"><div class="section-head"><div><h2>Användare och kundroller</h2><p>Kundroller gäller endast inom respektive organisation.</p></div><span class="pill">Syntetiska demokonton</span></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Kund</th><th>Kundroll</th><th>Status</th></tr></thead><tbody id="users"></tbody></table></div></section>
-      <section class="card full"><div class="section-head"><div><h2>Anslutningar och importer</h2><p>Varje källa hanteras efter sina verkliga förutsättningar; ingen gemensam standard antas.</p></div><span class="pill warning">Inga livekopplingar</span></div><div class="table-wrap"><table><thead><tr><th>Källa</th><th>Ägare</th><th>Metod</th><th>Senaste import</th><th>Status</th></tr></thead><tbody id="connections"></tbody></table></div></section></div>
-      <div class="actions"><a class="button" href="/kundportal">Öppna kundportalen separat →</a><button class="secondary" id="sign-out">Logga ut</button></div><p class="notice">Kundportalen visar fortfarande demodata. Ingen Salesforce-, Fortnox- eller publicistdata är inkopplad här.</p></div>` : html`
-      <div class="auth"><div class="eyebrow">Endast Content Onlines personal</div><h1>${mode === "register" ? "Aktivera ditt adminkonto" : "Logga in som admin"}</h1>
-      <p class="lead">${mode === "register" ? "Använd den godkända e-postadressen och verifiera den för att aktivera ditt personliga konto." : "Den här inloggningen är separat från kundportalen. Endast godkända och verifierade konton får adminåtkomst."}</p>
-      <p id="message" role="status">${configured ? "Laddar säker inloggning…" : "Inloggningen är inte konfigurerad ännu."}</p>
-      ${configured ? html`<div id="auth-widget"></div><div class="actions" style="margin-top:24px"><a href="${mode === "register" ? "/admin/login" : "/admin/registrera"}">${mode === "register" ? "Har du redan ett konto? Logga in" : "Första gången? Aktivera ditt konto"}</a></div>` : ""}
-      <p class="small" style="margin-top:24px"><a href="/kundportal">Är du kund? Till kundinloggningen →</a></p></div>`}
-    ${mode !== "start" && !key.startsWith("pk_live_") ? html`<p class="notice">Pilotmiljö: inloggningen använder Clerks utvecklingsinstans. Använd inte verkliga kunduppgifter innan produktionsmiljön är färdig.</p>` : ""}
-    <noscript><p class="notice">Aktivera JavaScript för att använda den säkra inloggningen.</p></noscript>
-    </main><footer>Content Online · Kundadministratör och Content Online-administratör är skilda behörigheter.</footer>
-    ${configured && mode !== "start" ? html`<script>
-      window.addEventListener('load', async function () {
-        var message = document.getElementById('message');
-        var mode = document.body.dataset.page;
-        try {
-          await Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor }, signInUrl: '/admin/login', signUpUrl: '/admin/registrera', signInForceRedirectUrl: '/admin', signUpForceRedirectUrl: '/admin' });
-          if (!Clerk.session) {
-            if (mode === 'admin') { window.location.replace('/admin/login'); return; }
-            message.textContent = '';
-            var opts = { routing: 'hash', signInUrl: '/admin/login', signUpUrl: '/admin/registrera', forceRedirectUrl: '/admin', fallbackRedirectUrl: '/admin' };
-            if (mode === 'register') Clerk.mountSignUp(document.getElementById('auth-widget'), opts);
-            else Clerk.mountSignIn(document.getElementById('auth-widget'), opts);
-            return;
-          }
-          var token = await Clerk.session.getToken();
-          var response = await fetch('/admin/api/session', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store', credentials: 'omit' });
-          if (!response.ok) {
-            message.textContent = response.status === 403 ? 'Kontot saknar behörighet till Content Onlines administration.' : 'Inloggningen kunde inte kontrolleras. Försök igen om en stund.';
-            var logout = document.createElement('button'); logout.textContent = 'Logga ut och byt konto';
-            logout.addEventListener('click', function () { Clerk.signOut({ redirectUrl: '/admin/login' }); });
-            message.after(logout); return;
-          }
-          if (mode !== 'admin') { window.location.replace('/admin'); return; }
-          var data = await response.json();
-          document.getElementById('account-email').textContent = data.admin.email;
-          document.getElementById('account').hidden = false;
-          document.getElementById('workspace').hidden = false;
-          message.textContent = '';
-          var workspaceResponse = await fetch('/admin/api/workspace', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store', credentials: 'omit' });
-          if (!workspaceResponse.ok) throw new Error('workspace_unavailable');
-          var workspace = await workspaceResponse.json();
-          document.getElementById('customer-count').textContent = String(workspace.customers.length);
-          document.getElementById('publisher-count').textContent = String(workspace.publishers.length);
-          document.getElementById('storage-status').textContent = workspace.storage.label;
-          function appendRow(targetId, values) {
-            var row = document.createElement('tr');
-            values.forEach(function (value) { var cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); });
-            document.getElementById(targetId).appendChild(row);
-          }
-          workspace.assignments.forEach(function (item) { appendRow('assignments', [item.customer, item.publisher, item.product, item.status]); });
-          workspace.users.forEach(function (item) { appendRow('users', [item.name, item.customer, item.role, item.status]); });
-          workspace.connections.forEach(function (item) { appendRow('connections', [item.name, item.owner, item.mode, item.lastImport || 'Ingen import', item.status]); });
-          workspace.customers.forEach(function (item) {
-            var block = document.createElement('div'); block.style.marginBottom = '18px';
-            var title = document.createElement('h3'); title.textContent = item.name;
-            var detail = document.createElement('p'); detail.className = 'small'; detail.textContent = item.users + ' användare · ' + item.products + ' produkter';
-            var state = document.createElement('span'); state.className = 'pill'; state.textContent = item.status;
-            block.appendChild(title); block.appendChild(detail); block.appendChild(state); document.getElementById('customers').appendChild(block);
-          });
-          Clerk.mountUserButton(document.getElementById('user-button'), { afterSignOutUrl: '/admin/login' });
-          document.getElementById('sign-out').addEventListener('click', function () { Clerk.signOut({ redirectUrl: '/admin/login' }); });
-          Clerk.addListener(function (state) { if (!state.session) { document.getElementById('account').hidden = true; document.getElementById('workspace').hidden = true; window.location.replace('/admin/login'); } });
-        } catch (_) { message.textContent = 'Inloggningstjänsten kunde inte laddas. Ladda om sidan och försök igen.'; }
-      });
+  <title>${mode === "start" ? "Välkommen" : workspace ? "Arbetsyta" : "Logga in"} · Content Online</title>
+  <meta name="description" content="En samlad arbetsyta för forskningsinformation, standarder och kundrelationer.">
+  <link rel="stylesheet" href="/admin/assets/style.css">
+  ${configured && mode !== "start" && host ? html`<script defer crossorigin="anonymous" src="https://${host}/npm/@clerk/ui@1/dist/ui.browser.js"></script><script defer crossorigin="anonymous" data-clerk-publishable-key="${key}" src="https://${host}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script>` : ""}
+  ${workspace ? html`<script defer src="/admin/assets/workspace.js"></script>` : ""}
+  </head><body data-mode="${mode}" data-page="${mode}">
+  ${workspace ? html`<div class="shell">
+    <aside class="sidebar" id="sidebar">${brand()}<div class="nav-label">ARBETSYTA</div><nav class="nav" aria-label="Content Online">
+    ${navigation.map(([id,label,symbol])=>html`<button data-action="navigate" data-id="${id}" aria-current="${id === "overview" ? "page" : "false"}">${icon(symbol!)}${label}</button>`)}
+    </nav><div class="sidebar-foot"><a href="/kundportal">${icon("arrow")} Till kundportalen</a><p>${demo ? "Visningsdemo · inga ändringar sparas" : "Intern arbetsyta · pilotversion"}</p></div></aside>
+    <button class="mobile-scrim" id="scrim" aria-label="Stäng navigering"></button>
+    <div class="main-column"><header class="topbar"><div class="breadcrumbs"><button class="mobile-menu" id="menu-toggle" aria-label="Öppna navigering" aria-expanded="false" aria-controls="sidebar">${icon("menu")}</button><span>Content Online</span><span>/</span><strong id="breadcrumb">Överblick</strong></div><div class="top-actions"><span class="pill dot ${demo ? "blue" : "green"}">${demo ? "VISNINGSDEMO" : "INTERN ADMIN"}</span><span id="account-email"></span>${demo ? html`<a class="avatar" href="/admin/login" aria-label="Till intern inloggning">CO</a>` : html`<button class="button quiet" id="sign-out">Logga ut</button>`}</div></header>
+    <section id="access-message" class="access-message"><h1>Din arbetsyta</h1><p id="message" role="status">${demo ? "Laddar visningsdemon…" : "Kontrollerar din inloggning…"}</p><a class="button secondary" href="/admin/login">Till inloggningen</a></section>
+    <main class="page" id="workspace" hidden><div class="page-heading"><div><div class="eyebrow" id="view-eyebrow">CONTENT ONLINE / ÖVERBLICK</div><h1 id="view-title">En samlad bild. Bättre kunddialog.</h1><p class="lead" id="view-description"></p></div><span class="date-chip">${icon("calendar")} Pilot · september 2026</span></div>
+    <div class="banner">${icon("info")}<span><strong>${demo ? "Interaktiv visningsdemo." : "Pilot med syntetiska exempel."}</strong> Utforska kunder, produkter och tilldelningar. Inga ändringar sparas och inga externa system är anslutna.</span></div>
+    <div class="toolbar" id="toolbar" hidden><label class="search">${icon("search")}<input id="search" type="search" placeholder="Sök i den här vyn…" aria-label="Sök i aktuell vy"></label><small>Syntetiskt presentationsunderlag</small></div>
+    <div id="view" aria-live="polite"></div><p class="footnote">Content Online · Forskning, standarder och kunskap i samma arbetsyta.</p></main></div></div>
+    <dialog class="dialog" id="detail-dialog" aria-labelledby="detail-title"><div class="dialog-head"><div><div class="eyebrow" id="detail-subtitle"></div><h2 id="detail-title"></h2></div><button class="close-button" data-action="close" aria-label="Stäng detaljer">${icon("close")}</button></div><div class="dialog-body" id="detail-body"></div></dialog>` : html`
+    <div class="landing"><header class="landing-header">${brand()}<span class="pill">FORSKNING & STANDARDER</span></header>
+    ${mode === "start" ? html`<section class="landing-hero"><div class="eyebrow">KUNSKAP SOM GÖR SKILLNAD</div><h1>All er information.<br><em>Ett tydligare sammanhang.</em></h1><p>En samlad bild av forskningsinformation och standarder – från publicist till kund.</p></section><div class="landing-grid">
+    <section class="portal-card"><span class="entity-mark">${icon("book")}</span><div class="eyebrow">FÖR KUNDORGANISATIONER</div><h2>Er kunskap. Er överblick.</h2><p>Utforska inköpta resurser, följ användningen och samla dokument för er organisation.</p><a class="button" href="/kundportal">Öppna kundportalen ${icon("arrow")}</a><small>KTH · pilot med syntetiska exempel</small></section>
+    <section class="portal-card"><span class="entity-mark" style="--entity-color:#287b65">${icon("customers")}</span><div class="eyebrow">FÖR CONTENT ONLINE</div><h2>Kundrelationerna i fokus.</h2><p>Kunder, publicister och produkttilldelningar i företagets egen arbetsyta.</p><div class="row"><a class="button teal" href="/demo">Utforska admin-demo ${icon("arrow")}</a><a class="button secondary" href="/admin/login">Intern inloggning</a></div><small>Separat systemadministration · inga kundroller delas</small></section></div>` : html`
+    <section class="auth-card"><div class="eyebrow">CONTENT ONLINE · INTERN ÅTKOMST</div><h1>${mode === "register" ? "Aktivera ditt konto" : "Välkommen tillbaka."}</h1><p class="lead">${mode === "register" ? "Använd den godkända adressen och verifiera den för att aktivera ditt personliga konto." : "Logga in i Content Onlines egen arbetsyta för kundrelationer och informationsprodukter."}</p><p id="message" role="status">${configured ? "Laddar säker inloggning…" : "Intern inloggning är inte konfigurerad."}</p>${configured ? html`<div id="auth-widget"></div>` : ""}<div class="quiet-row"><a href="${mode === "register" ? "/admin/login" : "/admin/registrera"}">${mode === "register" ? "Redan ett konto? Logga in" : "Aktivera ditt konto"}</a><a href="/demo">Se visningsdemon →</a></div><p class="footnote">${key.startsWith("pk_live_") ? "Endast godkända konton har intern behörighet." : "Pilot: inloggningen använder Clerks utvecklingsinstans."}</p></section>`}
+    <footer class="landing-footer">Content Online · Kundportal och intern arbetsyta har separata behörigheter.</footer></div>`}
+    <noscript><p class="banner">Aktivera JavaScript för att använda denna arbetsyta.</p></noscript>
+    ${configured && (mode === "login" || mode === "register") ? html`<script>
+    window.addEventListener('load', async function () {
+      var message=document.getElementById('message');
+      try {
+        await Clerk.load({ui:{ClerkUI:window.__internal_ClerkUICtor},signInUrl:'/admin/login',signUpUrl:'/admin/registrera',signInForceRedirectUrl:'/admin',signUpForceRedirectUrl:'/admin'});
+        if(Clerk.session){
+          var response=await fetch('/admin/api/session',{headers:{Authorization:'Bearer '+await Clerk.session.getToken()},cache:'no-store',credentials:'omit'});
+          if(response.ok){location.replace('/admin');return;}
+          message.textContent='Kontot kunde inte verifieras för intern åtkomst.';
+          var logout=document.createElement('button');logout.className='button secondary';logout.textContent='Logga ut och byt konto';logout.addEventListener('click',function(){Clerk.signOut({redirectUrl:'/admin/login'});});message.after(logout);return;
+        }
+        message.textContent='';
+        var options={routing:'hash',signInUrl:'/admin/login',signUpUrl:'/admin/registrera',forceRedirectUrl:'/admin',fallbackRedirectUrl:'/admin'};
+        if(document.body.dataset.mode==='register')Clerk.mountSignUp(document.getElementById('auth-widget'),options);
+        else Clerk.mountSignIn(document.getElementById('auth-widget'),options);
+      }catch(_){message.textContent='Inloggningstjänsten kunde inte laddas. Ladda om sidan och försök igen.';}
+    });
     </script>` : ""}</body></html>`;
 }

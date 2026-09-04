@@ -57,3 +57,14 @@ Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projekt
 - [Clerk request-verifiering](https://clerk.com/docs/reference/backend/authenticate-request)
 - [Clerk JavaScript-integration](https://clerk.com/docs/js-frontend/getting-started/quickstart)
 - [Clerk produktionskrav](https://clerk.com/docs/guides/development/deployment/production)
+
+
+## Visuell demoleverans 2026-09-05
+
+- `/demo` är en publik, interaktiv presentationsyta med ett separat läsande `/demo/workspace`. Den ger ingen session eller intern behörighet. POST/PUT/PATCH/DELETE är inte implementerade.
+- Endast `src/admin/demo-data.ts` får användas för denna publika yta. **Koppla aldrig detta endpoint till verkliga kundregister.** Det skyddade `/admin/api/workspace` använder i denna pilot samma syntetiska fixtures efter befintlig Clerk-verifiering.
+- Sex vyer: överblick, kundorganisationer, användare, publicister, produkter/tilldelningar och anslutningar. Sökning, detaljdialoger och förhandsvisning av kundens produkturval fungerar i demon.
+- KTH är pilotexemplet. Akademi Nord och Norrvik Teknik är uttryckligen fiktiva organisationer. Kundportföljerna härleds från produkt-ID:n; räknare och tilldelningar beräknas ur samma underlag.
+- Inga skrivningar, importer, externa licensåtgärder eller beständiga ärenden utförs. Källor, perioder och syntetisk status framgår.
+- Kundfrontenden har produktfilter, CSV-export av det filtrerade demounderlaget, dokumentinformation i förhandsvisning och ett ej skickat ärendeutkast. Det finns inga dokumentoriginal att ladda ned ännu.
+- Auth, allowlist, databasbeslut och `/v1/*`-spärren är oförändrade.

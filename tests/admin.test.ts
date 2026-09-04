@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { authorizeAdmin, ClerkAdminAuthenticator, CUSTOMER_PORTAL, PLATFORM_ORIGIN } from "../src/admin/identity.js";
 import type { AdminAuthentication, AdminAuthenticator } from "../src/admin/identity.js";
 import { clerkFrontendHost, createAdminPortal } from "../src/admin/portal.js";
+import { demoWorkspace } from "../src/admin/demo-data.js";
+import { workspaceClient } from "../src/admin/workspace-client.js";
+import { Script } from "node:vm";
 
 const email = "admin@example.test";
 const profile = {
@@ -79,7 +82,7 @@ describe("Hosted portal entry and guarded admin API", () => {
     const body = await response.json();
     expect(body.status).toBe("synthetic_configuration");
     expect(body.customers[0].name).toBe("KTH");
-    expect(body.users.map((user: { role: string }) => user.role)).toEqual(["Kundadministratör", "Läsare"]);
+    expect(body.users.filter((user: { customer: string }) => user.customer === "KTH").map((user: { role: string }) => user.role)).toEqual(["Kundadministratör", "Läsare"]);
     expect(body.publishers[0]).toMatchObject({ name: "IEEE", route: "MPS / MPS Insight", status: "Inte ansluten" });
     expect(body.storage.status).toBe("blocked_by_decision");
   });
@@ -117,5 +120,35 @@ describe("Hosted portal entry and guarded admin API", () => {
     for (const invalid of ["", "pk_test_bad", `pk_test_${Buffer.from('evil.example/\"><script>$').toString("base64")}`]) {
       expect(clerkFrontendHost(invalid)).toBeNull();
     }
+  });
+});
+
+describe('public presentation demo', () => {
+  it('serves synthetic fixtures without creating an admin session or accepting writes', async () => {
+    const app = appFor({ status: 'unauthenticated' });
+    const response = await app.request('/demo/workspace');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('set-cookie')).toBeNull();
+    expect((await response.json()).provenance.status).toBe('Demo – ingen extern import');
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+      expect((await app.request('/demo/workspace', { method })).status).toBe(404);
+      expect((await app.request('/admin/api/workspace?demo=true', { method })).status).toBe(401);
+    }
+    expect((await app.request('/admin/api/workspace?demo=true')).status).toBe(401);
+  });
+  it('has internally consistent customer assignments and no dangling products', () => {
+    for (const customer of demoWorkspace.customers) {
+      const assignments = demoWorkspace.assignments.filter(a => a.customerId === customer.id);
+      expect(assignments.map(a => a.productId)).toEqual(customer.productIds);
+      expect(customer.products).toBe(assignments.length);
+      expect(customer.users).toBe(demoWorkspace.users.filter(u => u.customerId === customer.id).length);
+      for (const id of customer.productIds) expect(demoWorkspace.products.some(p => p.id === id)).toBe(true);
+    }
+    for (const product of demoWorkspace.products) expect(demoWorkspace.publishers.some(p => p.id === product.publisherId)).toBe(true);
+  });
+  it('ships parseable browser JavaScript without credentials', () => {
+    expect(() => new Script(workspaceClient)).not.toThrow();
+    expect(workspaceClient).not.toContain(config.secretKey);
+    expect(workspaceClient).not.toContain(config.allowedEmail);
   });
 });
