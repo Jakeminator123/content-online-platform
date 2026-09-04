@@ -8,22 +8,22 @@
 
 ## Princip
 
-Varje publisher/partner får en egen källprofil och adapter. En gemensam COUNTER-adapter kan återanvändas där standarden faktiskt stöds, men auth, capabilities, egna rapporter, rättigheter och produktsamband verifieras separat.
+Varje publisher/partner får en egen källprofil och faktisk importväg. IEEE/MPS byggs först. För andra publishers får vi inte anta att ett verktyg, API eller standard finns; vägen kan vara ett annat API, fil/export, kontrollerad manuell import eller initialt ingen usage alls.
 
 | Publisher/plattform | Offentlig teknisk bild | Första adapterväg | Verifieringsstatus |
 |---|---|---|---|
-| IEEE Xplore | IEEE anger MPS-baserade COUNTER R5.1-rapporter och SUSHI/COUNTER API | Standard-COUNTER R5.1 + avgränsade IEEE-extensions | Offentlig kapacitet verifierad; kundåtkomst och rätt att återvisa data öppna |
-| ASTM Compass | COUNTER Registry listar för närvarande MPS Technologies som report provider | Capability discovery; anta inte att IEEE-konfiguration kan återanvändas | Offentlig kataloguppgift verifierad; Content Onlines verkliga arbetsflöde öppet |
-| SAE | Källa och rapportformat ännu inte verifierade | Ny källprofil; COUNTER först om Registry/API bekräftar det | Öppet |
+| IEEE Xplore | MPS är IEEE:s konverterings-/statistikverktyg i verksamhetsbilden | IEEE/MPS-adapter; exakta exportsätt verifieras | Offentlig COUNTER/SUSHI-kapacitet känd; kundåtkomst och återvisningsrätt öppna |
+| ASTM Compass | Content Onlines faktiska usagekälla är inte verifierad | Inventera först; anta varken MPS eller COUNTER | Öppet |
+| SAE | Källa och rapportformat är inte verifierade | Inventera först; API, fil eller manuell import efter bevis | Öppet |
 | Övriga publishers | Lista, verktyg och format saknas | En adapter per faktisk integrationsfamilj | Öppet |
 
 Officiella uppslag: [COUNTER Registry](https://www.countermetrics.org/registry/), [IEEE Xplore i Registry](https://registry.countermetrics.org/platform/0657858f-f079-4200-a79e-1698cf36a95a) och [ASTM Compass i Registry](https://registry.countermetrics.org/platform/e4de3b8c-f570-4576-8d41-312242202c2a).
 
-## Kontrollerad motsägelse
+## Extern teknisk information är inte verksamhetsstandard
 
-Projektets verksamhetsuppgift är att bara IEEE använder MPS. Den publika COUNTER Registry-posten för ASTM Compass anger samtidigt MPS Technologies som report provider. Båda uppgifterna kan vara begripliga om verksamhetsuppgiften avser Content Onlines nuvarande arbetssätt eller portalåtkomst, medan Registry beskriver underliggande teknik.
+Den publika COUNTER Registry-posten för ASTM Compass har vid researchtillfället angett MPS Technologies som report provider. Det bevisar inte vilket verktyg eller dataflöde Content Online har tillgång till och får inte användas som integrationskrav.
 
-Arkitekturen ska därför inte hårdkoda `publisher = IEEE` till `provider = MPS`. Relationen modelleras separat och versionshanteras.
+I projektets verksamhetsmodell är MPS IEEE-spåret. Arkitekturen modellerar ändå publisher, provider och källkoppling som separata relationer så att tekniska detaljer kan verifieras utan att domänmodellen skrivs om.
 
 ## Capability profile per källa
 
@@ -32,12 +32,13 @@ Följande fält ska fyllas innan en integration kallas live:
 | Fält | Exempel eller kontroll |
 |---|---|
 | Publisher och plattform | IEEE / IEEE Xplore |
+| Källtyp | API, fil, portalrapport, kontrollerad manuell import eller ingen tillgänglig källa |
 | Report provider | MPS Technologies eller annan verifierad leverantör |
-| Standard och version | COUNTER R5.1 |
-| Base URL | Hämtas från verifierad Registry-post eller avtalad dokumentation |
-| Authfält | customer ID, requestor ID och/eller API key |
-| Rapporter | Upptäcks via capabilities och testas per kundkonto |
-| Publisherextensions | Dokumenteras separat från standardrapporter |
+| Standard och version, om tillämpligt | COUNTER R5.1 |
+| Base URL, om tillämpligt | Hämtas från verifierad Registry-post eller avtalad dokumentation |
+| Authfält, om tillämpligt | customer ID, requestor ID och/eller API key |
+| Rapporter/exporter, om tillämpligt | Upptäcks eller dokumenteras och testas per kundkonto |
+| Publisherextensions, om tillämpligt | Dokumenteras separat från standardrapporter |
 | Tillgänglig historik | Kontrolleras mot verkligt konto och avtal |
 | Publiceringsfrekvens | Styr freshness-regeln |
 | Rättigheter | Hämta, lagra, bearbeta, återvisa, retention |

@@ -1,6 +1,6 @@
 # Terminologi
 
-**Version:** 0.3
+**Version:** 0.4
 **Status:** Levande arbetsdokument
 
 Syftet är att ge verksamhet, design och kod samma språk. Termer med status **Öppet** får inte användas som om deras innebörd vore beslutad.
@@ -18,6 +18,9 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 | **Tenant** | Den tekniska säkerhetsgräns som normalt motsvarar en kundorganisation och dess data. | Föreslaget. Konsortier och organisationshierarkier måste utredas. |
 | **Content Online-medarbetare** | Intern användare som arbetar med kund, försäljning, förnyelse, access eller support. | Källuppgift. Roller och rättigheter öppna. |
 | **Pilotpersona: KTH-bibliotekarie** | Första representativa användaren är en bibliotekarie på KTH som behöver förstå organisationens portfölj och användning. | Bekräftad arbetsriktning. Verklig pilotorganisation och dataåtkomst återstår. |
+| **Kundadmin** | Kundrollen för bibliotekarien. Ser hela den tillåtna bilden för sin egen organisation. Ändring av portalmedlem, roll eller publisheraccess begärs via ticket i V1. | Arbetsbeslut. |
+| **Läsare** | Begränsad kundroll som ser publicerad portfölj och usage inom sin organisation men inte kostnader, avtal eller andra användares tickets som standard. | Arbetsbeslut; detaljrättigheter kan förfinas. |
+| **Content Online-operatör** | Separat intern roll för support, användarärenden, synk, mapping och källkopplingar över uttryckligen tilldelade kundscope. Inte en högre kundroll. | Föreslagen intern modell. |
 
 ## Namngivna organisationer och system
 
@@ -26,11 +29,11 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 | **IEEE** | Amerikansk non-profit-organisation och central publisher/informationsleverantör i Content Onlines affär. | Bekräftat på övergripande nivå. Exakt produktportfölj och avtalsrelation öppna. |
 | **SAE / HSAE** | Underlagen innehåller både `SAE` och det transkriberade `HSAE`. Trolig avsedd part är SAE, men detta får inte antas i avtal, data eller UI. | Måste bekräftas. |
 | **ASTM** | Amerikansk organisation som tillhandahåller tekniska standarder och nämns som central publisher. | Bekräftat på övergripande nivå. Exakt produktportfölj och avtalsrelation öppna. |
-| **MPS Insight** | Statistikplattform/report provider som IEEE använder för usage-data. COUNTER Registry listar även ASTM Compass med MPS Technologies; `bara IEEE` är därför en verksamhetsuppgift som behöver preciseras. | IEEE-spåret verifierat offentligt. Kundåtkomst, rättigheter och Content Onlines arbetssätt ska verifieras. |
+| **MPS / MPS Insight** | IEEE:s verktyg för att konvertera, bearbeta och visa sina usage-siffror i projektets verksamhetsbild. Det är en IEEE-specifik källa och inte plattformens gemensamma modell. | Bekräftat av uppdragsdialogen. Exakt export/API, credentials och rättigheter ska verifieras. |
 | **Salesforce** | Ett av Content Onlines centrala affärssystem där mycket kund- och abonnemangsrelaterad information finns. | Bekräftat på övergripande nivå. Objekt, fält och dataägarskap ska verifieras. |
 | **Fortnox** | Ekonomisystem som innehåller delar av den relevanta affärsinformationen, exempelvis fakturarelaterad data. | Bekräftat på övergripande nivå. Exakta datatyper och integrationsbehov är öppna. |
 | **GitHub** | Versionshantering, samarbete och framtida CI. | Publikt repository anslutet: `Jakeminator123/content-online-platform`. |
-| **Vercel** | Kandidat för preview- och produktionshosting av en webbapplikation. | Föreslaget. Måste prövas mot säkerhet, region, kundkrav och vald arkitektur. |
+| **Vercel** | Kandidat för hosting av backend/API i detta repo. Frontendens hosting beslutas i det separata frontendspåret. | Villkorad kandidat. Måste prövas mot säkerhet, region, kundkrav och vald arkitektur. |
 
 ## Produkt och affär
 
@@ -39,7 +42,7 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 | **Informationsprodukt** | Säljbar produkt eller tjänst som ger tillgång till forskningsinformation, standarder, databaser eller annat publisherinnehåll. | Föreslagen samlingsterm. Bekräfta Content Onlines eget språk. |
 | **Customer platform / kundplattform** | Hela Content Online-tjänsten för samlad kundadministration, insikt och arbetsflöden. | Bekräftad produktidé. Exakt gräns mot publisherplattformarna öppen. |
 | **Customer portal / kundportal** | Den inloggade yta där en kundperson använder plattformens funktioner. | Bekräftad produktidé. |
-| **Admin view** | Intern vy där behöriga Content Online-medarbetare hanterar kunder, data eller ärenden. | Förekommer i presentationen. V1-scope och roller öppna. |
+| **Content Online-operatörsvy** | Separat intern vy där behöriga Content Online-medarbetare arbetar med uttryckligen tilldelade kunder, data eller ärenden. Ska inte sammanblandas med kundens Kundadmin-roll. | Föreslagen ersättning för presentationens tvetydiga `Admin view`. |
 | **Forskningsdata** | Ordet används i transkriptet för det kunderna hämtar. Det kan avse publikationer, databaser, standarder eller faktisk forskningsdata. | Öppet och risk för missförstånd. Ska delas upp i korrekta innehållstyper. |
 | **Standard** | Normativt tekniskt dokument eller standardprodukt från en standardiseringsorganisation. | Bekräftat som produktkategori. |
 | **Abonnemang / subscription** | Kundorganisationens tidsbundna rätt att använda en informationsprodukt enligt ett avtal. | Källuppgift. Exakt relation mellan order, licens och subscription öppna. |
@@ -75,19 +78,19 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 |---|---|---|
 | **Usage / användningsdata** | Mätdata om hur en informationsprodukt används under en period. | Bekräftat behov. Mätetal, granularitet och rättigheter öppna. |
 | **Usage intelligence** | Tolkad användningsbild som hjälper kunden förstå trend, avvikelse eller åtgärdsbehov. | Produktidé från presentationen. Kräver definierade mätetal och beslut. |
-| **Publisherverktyg för usage** | Den lösning som en publisher använder för att tillhandahålla eller visualisera sin användningsstatistik. Olika publishers kan ha olika verktyg, API:er och exportformat. | Bekräftad domänförutsättning. Inventering per publisher krävs. |
-| **Usage Conversion Layer / usage-konverteringslager** | Plattformskomponenten ovanpå MPS Insight och andra publisherkällor som validerar, översätter och märker data innan den visas i ett gemensamt format. | Bekräftat delmål. Arbetsnamn. |
-| **Publisheradapter / partneradapter** | En separat koppling för en publisher som läser dess API eller filformat och översätter till den gemensamma usage-modellen utan att tappa källans betydelse. | Bekräftad arkitekturriktning. |
+| **Publisherkälla för usage** | Det som faktiskt finns för en publisher: verktyg, API, fil/export, rapport eller i vissa fall ingen maskinläsbar källa alls. | Bekräftat variationsmönster. Inventering per publisher krävs. |
+| **Usage Conversion Layer / usage-konverteringslager** | Backendkomponenten ovanpå MPS Insight och andra publisherkällor som validerar, översätter och märker data innan den returneras genom ett källneutralt API-kontrakt. | Bekräftat delmål. Arbetsnamn. |
+| **Publisheradapter / partneradapter** | En separat koppling för en verifierad publisherkälla: API, fil, portalrapport eller kontrollerad manuell import. Den översätter till den interna usage-modellen utan att tappa källans betydelse. Ingen adapter hittas på innan en faktisk källa finns. | Bekräftad arkitekturriktning. |
 | **Gemensam usage-modell** | Intern modell för de fält och mätetal som kan jämföras eller visas gemensamt, med bevarad källa och definition. | Bekräftad arkitekturriktning. |
-| **Kostnad per download (CPD)** | Godkänd, allokerad kostnad dividerad med ett uttryckligen definierat download-mått för samma produkt och period. COUNTER `Total_Item_Requests` omfattar både visning och nedladdning och är därför inte automatiskt ett download-mått. | Prioriterad KPI. Kostnadsgrund, valuta, period, allokering och nämnarens definition ska bekräftas. |
+| **Kostnad per download (CPD)** | Fast avtalat pris för samma produkt och period dividerat med ett uttryckligen godkänt antal downloads. Exempel: 100 000 kr / 10 000 downloads = 10 kr per download. | Prioriterad KPI. Fast pris är beslutad kostnadsgrund; valuta, moms, paketallokering och download-definition återstår. |
 | **Förinställd statistikvy** | Ett valt standardfilter eller en standardjämförelse som hjälper kunden se relevant värde direkt. | Tillåten produktprincip om urvalet är sakligt, transparent och inte vilseleder. |
 | **Öppna källor** | Publikt tillgängliga API-dokument, standarder, demodata eller andra lagligt användbara källor som kan driva en trovärdig demo utan riktiga kunddata. | Ska skiljas från `open source software` och från fritt återanvändbart publisherinnehåll. |
-| **COUNTER** | Branschstandard för jämförbar användningsrapportering av elektroniska informationsresurser. R5.1 har officiella scheman, API-regler och öppna exempelrapporter. | Verifierat mot officiell standard. Stödda rapporter ska fortfarande verifieras per datakälla och konto. |
-| **SUSHI / COUNTER API** | REST-gränssnitt för maskinell hämtning av COUNTER-rapporter. I R5.1 är `/r51/status` publik; kundrapporter kräver customer/requestor ID och/eller API-nyckel. | Verifierat på standardnivå. Endpoint och auth verifieras per provider. |
+| **COUNTER** | En existerande branschstandard för vissa usage-rapporter. Den kan vara tekniskt relevant för IEEE/MPS eller andra verifierade källor men är inte en bekräftad gemensam standard för Content Onlines publishers. | Verifierad extern möjlighet, inte ett generellt projektantagande. |
+| **SUSHI / COUNTER API** | REST-gränssnitt för maskinell hämtning där en källa faktiskt stöder COUNTER. | Möjlig IEEE/MPS-importväg. Får inte antas finnas för andra publishers. |
 | **Source-native metric / källmått** | Ett mätetal som bevaras med källans namn och definition när semantisk mappning till ett gemensamt mått saknas. | Föreslagen domänterm. |
 | **Comparability key / jämförbarhetsnyckel** | Versionsmärkt markör som anger att två mätetal har tillräckligt lika definition för den uttryckligen tillåtna jämförelsen eller summeringen. | Föreslagen domänterm. |
 | **Datatäckning** | Om källdatan för vald period är komplett, partiell eller okänd och till vilket datum den är komplett. | Krävs för sanningsenlig visualisering. |
-| **Kostnadsgrund** | Vilket kostnadsbelopp en härledd KPI använder, exempelvis fakturerat belopp eller avtalad nettokostnad, inklusive regler för moms, kredit och valuta. | Öppet affärsbeslut. |
+| **Kostnadsgrund** | Det fasta avtalade priset för samma produkt och period som usage-måttet. | Bekräftat. Moms, krediter, valuta och paket behöver fortfarande exakta regler. |
 | **Allokeringsmetod** | Beslutad regel för att fördela en paketkostnad på produkter eller mätetal. | Krävs innan produktspecifik CPD visas för paket. |
 | **Usage metric** | Namngivet mätetal, exempelvis requests, investigations, searches eller turnaways. | Föreslaget. Produktbetydelsen måste beskrivas per mätetal. |
 | **Rådata** | Data i källsystemets ursprungliga format innan validering och normalisering. | Föreslaget. Lagringsrätt och retention öppna. |

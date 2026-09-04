@@ -1,7 +1,7 @@
 # Bottom-up teststrategi
 
-**Version:** 0.1
-**Status:** Metod beslutad för dokumentationen, verktyg och ramverk öppna
+**Version:** 0.2
+**Status:** Första backendgrunden implementerad med TypeScript, Hono, Zod/OpenAPI, Vitest och GitHub Actions
 
 ## Mål
 
@@ -52,23 +52,26 @@ Test: TEST-api-tenant-001, TEST-e2e-tenant-001
 |---|---|---|
 | `INV-tenant-001` | Ingen användare kan läsa eller ändra en annan kundorganisations data. | Domän, repository, API och E2E |
 | `INV-auth-001` | Portalidentitet och innehållsaccess är separata modeller. | Domän och kontrakt |
-| `INV-source-001` | Visad usage har källa, period och aktualitet. | Schema, adapter och UI |
+| `INV-source-001` | Usage-svar innehåller källa, period och aktualitet. | Schema, adapter och API |
 | `INV-adapter-001` | Varje publisheradapter översätter till samma interna kontrakt utan att hitta på mätetal som källan saknar. | Kontrakt och integration |
-| `INV-preset-001` | En förinställd statistikvy visar filter, period, källa och beräkning och får inte dölja att andra giltiga vyer ger ett annat resultat. | Domän, UI och E2E |
+| `INV-preset-001` | API:t för en förinställd statistikvy returnerar filter, period, källa och beräkning och får inte dölja andra giltiga utfall. | Domän, kontrakt och API |
 | `INV-sync-001` | Återimport av samma källdata skapar inte oavsiktliga dubbletter. | Adapter och integration |
 | `INV-mapping-001` | Okänd organisation eller produkt får aldrig mappas till närmaste gissning. | Domän och integration |
-| `INV-demo-001` | Mockad data eller funktion markeras som demo och rapporteras aldrig som extern synk. | UI och E2E |
+| `INV-demo-001` | Mockad data eller funktion markeras som demo i API-kontraktet och rapporteras aldrig som extern synk. | Schema och API |
 | `INV-document-001` | Dokument hämtas först efter serverkontrollerat medlemskap och behörighet. | API, integration och säkerhetstest |
 | `INV-request-001` | Ett ärende kan bara skapas för ett abonnemang inom användarens tillåtna organisationsscope. | Domän, API och E2E |
 | `INV-secret-001` | Credentials förekommer inte i klientbundle, loggar, fixtures eller API-svar. | Build-, logg- och säkerhetstest |
-| `INV-degradation-001` | Fel i en usage-källa görs synligt utan att abonnemangs- och dokumentvyer blir oanvändbara. | Integration och E2E |
+| `INV-degradation-001` | Fel i en usage-källa görs synligt utan att abonnemangs- och dokument-API:er blir oanvändbara. | Integration och API |
 | `INV-semantic-001` | Ett källmått får bara en kanonisk metric genom en explicit, versionshanterad semantisk mappning. | Domän och kontrakt |
 | `INV-total-001` | För additiva mått motsvarar accepterad normaliserad totalsumma källans totalsumma; oförklarad avvikelse stoppar publicering. | Adapter och integration |
-| `INV-aggregate-001` | Data summeras aldrig över publishers utan matchande definition och jämförbarhetsnyckel. | Domän, API och UI |
-| `INV-missing-001` | Saknad, partiell eller sen data tolkas aldrig som usage 0. | Adapter, API och UI |
+| `INV-aggregate-001` | Data summeras aldrig över publishers utan matchande definition och jämförbarhetsnyckel. | Domän och API |
+| `INV-missing-001` | Saknad, partiell eller sen data tolkas aldrig som usage 0. | Adapter och API |
 | `INV-cpd-001` | CPD/CPR använder samma tenant, produkt/allokering, kompatibel period, beslutad valuta och godkänt usage-mått. | Domän och integration |
-| `INV-cpd-002` | Noll nämnare, okänd kostnadsgrund eller okänd paketallokering ger ingen definitiv CPD/CPR. | Domän och UI |
+| `INV-cpd-002` | Noll nämnare eller okänd paketallokering ger ingen definitiv CPD/CPR. | Domän och API |
 | `INV-provenance-001` | Varje visad datapunkt kan spåras till synkkörning, adapterversion, mappingversion och källpost eller artifact-hash. | Schema, API och E2E |
+| `INV-no-standard-001` | En publisher får inget verktyg, format eller mätetal genom antagande; varje capability kräver källbevis. | Kontrakt och integration |
+| `INV-role-001` | Läsare kan inte utföra Kundadmin-operationer och ingen kundroll kan utföra intern operatörsåtgärd. | Domän och API |
+| `INV-frontend-001` | Backend returnerar aldrig otillåtna fält med antagandet att frontend ska gömma dem. | Repository, API och säkerhetstest |
 
 ## Testlager
 
@@ -97,17 +100,20 @@ Testa databasgränser, tenantfiltrering, idempotenta imports, audit, requesthist
 
 Varje läsande och skrivande endpoint får minst ett positivt och ett negativt tenantfall. Manipulerade ID:n, saknat medlemskap, fel roll, replay och otillåten filtyp ska testas där de är relevanta.
 
-### 5. E2E för den valda vertikala resan
+### 5. Backendacceptans för den valda vertikala resan
 
-När Q-003 och Q-004 har besvarats låses en enda pilotresa. Ett troligt första flöde är:
+Den första resan körs direkt mot API:t tills frontendkopplingen finns:
 
-1. Logga in som en representativ kundperson.
-2. Se rätt organisation och abonnemang.
-3. Öppna ett abonnemang och förstå access, dokument och aktualitet.
-4. Filtrera usage för vald period och produkt.
-5. Skapa ett access- eller supportärende.
-6. Se ärendet med korrekt status och historik.
-7. Försök läsa motsvarande resurser i en annan tenant och verifiera att åtkomst nekas.
+1. Skapa två syntetiska kundorganisationer.
+2. Autentisera en Kundadmin och en Läsare i organisation A.
+3. Importera en IEEE/MPS-liknande fixture två gånger och verifiera idempotens.
+4. Läs rätt organisation, abonnemang, usage, källa och aktualitet.
+5. Verifiera att Läsaren inte får kostnad, avtal eller adminresurser.
+6. Skapa och följ ett access- eller supportärende.
+7. Försök läsa motsvarande resurser i organisation B och verifiera att åtkomst nekas.
+8. Verifiera audit events och full provenance.
+
+Cross-repo E2E för den kompletta användarresan aktiveras när frontendkopplingen finns.
 
 ## Regression och leveransgrindar
 
@@ -116,10 +122,10 @@ En ändring är inte verifierad enbart för att en build är grön. Relevanta gr
 - typkontroll,
 - lint,
 - fokuserade domän- och kontraktstester,
+- OpenAPI-/JSON-schema-kompatibilitet,
 - integrationstester,
 - produktionsbuild,
-- E2E för påverkad användarresa,
-- tillgänglighetskontroll,
+- backendacceptans för påverkad användarresa,
 - säkerhets- och tenanttest,
 - preview-verifiering,
 - produktionsverifiering efter separat godkänd deployment.
@@ -128,4 +134,4 @@ Varje fel som når demo, pilot eller produktion ska först få ett reproducerand
 
 ## Vad som ännu inte är valt
 
-Testframework, CI-leverantör, webbramverk, databas och hosting väljs först efter Q-006, Q-007, Q-009, Q-010 och Q-015. GitHub Actions och Vercel Preview är möjliga delar av leveranskedjan men är inte beslutade genom detta dokument.
+GitHub Actions är vald som första CI-grind. Databas, identitetsleverantör och slutligt hostingupplägg återstår. Frontendens tillgänglighets- och E2E-grindar ägs av frontendspåret men ska senare ingå i den gemensamma leveransverifieringen.

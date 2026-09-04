@@ -8,7 +8,7 @@
 
 ## Kort svar
 
-Vercel är en rimlig kandidat för en publik demo och en avgränsad B2B-pilot. Att lösningen är B2B tar inte bort kraven på GDPR, upphandling, tenantisolering, loggning eller datarättigheter. Content Onlines kundbild omfattar dessutom universitet, myndigheter och försvarsanknutna verksamheter, vilket gör data- och leverantörskraven särskilt viktiga.
+Vercel är en rimlig kandidat för detta repos backend/API i en publik demo och en avgränsad B2B-pilot. Frontendens drift väljs i det separata frontendspåret. Att lösningen är B2B tar inte bort kraven på GDPR, upphandling, tenantisolering, loggning eller datarättigheter. Content Onlines kundbild omfattar dessutom universitet, myndigheter och försvarsanknutna verksamheter, vilket gör data- och leverantörskraven särskilt viktiga.
 
 En Vercel-region i Stockholm betyder att funktionernas compute kan placeras där. Det betyder inte att all data, metadata, loggning och backup garanterat stannar i Sverige eller EU.
 
@@ -52,4 +52,4 @@ Vercel ska inte användas för klassificerad, exportkontrollerad eller försvars
 
 ## Aktuellt projektbeslut
 
-GitHub-repot innehåller ännu bara dokumentation och ingen körbar webbapplikation. Därför skapas inget tomt Vercel-projekt nu. Vercel kopplas när ett minimalt applikationsskal finns och ovanstående demo-/pilotnivå har valts. Det undviker att en lyckad tom deployment misstolkas som att plattformen eller säkerheten är klar.
+GitHub-repot har nu en fastställd backendgräns men ännu ingen verifierad backenddeployment. Vercel kopplas när den körbara API-tjänsten och vald demo-/pilotnivå är verifierade lokalt. Frontend kopplas senare via API-kontraktet och behöver inte ligga i samma Vercel-projekt.

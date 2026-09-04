@@ -4,30 +4,36 @@
 
 **Datum:** 2026-09-04
 
-**Status:** Föreslagen teknisk grund; liveåtkomst och datarättigheter är inte verifierade
+**Status:** Föreslagen intern teknisk grund; ingen gemensam extern publisherstandard antas
 
 ## Syfte
 
-Content Online ska kunna visa användning från flera publishers utan att låtsas att deras mätetal betyder samma sak. Lösningen är ett gemensamt konverteringslager med en adapter per källa och ett versionshanterat internt kontrakt.
+Content Online ska kunna visa användning från flera publishers även när de saknar gemensamt verktyg, format eller standard. Lösningen är ett Content Online-ägt konverteringslager med en adapter/importväg per faktisk källa och ett versionshanterat internt kontrakt.
 
 ```text
-IEEE / MPS -----------\
-ASTM / källa öppen ----> adapter -> validering -> usage-observationer -> sakliga vyer
-SAE / källa öppen ----/
+IEEE / MPS --------------\
+Publisher-API eller fil ---> adapter -> validering -> usage-observationer -> frontend-API
+Manuell godkänd import ---/
 ```
 
 Detta lager återpublicerar inte publisherinnehåll. Det hanterar tillåten usage-data, metadata och provenance.
 
-## Vad som är byggbart med öppna källor
+## Ingen gemensam extern standard
 
-COUNTER Release 5.1 ger ett officiellt, maskinläsbart kontrakt för jämförbar användningsrapportering. Standarden beskriver ett REST-gränssnitt, ofta kallat SUSHI eller COUNTER API, med bland annat:
+MPS behandlas som IEEE:s konverterings-/statistikverktyg. För ASTM, SAE och andra publishers börjar arbetet med discovery: finns API, fil/export, portalrapport eller ingen maskinläsbar källa? Avsaknad av källa ska visas som `ej ansluten` eller `usage saknas`, aldrig räknas som noll.
+
+COUNTER är en användbar offentlig teknisk referens där en verklig källa stöder den. Den är inte den gemensamma affärsmodellen och får inte antas finnas för andra publishers.
+
+## Vad som är byggbart med öppna tekniska referenser
+
+För IEEE/MPS-spåret ger COUNTER Release 5.1 ett möjligt officiellt, maskinläsbart kontrakt för usage-rapportering. Standarden beskriver ett REST-gränssnitt, ofta kallat SUSHI eller COUNTER API, med bland annat:
 
 - publik `GET /r51/status`,
 - `GET /r51/reports` för tillgängliga rapporter,
 - `GET /r51/reports/{report_id}` för en rapport,
 - `GET /r51/members` för konsortier och flersite-kunder.
 
-COUNTER publicerar [officiella exempelrapporter](https://cop5.countermetrics.org/en/5.1/appendices/g-sample-counter-reports-and-standard-views.html) i JSON, TSV och Excel. De kan ligga till grund för stabila regression-fixtures efter kontroll av återanvändningsvillkoren. Tills dess länkar repot till originalen i stället för att återpublicera dem. Det gör att hela import-, normaliserings- och visualiseringsflödet kan byggas utan KTH-data, MPS-credentials eller ett påstående om liveintegration.
+COUNTER publicerar [officiella exempelrapporter](https://cop5.countermetrics.org/en/5.1/appendices/g-sample-counter-reports-and-standard-views.html) i JSON, TSV och Excel. De kan ligga till grund för stabila regression-fixtures efter kontroll av återanvändningsvillkoren. Tills dess länkar repot till originalen i stället för att återpublicera dem. Det gör att hela import-, normaliserings- och API-flödet kan byggas utan KTH-data, MPS-credentials eller ett påstående om liveintegration.
 
 Institutionsspecifika rapporter är däremot inte öppna. [COUNTERs autentiseringskrav](https://cop5.countermetrics.org/en/5.1/08-sushi/02-authentication-and-security-for-counter-sushi-api.html) kräver TLS och customer ID + requestor ID och/eller API-nyckel för allt utom statusytan.
 
@@ -42,7 +48,7 @@ Källor: [IEEE COUNTER Usage Reports](https://ieeexplore.ieee.org/Xplorehelp/adm
 
 ## Kanonisk minsta datapunkt
 
-`UsageObservationV1` är den minsta datapunkt som får visas:
+`UsageObservationV1` är den minsta datapunkt som backend får returnera:
 
 ```ts
 type UsageObservationV1 = {
@@ -109,7 +115,7 @@ interface PublisherUsageAdapter {
 }
 ```
 
-Kontraktet ska fungera för COUNTER API, annan API, exportfil och syntetisk demokälla. Credentials stannar server-side. Normalisering är deterministisk och versionsmärkt. Resultatet skiljer accepterade observationer, avvisade poster och varningar åt.
+Kontraktet ska fungera för IEEE/MPS, annan API, exportfil, kontrollerad manuell import och syntetisk demokälla. Credentials stannar server-side. Normalisering är deterministisk och versionsmärkt. Resultatet skiljer accepterade observationer, avvisade poster och varningar åt.
 
 Produkt- och organisationsmappning måste vara exakt. En okänd post sätts i karantän; den mappas aldrig till den närmaste gissningen.
 
@@ -119,14 +125,18 @@ Varje mätetal registreras med källkod, källdefinition, eventuell kanonisk kod
 
 `download`, `request`, `investigation`, `search` och `access denied` är inte synonymer. Två mått får bara summeras eller jämföras mellan publishers när deras semantik och `comparabilityKey` verkligen matchar.
 
-I COUNTER betyder `Total_Item_Requests` att fulltext eller innehåll har laddats ned **eller visats**. UI:t bör därför kalla det `fulltextförfrågningar` eller använda källans exakta term, inte automatiskt `downloads`. För jämförelser mellan journalplattformar är `Unique_Item_Requests` ofta mindre påverkat av hur plattformen levererar HTML och PDF. Se [COUNTERs metric-definitioner](https://cop5.countermetrics.org/en/5.1/03-specifications/03-counter-report-common-attributes-and-elements.html).
+I COUNTER betyder `Total_Item_Requests` att fulltext eller innehåll har laddats ned **eller visats**. API:t ska därför returnera etiketten `fulltextförfrågningar` eller källans exakta term och får inte märka måttet som `downloads`. För jämförelser mellan journalplattformar är `Unique_Item_Requests` ofta mindre påverkat av hur plattformen levererar HTML och PDF. Se [COUNTERs metric-definitioner](https://cop5.countermetrics.org/en/5.1/03-specifications/03-counter-report-common-attributes-and-elements.html).
 
 ## Kostnad per download eller request
+
+Enkelt uttryckt svarar KPI:n på: **vilket fast avtalat pris delar vi med vilket godkänt antal downloads?**
+
+Exempel: om det fasta årspriset är 100 000 kr och samma period har 10 000 godkända downloads blir kostnaden 10 kr per download. För ett paket utan beslutad fördelning visas resultatet på paketnivå i stället för att systemet hittar på ett produktpris.
 
 Kostnad lagras separat från usage. KPI:n är en härledd vy:
 
 ```text
-CPD eller CPR = godkänd allokerad kostnad för produkt och period
+CPD eller CPR = fast avtalat pris för produkt eller paket och period
                -------------------------------------------------
                godkänt usage-mått för samma produkt och period
 ```
@@ -135,13 +145,16 @@ KPI:n får bara visas definitivt när kostnadsgrund, moms/krediter, valuta, peri
 
 - Noll i nämnaren visas som `Ej beräkningsbar`, aldrig som kostnad 0.
 - Partiell usage ger en preliminär eller blockerad KPI.
+- Fastprisets period och usageperioden måste matcha exakt och usage ska vara en komplett, odimensionerad totalsumma. Ett års fastpris divideras aldrig separat med en månads- eller dimensionsrad.
+- Fastpriset har egen period, godkännandestatus och källprovenance. Syntetiskt pris märks som demoantagande även när själva divisionen är korrekt.
+- Det får finnas exakt en godkänd periodtotal för abonnemanget, perioden och mätetalet. Flera kandidater blockerar KPI:n som tvetydig.
 - En paketkostnad visas på paketnivå tills en allokeringsmodell är godkänd.
 - Om nämnaren är `Total_Item_Requests` ska KPI:n heta kostnad per item request/fulltextförfrågan, inte kostnad per download.
-- Täljare, nämnare, valuta, period och allokeringsmetod ska kunna öppnas från KPI:n.
+- Täljare, nämnare, valuta, period och allokeringsmetod ska ingå i KPI-svaret.
 
-## Sanningsenlig standardvy
+## API-underlag för sanningsenlig standardvy
 
-Föreslagen första standardvy, om källorna ger komplett månadsdata:
+Backend ska kunna leverera följande metadata för en föreslagen första standardvy, om källorna ger komplett månadsdata:
 
 - senaste tolv kompletta månaderna,
 - jämförelse med föregående motsvarande period bara när båda är kompletta,
