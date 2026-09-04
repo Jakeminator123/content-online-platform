@@ -1,4 +1,5 @@
 import { createClerkClient } from "@clerk/backend";
+import { env } from "node:process";
 
 export const PLATFORM_ORIGIN = "https://content-online-platform.vercel.app";
 export const CUSTOMER_PORTAL = "https://fokus-psi-sable.vercel.app";
@@ -73,8 +74,8 @@ export class ClerkAdminAuthenticator implements AdminAuthenticator {
 
 export function readAdminConfig(): AdminConfig {
   return {
-    publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
-    secretKey: process.env.CLERK_SECRET_KEY?.trim() ?? "",
-    allowedEmail: process.env.CONTENT_ONLINE_ADMIN_EMAIL?.trim() ?? "",
+    publishableKey: env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
+    secretKey: env.CLERK_SECRET_KEY?.trim() ?? "",
+    allowedEmail: env.CONTENT_ONLINE_ADMIN_EMAIL?.trim() ?? "",
   };
 }

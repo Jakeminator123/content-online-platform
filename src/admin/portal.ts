@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { Buffer } from "node:buffer";
 import { html } from "hono/html";
 import { secureHeaders } from "hono/secure-headers";
 import { CUSTOMER_PORTAL, PLATFORM_ORIGIN } from "./identity.js";
