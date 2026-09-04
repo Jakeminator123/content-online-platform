@@ -140,6 +140,7 @@ export const workspaceClient = String.raw`
       const response=await fetch(isDemo?'/demo/workspace':'/admin/api/workspace',{headers,cache:'no-store',credentials:'omit'});
       if(!response.ok)throw new Error('workspace');
       data=await response.json();
+      if(!isDemo)document.dispatchEvent(new CustomEvent('content-online:workspace-ready',{detail:{workspace:data}}));
       active=pageMeta[location.hash.slice(1)]?location.hash.slice(1):'overview';
       document.getElementById('access-message').hidden=true;
       document.getElementById('workspace').hidden=false;

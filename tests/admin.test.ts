@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { authorizeAdmin, ClerkAdminAuthenticator, CUSTOMER_PORTAL, PLATFORM_ORIGIN } from "../src/admin/identity.js";
 import type { AdminAuthentication, AdminAuthenticator } from "../src/admin/identity.js";
 import { clerkFrontendHost, createAdminPortal } from "../src/admin/portal.js";
+import { assistantClient } from "../src/admin/assistant-client.js";
 import { demoWorkspace } from "../src/admin/demo-data.js";
 import { workspaceClient } from "../src/admin/workspace-client.js";
 import { Script } from "node:vm";
@@ -12,7 +13,8 @@ const profile = {
   emailAddresses: [{ id: "email_primary", emailAddress: email, verification: { status: "verified" } }],
 };
 const config = { allowedEmail: email, secretKey: "test-not-a-secret", publishableKey: `pk_test_${Buffer.from("example.clerk.accounts.dev$").toString("base64")}` };
-const appFor = (result: AdminAuthentication) => createAdminPortal({ authenticate: async () => result }, config);
+const appFor = (result: AdminAuthentication, options: Parameters<typeof createAdminPortal>[2] = {}) =>
+  createAdminPortal({ authenticate: async () => result }, config, options);
 
 describe("Content Online admin identity boundary", () => {
   it("grants only the verified primary allowlisted email a distinct internal admin role", () => {
@@ -59,7 +61,7 @@ describe("Content Online admin identity boundary", () => {
 describe("Hosted portal entry and guarded admin API", () => {
   it.each(["unauthenticated", "forbidden", "unconfigured"] as const)("denies %s on every admin API path", async (status) => {
     const app = appFor({ status });
-    for (const path of ["/admin/api/session", "/admin/api/workspace", "/admin/api/publishers", "/admin/api/users"]) {
+    for (const path of ["/admin/api/session", "/admin/api/workspace", "/admin/api/assistant/message", "/admin/api/jobs", "/admin/api/jobs/platform-readiness/run", "/admin/api/publishers", "/admin/api/users"]) {
       for (const method of ["GET", "POST"]) {
         const response = await app.request(path, { method });
         expect(response.status).toBe(status === "unauthenticated" ? 401 : status === "forbidden" ? 403 : 503);
@@ -87,6 +89,55 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(body.storage.status).toBe("blocked_by_decision");
   });
 
+  it("answers through the protected assistant API and validates input", async () => {
+    const app = appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }, { assistantApiKey: "" });
+    const response = await app.request("/admin/api/assistant/message", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: "Vad kan plattformen göra nu?" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ mode: "local_fallback" });
+
+    const invalid = await app.request("/admin/api/assistant/message", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: "" }),
+    });
+    expect(invalid.status).toBe(422);
+  });
+
+  it("lists and runs only allowlisted jobs after admin authorization", async () => {
+    const app = appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }, {
+      now: () => new Date("2026-09-05T06:10:00.000Z"),
+    });
+    const list = await app.request("/admin/api/jobs");
+    expect(list.status).toBe(200);
+    expect((await list.json()).jobs).toHaveLength(3);
+
+    const run = await app.request("/admin/api/jobs/customer-scope-audit/run", { method: "POST" });
+    expect(run.status).toBe(200);
+    expect(await run.json()).toMatchObject({ execution: { status: "completed", persisted: false } });
+
+    const arbitrary = await app.request("/admin/api/jobs/arbitrary/run", { method: "POST" });
+    expect(arbitrary.status).toBe(404);
+  });
+
+  it("protects the scheduled readiness job with a server-only secret", async () => {
+    const app = appFor({ status: "unauthenticated" }, {
+      cronSecret: "test-cron-secret",
+      now: () => new Date("2026-09-05T06:10:00.000Z"),
+    });
+    expect((await app.request("/api/cron/platform-readiness")).status).toBe(401);
+    expect((await app.request("/api/cron/platform-readiness", { headers: { authorization: "Bearer wrong" } })).status).toBe(401);
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const response = await app.request("/api/cron/platform-readiness", { headers: { authorization: "Bearer test-cron-secret" } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ execution: { jobId: "platform-readiness", status: "attention_needed" } });
+    expect(info).toHaveBeenCalledWith("admin_cron_completed", expect.objectContaining({ jobId: "platform-readiness" }));
+    info.mockRestore();
+  });
+
   it("fails closed without revealing provider errors", async () => {
     const auth: AdminAuthenticator = { authenticate: async () => { throw new Error("secret-provider-payload"); } };
     const response = await createAdminPortal(auth, config).request("/admin/api/session");
@@ -103,9 +154,28 @@ describe("Hosted portal entry and guarded admin API", () => {
       expect(body).not.toContain(config.allowedEmail);
       expect(body).not.toContain(config.secretKey);
       expect(body).not.toContain("demo-operator");
+      expect(body).not.toContain("Hampus");
+      expect(body).not.toContain("Bibbi");
       expect(body).not.toContain("127.0.0.1");
       expect(body).toContain("Content Online");
     }
+  });
+
+  it("shows the assistant launcher on admin login without exposing the protected workspace", async () => {
+    const response = await appFor({ status: "unauthenticated" }).request("/admin/login");
+    const body = await response.text();
+    expect(body).toContain("Fråga CO");
+    expect(body).toContain("Logga in för att aktivera arbetsytan");
+    expect(body).not.toContain("Kund- och rollkontroll");
+  });
+
+  it("serves parseable assistant JavaScript without credentials", async () => {
+    expect(() => new Script(assistantClient)).not.toThrow();
+    expect(assistantClient).not.toContain(config.secretKey);
+    expect(assistantClient).not.toContain(config.allowedEmail);
+    const response = await appFor({ status: "unauthenticated" }).request("/admin/assets/assistant.js");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/javascript");
   });
 
   it("links to the existing hosted customer app without granting admin credentials", async () => {
