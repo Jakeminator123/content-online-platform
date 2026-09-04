@@ -1,6 +1,6 @@
 # Terminologi
 
-**Version:** 0.2
+**Version:** 0.3
 **Status:** Levande arbetsdokument
 
 Syftet är att ge verksamhet, design och kod samma språk. Termer med status **Öppet** får inte användas som om deras innebörd vore beslutad.
@@ -26,7 +26,7 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 | **IEEE** | Amerikansk non-profit-organisation och central publisher/informationsleverantör i Content Onlines affär. | Bekräftat på övergripande nivå. Exakt produktportfölj och avtalsrelation öppna. |
 | **SAE / HSAE** | Underlagen innehåller både `SAE` och det transkriberade `HSAE`. Trolig avsedd part är SAE, men detta får inte antas i avtal, data eller UI. | Måste bekräftas. |
 | **ASTM** | Amerikansk organisation som tillhandahåller tekniska standarder och nämns som central publisher. | Bekräftat på övergripande nivå. Exakt produktportfölj och avtalsrelation öppna. |
-| **MPS Insight** | Statistikplattform som IEEE använder för usage-data. MPS Insight är första och största integrationsspåret, men används inte av övriga publishers enligt nuvarande uppgift. | Bekräftad arbetsbild. Exakt API/export och behörighetsmodell ska verifieras. |
+| **MPS Insight** | Statistikplattform/report provider som IEEE använder för usage-data. COUNTER Registry listar även ASTM Compass med MPS Technologies; `bara IEEE` är därför en verksamhetsuppgift som behöver preciseras. | IEEE-spåret verifierat offentligt. Kundåtkomst, rättigheter och Content Onlines arbetssätt ska verifieras. |
 | **Salesforce** | Ett av Content Onlines centrala affärssystem där mycket kund- och abonnemangsrelaterad information finns. | Bekräftat på övergripande nivå. Objekt, fält och dataägarskap ska verifieras. |
 | **Fortnox** | Ekonomisystem som innehåller delar av den relevanta affärsinformationen, exempelvis fakturarelaterad data. | Bekräftat på övergripande nivå. Exakta datatyper och integrationsbehov är öppna. |
 | **GitHub** | Versionshantering, samarbete och framtida CI. | Publikt repository anslutet: `Jakeminator123/content-online-platform`. |
@@ -79,11 +79,16 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 | **Usage Conversion Layer / usage-konverteringslager** | Plattformskomponenten ovanpå MPS Insight och andra publisherkällor som validerar, översätter och märker data innan den visas i ett gemensamt format. | Bekräftat delmål. Arbetsnamn. |
 | **Publisheradapter / partneradapter** | En separat koppling för en publisher som läser dess API eller filformat och översätter till den gemensamma usage-modellen utan att tappa källans betydelse. | Bekräftad arkitekturriktning. |
 | **Gemensam usage-modell** | Intern modell för de fält och mätetal som kan jämföras eller visas gemensamt, med bevarad källa och definition. | Bekräftad arkitekturriktning. |
-| **Kostnad per download (CPD)** | Avtalskostnad dividerad med ett tydligt definierat antal downloads för samma produkt och period. | Prioriterad KPI. Förkortning, kostnadsgrund, valuta, period och download-definition ska bekräftas. |
+| **Kostnad per download (CPD)** | Godkänd, allokerad kostnad dividerad med ett uttryckligen definierat download-mått för samma produkt och period. COUNTER `Total_Item_Requests` omfattar både visning och nedladdning och är därför inte automatiskt ett download-mått. | Prioriterad KPI. Kostnadsgrund, valuta, period, allokering och nämnarens definition ska bekräftas. |
 | **Förinställd statistikvy** | Ett valt standardfilter eller en standardjämförelse som hjälper kunden se relevant värde direkt. | Tillåten produktprincip om urvalet är sakligt, transparent och inte vilseleder. |
 | **Öppna källor** | Publikt tillgängliga API-dokument, standarder, demodata eller andra lagligt användbara källor som kan driva en trovärdig demo utan riktiga kunddata. | Ska skiljas från `open source software` och från fritt återanvändbart publisherinnehåll. |
-| **COUNTER** | Branschstandard för jämförbar användningsrapportering av elektroniska informationsresurser. | Källuppgift. Version och stödda rapporter ska verifieras per datakälla. |
-| **SUSHI / COUNTER API** | Maskinellt gränssnitt för att hämta COUNTER-rapporter. | Källuppgift. Exakt endpoint och autentisering ska verifieras. |
+| **COUNTER** | Branschstandard för jämförbar användningsrapportering av elektroniska informationsresurser. R5.1 har officiella scheman, API-regler och öppna exempelrapporter. | Verifierat mot officiell standard. Stödda rapporter ska fortfarande verifieras per datakälla och konto. |
+| **SUSHI / COUNTER API** | REST-gränssnitt för maskinell hämtning av COUNTER-rapporter. I R5.1 är `/r51/status` publik; kundrapporter kräver customer/requestor ID och/eller API-nyckel. | Verifierat på standardnivå. Endpoint och auth verifieras per provider. |
+| **Source-native metric / källmått** | Ett mätetal som bevaras med källans namn och definition när semantisk mappning till ett gemensamt mått saknas. | Föreslagen domänterm. |
+| **Comparability key / jämförbarhetsnyckel** | Versionsmärkt markör som anger att två mätetal har tillräckligt lika definition för den uttryckligen tillåtna jämförelsen eller summeringen. | Föreslagen domänterm. |
+| **Datatäckning** | Om källdatan för vald period är komplett, partiell eller okänd och till vilket datum den är komplett. | Krävs för sanningsenlig visualisering. |
+| **Kostnadsgrund** | Vilket kostnadsbelopp en härledd KPI använder, exempelvis fakturerat belopp eller avtalad nettokostnad, inklusive regler för moms, kredit och valuta. | Öppet affärsbeslut. |
+| **Allokeringsmetod** | Beslutad regel för att fördela en paketkostnad på produkter eller mätetal. | Krävs innan produktspecifik CPD visas för paket. |
 | **Usage metric** | Namngivet mätetal, exempelvis requests, investigations, searches eller turnaways. | Föreslaget. Produktbetydelsen måste beskrivas per mätetal. |
 | **Rådata** | Data i källsystemets ursprungliga format innan validering och normalisering. | Föreslaget. Lagringsrätt och retention öppna. |
 | **Normaliserad usage** | Intern, versionshanterad modell som gör olika källors mätetal jämförbara utan att dölja deras ursprung. | Föreslagen kärnprincip. |

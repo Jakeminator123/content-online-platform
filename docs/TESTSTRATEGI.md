@@ -62,6 +62,13 @@ Test: TEST-api-tenant-001, TEST-e2e-tenant-001
 | `INV-request-001` | Ett ärende kan bara skapas för ett abonnemang inom användarens tillåtna organisationsscope. | Domän, API och E2E |
 | `INV-secret-001` | Credentials förekommer inte i klientbundle, loggar, fixtures eller API-svar. | Build-, logg- och säkerhetstest |
 | `INV-degradation-001` | Fel i en usage-källa görs synligt utan att abonnemangs- och dokumentvyer blir oanvändbara. | Integration och E2E |
+| `INV-semantic-001` | Ett källmått får bara en kanonisk metric genom en explicit, versionshanterad semantisk mappning. | Domän och kontrakt |
+| `INV-total-001` | För additiva mått motsvarar accepterad normaliserad totalsumma källans totalsumma; oförklarad avvikelse stoppar publicering. | Adapter och integration |
+| `INV-aggregate-001` | Data summeras aldrig över publishers utan matchande definition och jämförbarhetsnyckel. | Domän, API och UI |
+| `INV-missing-001` | Saknad, partiell eller sen data tolkas aldrig som usage 0. | Adapter, API och UI |
+| `INV-cpd-001` | CPD/CPR använder samma tenant, produkt/allokering, kompatibel period, beslutad valuta och godkänt usage-mått. | Domän och integration |
+| `INV-cpd-002` | Noll nämnare, okänd kostnadsgrund eller okänd paketallokering ger ingen definitiv CPD/CPR. | Domän och UI |
+| `INV-provenance-001` | Varje visad datapunkt kan spåras till synkkörning, adapterversion, mappingversion och källpost eller artifact-hash. | Schema, API och E2E |
 
 ## Testlager
 
@@ -78,7 +85,7 @@ Testa rena regler utan nätverk eller UI:
 
 ### 2. Adapter- och kontraktstester
 
-Varje extern källa får versionshanterade, syntetiska eller rättighetsgodkända fixtures. Testerna ska täcka giltigt svar, partiellt svar, okänt fält, schemaändring, 401/403, 429, timeout, 5xx och historisk korrigering.
+Varje extern källa får versionshanterade, syntetiska, publikt tillhandahållna med kontrollerade återanvändningsvillkor eller rättighetsgodkända fixtures. För COUNTER börjar vi med standardens officiella R5.1-exempel. Testerna ska täcka giltigt svar, okänt mått, okänd produkt, partiell period, schemaändring, dubbelimport, historisk korrigering, noll usage, paketkostnad, 401/403, 429, timeout och 5xx.
 
 Inga testfixtures får innehålla riktiga kunduppgifter eller hemligheter.
 

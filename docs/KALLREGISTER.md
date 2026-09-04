@@ -1,6 +1,6 @@
 # Källregister och auktoritet
 
-**Version:** 0.2
+**Version:** 0.3
 **Datum:** 2026-09-04
 **Scope:** Endast material som direkt beskriver Content Online-uppdraget
 
@@ -25,6 +25,10 @@ Annat uppladdat material är uttryckligen exkluderat från kravbilden tills anv�
 | `SRC-001` | Uppdragsgivarens transkriberade meddelande i aktuell dialog | Primär verksamhetskälla | Mottaget 2026-09-04 | Används för nuläge och mål. Felsägningar och oklara ord frågas tillbaka. |
 | `SRC-002` | `Content Online customer platform.pptx` | Content Online-koncept och produktvision | SHA-256 `94FAE94AD3AA529C31024C11EBD7C940B7A99ACAE723922B8EF30C1E3BBB01D0` | Moduler och vyer används som hypoteser. Mocktal, citat, logotyper, effekter och tidplan kräver bekräftelse. |
 | `SRC-003` | Användarens kompletterande verksamhetssvar i aktuell dialog | Primär precisering av usage-, pilot- och systembild | Mottaget 2026-09-04 | Underlag för besluts- och faktaloggen. Tekniska detaljuppgifter ska verifieras mot respektive system. |
+| `SRC-004` | COUNTER Code of Practice R5.1, API-regler, Registry och officiella exempelrapporter | Primär teknisk standardkälla för usage | Kontrollerad 2026-09-04 | Används för kontrakt, fixtures och capability discovery; ger inte rätt till kunddata. |
+| `SRC-005` | IEEE:s officiella COUNTER Usage Reports-information | Primär publisherkälla för IEEE:s offentliga reporting capabilities | Kontrollerad 2026-09-04 | Bekräftar teknik på publik nivå, inte Content Onlines credentials eller återvisningsrätt. |
+| `SRC-006` | Vercels officiella docs, Terms och DPA | Primär leverantörskälla för hostingbedömning | Kontrollerad 2026-09-04 | Tidsstämplad bedömning; avtal och funktioner ska omprövas före driftbeslut. |
+| `SRC-007` | Salesforce och Fortnox officiella utvecklardokumentation | Primär teknisk källa för möjlig API-åtkomst | Kontrollerad 2026-09-04 | Bekräftar generella API-/authmöjligheter, inte Content Onlines fält, licenser eller behörighet. |
 
 ## Öppna källfrågor
 

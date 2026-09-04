@@ -22,6 +22,11 @@ Loggen skiljer mellan bekräftad verksamhetsinformation, arbetsbeslut och sådan
 | `DEC-007` | Juridiskt bindande renewal-bekräftelse skjuts upp. | Avgränsning |
 | `FACT-005` | Presentationens logotyper, citat, effekttal och tidslinje uppges vara godkända/verkliga. | Bekräftat av användaren, specifika belägg bör arkiveras senare |
 | `DEC-008` | Projektets GitHub-repository ska vara publikt och heta `Jakeminator123/content-online-platform`. | Genomfört 2026-09-04 |
+| `FACT-006` | IEEE:s officiella material bekräftar COUNTER R5.1 via MPS och SUSHI-stöd; kundrapporter kräver behörig åtkomst. | Offentligt verifierat 2026-09-04 |
+| `FACT-007` | COUNTER Registry listar även ASTM Compass med MPS Technologies som report provider. Det preciserar/motsäger verksamhetsuppgiften att bara IEEE använder MPS. | Offentligt verifierat; operativ betydelse öppen |
+| `DEC-009` | Officiella COUNTER R5.1-exempel används som öppna demo- och regression-fixtures. De får inte beskrivas som KTH- eller live publisherdata. | Arbetsbeslut |
+| `DEC-010` | Vercel är villkorad kandidat för demo/låg-risk-pilot på minst Pro. Full EU-residency eller reglerad produktion är inte godkänd. | Teknikbedömning, inte driftgodkännande |
+| `DEC-011` | Ett Vercel-projekt skapas först när ett körbart applikationsskal finns och demo-/pilotnivå är vald. | Arbetsbeslut |
 
 ## Kräver nästa verifiering
 

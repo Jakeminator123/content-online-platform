@@ -1,6 +1,6 @@
 # Projektbrief
 
-**Version:** 0.2
+**Version:** 0.3
 **Datum:** 2026-09-04
 **Status:** Första arbetsversion baserad på uppdragsgivarens beskrivning och Content Online-presentationen
 
@@ -88,9 +88,10 @@ MPS Insight är den första och viktigaste adaptern eftersom IEEE står för den
 - Exakt formel och datakälla för kostnad per download samt vilka övriga usage-mått som ska prioriteras.
 - Exakt dataägarskap mellan Salesforce, Fortnox, publisherverktyg och eventuella andra system.
 - MPS Insights API/export, dataåtkomst, credentials, kundmedgivande och datarättigheter.
+- Om uppgiften att bara IEEE använder MPS avser Content Onlines arbetssätt; COUNTER Registry listar även ASTM Compass med MPS Technologies som report provider.
 - Portalens autentisering, B2B-medlemskap, MFA och eventuell enterprise SSO.
 - Dokumentlager, retention och känslighetsklassning.
-- GitHub-repo, applikationsstack, Vercel-upplägg, databas och övrig driftarkitektur.
+- Applikationsstack, databas, B2B-auth och slutligt Vercel-/driftupplägg. Vercel är villkorat godkänt som kandidat för demo/låg-risk-pilot, inte för produktion.
 - V1-scope, tidplan, budget och godkänd Definition of Done.
 
 ## Första verifierbara framgångshypotes

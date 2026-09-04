@@ -14,6 +14,9 @@ Kundplattformen ska ge behöriga personer hos Content Onlines kunder en samlad o
 
 - [Projektbrief](docs/PROJEKTBRIEF.md)
 - [Terminologi](docs/TERMINOLOGI.md)
+- [Usage-konvertering och datakontrakt](docs/USAGE_KONVERTERING.md)
+- [Publisherintegrationer och verifieringsmatris](docs/PUBLISHER_INTEGRATIONER.md)
+- [Vercel-bedömning för B2B](docs/VERCEL_B2B_BEDOMNING.md)
 - [Frågor till uppdragsgivaren](docs/FRAGOR_TILL_UPPDRAGSGIVAREN.md)
 - [Besluts- och faktalogg](docs/BESLUTSLOGG.md)
 - [Källregister och auktoritet](docs/KALLREGISTER.md)
@@ -29,6 +32,6 @@ Kundplattformen ska ge behöriga personer hos Content Onlines kunder en samlad o
 
 ## Informationssäkerhet
 
-Repositoryt ska inte innehålla credentials, tokens, verkliga kunddata eller licensierat publisherinnehåll. Endast material som hör direkt till uppdraget får påverka kravbilden.
+Repositoryt ska inte innehålla credentials, tokens, verkliga kunddata eller licensierat publisherinnehåll. Endast material som hör direkt till uppdraget får påverka kravbilden. Publikt tillhandahållna COUNTER-exempel kan ligga till grund för demo-fixtures när återanvändningsvillkor, ursprung och demo-status framgår.
 
 Eftersom repositoryt är publikt ska även framtida exempeldata vara helt syntetisk och fri från avtals-, kund- och användningsuppgifter som inte redan är avsedda för offentlig publicering.

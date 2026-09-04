@@ -1,6 +1,6 @@
 # Frågor till uppdragsgivaren
 
-**Version:** 0.2
+**Version:** 0.3
 **Syfte:** Få de svar som påverkar produktgräns, datarättigheter, säkerhet och första pilot.
 **Arbetssätt:** Skriv svar, beslutsdatum och beslutsägare under varje fråga. Ett svar blir inte ett implementeringskrav förrän det har dokumenterats som ett godkänt beslut.
 
@@ -59,7 +59,7 @@ Vilka system eller dokument äger i dag kundorganisation, kontakt, produkt, avta
 Vilken exakt MPS-tjänst används, för vilka publishers och kunder? Har Content Online egna credentials eller krävs kundens ID/godkännande? Får Content Online hämta, lagra, bearbeta och återvisa statistiken?
 
 **Varför:** Detta avgör om den centrala usage-funktionen är juridiskt och tekniskt möjlig.
-**Svar 2026-09-04:** MPS Insight används för IEEE. IEEE har störst andel. Andra publishers använder egna lösningar och behöver individuella adapters. Credentials och rätt att lagra/återvisa data är fortfarande öppna.
+**Svar 2026-09-04:** MPS Insight används för IEEE och IEEE har störst andel. Andra publishers ska behandlas med individuella källprofiler/adapters. Den publika COUNTER Registry-katalogen listar även ASTM Compass med MPS Technologies som report provider. Bekräfta därför om `bara IEEE använder MPS` betyder Content Onlines nuvarande åtkomst/arbetssätt snarare än underliggande rapportteknik. Credentials och rätt att lagra/återvisa data är fortfarande öppna.
 **Beslutsägare och datum:**
 
 ### Q-008 Avtal och IP-gräns
@@ -83,7 +83,7 @@ Hur ska en KTH-bibliotekarie logga in: inbjudan via e-post, Microsoft-konto, KTH
 Är en modern webbapplikation på Vercel en godtagbar kandidat, eller finns bindande krav på befintlig IT-drift, EU-region eller särskilda underleverantörer?
 
 **Varför:** GitHub och Vercel kan sättas upp snabbt, men teknikvalet måste följa kundens säkerhets- och driftkrav.
-**Svar:** Vercels aktuella B2B-, säkerhets- och EU-förutsättningar ska kontrolleras mot officiell dokumentation innan beslut.
+**Svar 2026-09-04:** Villkorat go för publik demo och låg-risk-pilot på minst Pro, uttrycklig EU-compute, separat B2B-auth och syntetisk/minimerad data. En EU-region bevisar inte full EU-residency. Produktion kräver godkänd DPA/överföringsbedömning och kan kräva Enterprise, hybridarkitektur eller annan drift.
 **Beslutsägare och datum:**
 
 ## Prioritet B: behövs innan V1 låses
@@ -106,7 +106,7 @@ Beskriv renewal-, access- och supportflöden från start till avslut. Vem agerar
 
 Vilka dokumenttyper ska visas, var ligger de i dag, vilka innehåller person-, pris- eller avtalskänslig information och hur länge ska de sparas?
 
-**Svar 2026-09-04:** Ja, materialet uppges vara verkligt och godkänt för fortsatt användning. Specifika underlag och tillstånd bör ändå arkiveras innan offentlig extern användning.
+**Svar:**
 **Beslutsägare och datum:**
 
 ### Q-014 Marknader, språk och tillgänglighet
@@ -141,5 +141,5 @@ Ska rekommendationer ingå i första piloten eller komma efter kärnflödena? Sk
 
 Är citaten, kundlogotyperna, effekttalen och tidslinjen i presentationen verkliga och godkända för fortsatt användning, eller är de endast illustrativa? Vad är lovat till kunden jämfört med en produktidé?
 
-**Svar:**
+**Svar 2026-09-04:** Logotyper, citat, effekttal och tidslinje uppges vara verkliga/godkända. Specifika belägg och användningstillstånd ska ändå arkiveras innan de återpubliceras externt.
 **Beslutsägare och datum:**
