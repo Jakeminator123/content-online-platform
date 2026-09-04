@@ -10,8 +10,7 @@
     "useUnknownInCatchVariables": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "noEmit": true,
-    "types": ["node", "vitest/globals"]
+    "noEmit": true
   },
   "include": ["api/**/*.ts", "src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
 }
