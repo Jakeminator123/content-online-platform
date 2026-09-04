@@ -21,6 +21,9 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 | **Kundadmin** | Kundrollen för bibliotekarien. Ser hela den tillåtna bilden för sin egen organisation. Ändring av portalmedlem, roll eller publisheraccess begärs via ticket i V1. | Arbetsbeslut. |
 | **Läsare** | Begränsad kundroll som ser publicerad portfölj och usage inom sin organisation men inte kostnader, avtal eller andra användares tickets som standard. | Arbetsbeslut; detaljrättigheter kan förfinas. |
 | **Content Online-operatör** | Separat intern roll för support, användarärenden, synk, mapping och källkopplingar över uttryckligen tilldelade kundscope. Inte en högre kundroll. | Föreslagen intern modell. |
+| **Content Online-administratör** | Intern roll för att styra kunder, användare, Content Onlines publicistregister och kundernas portalåtkomst. Separat från både KTH:s Kundadmin och kundtilldelad operatör. Teknisk roll: `content_admin`. | Bekräftat uppdrag 2026-09-05. Separat inloggning byggd; administrationsfunktioner återstår. |
+| **Publicistregister / publisherregister** | Content Onlines egen förteckning över partners/publicister och deras produkter och källkopplingar. Inte samma sak som en enskild kunds köpta portfölj. | Bekräftat administrationsbehov; ännu inte implementerat. |
+| **Kundtilldelning** | Koppling som avgör vilka publisherprodukter en kundorganisation får se/använda i portalen. Ska kontrolleras server-side och skiljas från faktisk extern licensprovisionering. | Bekräftat behov; funktion och beständig lagring återstår. |
 
 ## Namngivna organisationer och system
 
@@ -33,7 +36,9 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 | **Salesforce** | Ett av Content Onlines centrala affärssystem där mycket kund- och abonnemangsrelaterad information finns. | Bekräftat på övergripande nivå. Objekt, fält och dataägarskap ska verifieras. |
 | **Fortnox** | Ekonomisystem som innehåller delar av den relevanta affärsinformationen, exempelvis fakturarelaterad data. | Bekräftat på övergripande nivå. Exakta datatyper och integrationsbehov är öppna. |
 | **GitHub** | Versionshantering, samarbete och framtida CI. | Publikt repository anslutet: `Jakeminator123/content-online-platform`. |
-| **Vercel** | Kandidat för hosting av backend/API i detta repo. Frontendens hosting beslutas i det separata frontendspåret. | Villkorad kandidat. Måste prövas mot säkerhet, region, kundkrav och vald arkitektur. |
+| **Vercel** | Hosting av plattform/backend och separat kundfrontend. | Pilot publicerad. Säkerhet, region och kundkrav behöver fortsatt produktionsprövning. |
+| **Clerk** | Identitetsleverantör för Content Onlines interna admininloggning. Backend beslutar separat om behörigheten. | Ansluten gratis utvecklingsinstans. Egen domän och produktionskonfiguration återstår. |
+| **Neon** | Postgres-tjänst med gratisplan, föreslagen för beständig kund- och publisheradministration. | Inte provisionerad; pausad tills vidare. |
 
 ## Produkt och affär
 

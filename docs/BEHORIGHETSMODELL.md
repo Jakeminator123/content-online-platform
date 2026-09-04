@@ -15,6 +15,14 @@ Kundportalen har två nivåer:
 
 Content Online-personal hanteras som **Content Online-operatör** i en separat intern säkerhetsdomän. Operatören är inte en högre kundroll och blir inte medlem i alla kundorganisationer.
 
+### Förtydligande 2026-09-05: företagsadministration
+
+**Content Online-administratör (`content_admin`)** är en separat intern administrativ roll, inte KTH:s Kundadmin och inte automatiskt samma sak som en kundtilldelad operatör. Uppdraget omfattar att Content Online ska kunna hantera kundorganisationer, användare, sitt publicistregister och kundernas produkt-/publicisttilldelningar.
+
+Den första interna inloggningen använder Clerk och serververifierad primär e-post på en uttrycklig allowlist. CRUD-funktionerna och databaslagringen är ännu inte implementerade. Tabellen nedan beskriver fortfarande kund-/operatörskontraktet, inte en levererad fullständig intern administrationsyta. Se [aktuell drift och återstående arbete](ADMIN_DRIFT.md).
+
+Tilldelning i kundportalen ska skiljas från faktisk licens-/accessprovisionering hos en publisher. Att Content Online ändrar vad kunden ser i portalen får inte påstås ändra ett externt avtal eller publisherkonto.
+
 ## Kundadminens föreslagna överblick
 
 Bibliotekariens uppgift förtydligas som en organisationsomfattande överblick över allt som Content Online har gjort tillgängligt för den egna kunden:

@@ -10,6 +10,8 @@ import {
 import { InMemoryPortalRepository } from "./adapters/in-memory-repository.js";
 import type { EffectiveRole, Entitlement, PortalUser, UsageObservation } from "./domain/models.js";
 import { calculateCostPerUsage } from "./domain/usage.js";
+import { ClerkAdminAuthenticator, readAdminConfig } from "./admin/identity.js";
+import { createAdminPortal } from "./admin/portal.js";
 
 type Actor = {
   user: PortalUser;
@@ -776,5 +778,8 @@ const productionApp = createApp({
   clock: () => new Date(),
   createId: () => crypto.randomUUID(),
 });
+
+const adminConfig = readAdminConfig();
+productionApp.route("/", createAdminPortal(new ClerkAdminAuthenticator(adminConfig), adminConfig));
 
 export default productionApp;

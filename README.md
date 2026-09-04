@@ -4,7 +4,18 @@ Detta repository är dokumentations- och utvecklingsytan för Content Onlines pl
 
 **GitHub:** [Jakeminator123/content-online-platform](https://github.com/Jakeminator123/content-online-platform) (publikt repository)
 
-Projektet befinner sig i behovs-, kontrakts- och tidig backendfas. Den första pilotpersonan är en bibliotekarie på KTH och rollen är Kundadmin. Frontend byggs separat och kopplas in senare. En körbar och testad Hono/TypeScript-backend finns nu med syntetiska data, men ingen databas, autentiseringsleverantör, extern liveintegration eller Vercel-deployment är ännu inkopplad.
+Projektet är en publicerad pilot med separat kundfrontend och intern admininloggning. Den första pilotpersonan är en bibliotekarie på KTH med rollen Kundadmin. Kundfrontenden visar fortfarande demodata; verklig kund-, publisher- och affärssystemsdata är inte ansluten.
+
+## Publicerade ingångar och aktuell gräns
+
+- [Plattformen](https://content-online-platform.vercel.app): ingång till båda portalerna.
+- [Kundportalen](https://fokus-psi-sable.vercel.app/login): befintlig separat Next.js-frontend, KTH-demokonton.
+- [Content Online-admin](https://content-online-platform.vercel.app/admin/login): Clerk-inloggning, separat från kundkonton.
+- [Första aktiveringen](https://content-online-platform.vercel.app/admin/registrera): endast tillåten e-postadress; användaren måste själv verifiera den.
+
+Admin kräver en giltig Clerk-session från plattformens origin, en aktiv session och ett icke spärrat konto med verifierad primär e-post som matchar serverns `CONTENT_ONLINE_ADMIN_EMAIL`. Adressen ligger endast i Vercel och Clerk, aldrig i Git. Kundcookies, kundadminroller och klientredigerbar metadata ger inte intern adminbehörighet. Se [driftsinstruktionerna](docs/ADMIN_DRIFT.md).
+
+Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. Hantering av kundorganisationer, användarändringar, publicistregister och kundernas produkttilldelning är **inte implementerad**; adminvyn visar denna status uttryckligen. Neon-provisionering är pausad och ingen databas har skapats. En portalanknytning är inte samma sak som en färdig dataintegration.
 
 ## Produktmål
 
@@ -50,7 +61,7 @@ POST /v1/organizations/{organizationId}/tickets
 GET  /v1/organizations/{organizationId}/members
 ```
 
-GitHub Actions kör typkontroll och 19 regressionstester vid push och pull request. Databas, riktig auth, dokument-API, medlemsändringsärenden och externa integrationer är nästa separata leveranssteg.
+GitHub Actions kör typkontroll och regressionstester vid push och pull request, inklusive separat adminbehörighet. Kund-API:t `/v1/*` förblir låst i produktion tills beständiga kundmedlemskap och kundautentisering har kopplats in. Admininloggningen ligger under `/admin` och använder inte demobackendens identiteter.
 
 ## Statusord
 
