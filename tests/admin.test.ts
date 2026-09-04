@@ -79,6 +79,7 @@ describe("Hosted portal entry and guarded admin API", () => {
     const body = await response.json();
     expect(body.status).toBe("synthetic_configuration");
     expect(body.customers[0].name).toBe("KTH");
+    expect(body.users.map((user: { role: string }) => user.role)).toEqual(["Kundadministratör", "Läsare"]);
     expect(body.publishers[0]).toMatchObject({ name: "IEEE", route: "MPS / MPS Insight", status: "Inte ansluten" });
     expect(body.storage.status).toBe("blocked_by_decision");
   });

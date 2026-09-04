@@ -11,6 +11,10 @@ const adminWorkspace = {
   customers: [
     { id: "customer-kth-demo", name: "KTH", users: 2, products: 4, status: "Pilot · syntetisk data" },
   ],
+  users: [
+    { name: "Hampus", customer: "KTH", role: "Kundadministratör", status: "Demokonto" },
+    { name: "Bibbi", customer: "KTH", role: "Läsare", status: "Demokonto" },
+  ],
   publishers: [
     { id: "publisher-ieee", name: "IEEE", route: "MPS / MPS Insight", status: "Inte ansluten" },
     { id: "publisher-springer", name: "Springer Nature", route: "Källspecifik anslutning", status: "Inte kartlagd" },
@@ -112,6 +116,7 @@ function page(mode: "start" | "login" | "register" | "admin", host: string | nul
       <section class="card narrow"><div class="section-head"><h2>Lagring</h2><span class="pill warning">Beslut krävs</span></div><p id="storage-status">Kontrollerar…</p></section>
       <section class="card wide"><div class="section-head"><div><h2>Kundtilldelningar</h2><p>Många-till-många via produkter.</p></div><span class="pill">Syntetisk demo</span></div><div class="table-wrap"><table><thead><tr><th>Kund</th><th>Publicist</th><th>Produkt</th><th>Status</th></tr></thead><tbody id="assignments"></tbody></table></div></section>
       <section class="card narrow"><div class="section-head"><div><h2>Kundorganisationer</h2><p>Egen portal och egna roller.</p></div></div><div id="customers"></div></section>
+      <section class="card full"><div class="section-head"><div><h2>Användare och kundroller</h2><p>Kundroller gäller endast inom respektive organisation.</p></div><span class="pill">Syntetiska demokonton</span></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Kund</th><th>Kundroll</th><th>Status</th></tr></thead><tbody id="users"></tbody></table></div></section>
       <section class="card full"><div class="section-head"><div><h2>Anslutningar och importer</h2><p>Varje källa hanteras efter sina verkliga förutsättningar; ingen gemensam standard antas.</p></div><span class="pill warning">Inga livekopplingar</span></div><div class="table-wrap"><table><thead><tr><th>Källa</th><th>Ägare</th><th>Metod</th><th>Senaste import</th><th>Status</th></tr></thead><tbody id="connections"></tbody></table></div></section></div>
       <div class="actions"><a class="button" href="/kundportal">Öppna kundportalen separat →</a><button class="secondary" id="sign-out">Logga ut</button></div><p class="notice">Kundportalen visar fortfarande demodata. Ingen Salesforce-, Fortnox- eller publicistdata är inkopplad här.</p></div>` : html`
       <div class="auth"><div class="eyebrow">Endast Content Onlines personal</div><h1>${mode === "register" ? "Aktivera ditt adminkonto" : "Logga in som admin"}</h1>
@@ -162,6 +167,7 @@ function page(mode: "start" | "login" | "register" | "admin", host: string | nul
             document.getElementById(targetId).appendChild(row);
           }
           workspace.assignments.forEach(function (item) { appendRow('assignments', [item.customer, item.publisher, item.product, item.status]); });
+          workspace.users.forEach(function (item) { appendRow('users', [item.name, item.customer, item.role, item.status]); });
           workspace.connections.forEach(function (item) { appendRow('connections', [item.name, item.owner, item.mode, item.lastImport || 'Ingen import', item.status]); });
           workspace.customers.forEach(function (item) {
             var block = document.createElement('div'); block.style.marginBottom = '18px';
