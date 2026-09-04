@@ -45,6 +45,10 @@ Ingen e-postadress, lösenord eller hemlig nyckel hör hemma i detta publika rep
 
 Efter publicering kontrolleras `/health`, portalval, kundportalens fasta redirect, login/registrering och att ogiltiga eller saknade tokens nekas. Publicerad inloggning är en pilot, inte en färdig administrationsprodukt.
 
+Den återkörbara kontrollen är `node scripts/check-hosted-portals.mjs`. Den kör inga skrivningar och kräver inga användaruppgifter. Vid leveransen passerade 49 backendtester, 8 frontendtester, frontendbygget och dessa publicerade HTTP-kontroller. Interaktiv registrering/e-postverifiering är ännu inte genomförd av administratören.
+
+Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projektets `typeRoots`. `@types/node` ingår därför i publiceringsberoendena. Testbibliotekets globala typer laddas inte av produktionskompileringen.
+
 ## Källor
 
 - [Clerk request-verifiering](https://clerk.com/docs/reference/backend/authenticate-request)
