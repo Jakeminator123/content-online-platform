@@ -19,7 +19,7 @@ Content Online-personal hanteras som **Content Online-operatör** i en separat i
 
 **Content Online-administratör (`content_admin`)** är en separat intern administrativ roll, inte KTH:s Kundadmin och inte automatiskt samma sak som en kundtilldelad operatör. Uppdraget omfattar att Content Online ska kunna hantera kundorganisationer, användare, sitt publicistregister och kundernas produkt-/publicisttilldelningar.
 
-Den första interna inloggningen använder Clerk och serververifierad primär e-post på en uttrycklig allowlist. En skyddad, skrivskyddad intern överblick finns för pilotkonfigurationen. CRUD-funktionerna och databaslagringen är ännu inte implementerade. Tabellen nedan beskriver fortfarande kund-/operatörskontraktet, inte en levererad fullständig skrivande administrationsyta. Se [aktuell drift och återstående arbete](ADMIN_DRIFT.md).
+Den första interna inloggningen använder Clerk och serververifierad primär e-post på en uttrycklig allowlist. En skyddad, skrivskyddad intern arbetsyta finns för pilotkonfigurationen. En separat publik `/demo` visar enbart syntetiska fixtures och ger ingen adminsession eller rätt till `/admin/api/*`. Kundförhandsvisningar härleds från varje fiktiv organisations produkt-ID:n. CRUD-funktionerna och databaslagringen är ännu inte implementerade. Tabellen nedan beskriver fortfarande kund-/operatörskontraktet, inte en levererad fullständig skrivande administrationsyta. Se [aktuell drift och återstående arbete](ADMIN_DRIFT.md).
 
 Tilldelning i kundportalen ska skiljas från faktisk licens-/accessprovisionering hos en publisher. Att Content Online ändrar vad kunden ser i portalen får inte påstås ändra ett externt avtal eller publisherkonto.
 

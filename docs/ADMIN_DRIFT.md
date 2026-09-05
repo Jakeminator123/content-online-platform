@@ -7,7 +7,7 @@ Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planera
 | Del | Vem? | Ansvar |
 |---|---|---|
 | Kundportal | Kundperson, exempelvis KTH-bibliotekarie | Bara den egna organisationens resurser. Kundadmin är en kundroll. |
-| Intern administration | Content Onlines godkända administratör | Företagets kunder, användare, publicistregister och kundprodukttilldelningar. Funktionerna återstår. |
+| Intern administration | Content Onlines godkända administratör | Företagets kunder, användare, publicistregister och kundprodukttilldelningar. Interaktiv läsande demo finns; skrivande funktioner återstår. |
 | Kundscope för operatör | Content Online-personal med särskild tilldelning | Befintlig backendmodell ger bara åtkomst till uttryckligen tilldelade kunder. Inte global administration. |
 
 ## Levererat
@@ -20,7 +20,7 @@ Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planera
 - Kundfrontendens `/content-online`-vägar leder till plattformens administration. KTH-demons cookies skickas inte vidare som behörighetsbevis.
 - Den skyddade, interna arbetsytan visar nu ett serverlevererat och skrivskyddat pilotregister för kunder, publicister, produkt-/kundtilldelningar samt anslutningar/importstatus. `/admin/api/workspace` har samma Clerk- och allowlistkontroll som övriga admin-API:er.
 - Pilotregistret är uttryckligen syntetiskt. Alla skrivåtgärder är avstängda eftersom beständig lagring ännu saknas; inget sparas i serverminne, webbläsarlagring eller Git.
-- Kundfrontendens meny och rollnamn säger nu `KTH:s portaladministration`, `Kundadministratör` och `Läsare`. Icke fungerande knappar för inbjudan/ändring har tagits bort och påståendet om automatisk COUNTER/SUSHI-hämtning har ersatts med korrekt demostatus.
+- Kundfrontendens meny och rollnamn säger nu `KTH:s användare`, `Kundadministratör` och `Läsare`. Icke fungerande knappar för inbjudan/ändring har ersatts med en tydlig länk till kundserviceförhandsvisning och påståendet om automatisk COUNTER/SUSHI-hämtning har ersatts med korrekt demostatus.
 
 ## Första kontot
 
@@ -48,7 +48,9 @@ Ingen e-postadress, lösenord eller hemlig nyckel hör hemma i detta publika rep
 
 Efter publicering kontrolleras `/health`, portalval, kundportalens fasta redirect, login/registrering och att ogiltiga eller saknade tokens nekas. Publicerad inloggning är en pilot, inte en färdig administrationsprodukt.
 
-Den återkörbara kontrollen är `node scripts/check-hosted-portals.mjs`. Den kör inga skrivningar och kräver inga användaruppgifter. Vid leveransen passerade 49 backendtester, 8 frontendtester, frontendbygget och dessa publicerade HTTP-kontroller. Interaktiv registrering/e-postverifiering är ännu inte genomförd av administratören.
+Den återkörbara kontrollen är `node scripts/check-hosted-portals.mjs`. Den kontrollerar även att skrivförsök nekas och kräver inga användaruppgifter. Vid den visuella demoleveransen passerade 53 backendtester, 10 frontendtester, båda typkontrollerna, frontendbygget och publicerade HTTP-kontroller. Vercels produktionsdeployments var READY på respektive Git-commit. Interaktiv registrering/e-postverifiering för intern admin är inte verifierad i denna leverans.
+
+Webbläsarkontrollen omfattade den publicerade admin-demons sökning, publicistdialog och kundförhandsvisning (Norrvik Teknik fick exakt sina tre tilldelade produkter), samt kundportalens befintliga Hampus-demosession: periodval i graf, produktsökning, produktdialog och förhandsvisning av ett ej skickat kundserviceärende. Den verifierar presentationsflöden med syntetiska data, inte riktig kundidentitet, beständig lagring eller skarp licensisolering. Vercel rapporterade inga runtime-fel under kontrollintervallet.
 
 Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projektets `typeRoots`. `@types/node` ingår därför i publiceringsberoendena. Testbibliotekets globala typer laddas inte av produktionskompileringen.
 
