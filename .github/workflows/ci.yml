@@ -12,19 +12,31 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Use Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-
       - name: Install locked dependencies
         run: npm ci
-
       - name: Typecheck and test
         run: npm run check
+      - name: Install browser test runner
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Check admin demo interactions
+        run: |
+          PORT=3000 npm run dev > /tmp/admin-demo.log 2>&1 &
+          node scripts/check-statistics-ui.mjs
+      - name: Save browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-statistics-ui
+          path: test-artifacts/
+          if-no-files-found: ignore
