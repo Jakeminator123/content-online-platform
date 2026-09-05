@@ -31,7 +31,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Check admin demo interactions
         run: |
-          PORT=3000 npm run dev > /tmp/admin-demo.log 2>&1 &
+          npx tsx scripts/serve-admin-demo.ts > /tmp/admin-demo.log 2>&1 &
+          trap 'cat /tmp/admin-demo.log' ERR
           node scripts/check-statistics-ui.mjs
       - name: Save browser evidence
         if: always()
