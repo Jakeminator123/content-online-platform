@@ -11,10 +11,11 @@ describe("allowlisted admin jobs", () => {
     expect(result?.summary).toContain("0 av 4 källor");
   });
 
-  it("runs the customer scope audit without global customer access", () => {
+  it("summarizes synthetic customers without claiming an access audit", () => {
     const result = runAdminJob("customer-scope-audit", demoWorkspace, now);
     expect(result?.status).toBe("completed");
-    expect(result?.facts).toContainEqual({ label: "Global kundåtkomst", value: "Avstängd" });
+    expect(result?.summary).toContain("har inte testats av detta jobb");
+    expect(result?.facts).toContainEqual({ label: "Åtkomstkontroll", value: "Inte utförd av detta jobb" });
   });
 
   it("rejects arbitrary job names", () => {

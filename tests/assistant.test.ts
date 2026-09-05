@@ -12,7 +12,7 @@ describe("documentation-grounded admin assistant", () => {
     expect(result.sources).toContain("ADMIN_DRIFT.md");
   });
 
-  it("uses the Responses API without storage and excludes user names from model context", async () => {
+  it("uses the Responses API without storage and excludes workspace user names from model context", async () => {
     let requestBody: Record<string, unknown> | undefined;
     const fetchImpl: typeof fetch = async (_input, init) => {
       requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;

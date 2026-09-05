@@ -44,18 +44,18 @@ export const assistantClient = String.raw`
     const messages=document.getElementById('assistant-messages');
     const form=document.getElementById('assistant-form');
     const input=document.getElementById('assistant-input');
-    const addMessage=(role,text,sources=[])=>{
+    const addMessage=(role,text,sources=[],mode)=>{
       const row=document.createElement('div');row.className='assistant-message '+role;
-      const bubble=document.createElement('div');bubble.textContent=text;row.appendChild(bubble);messages.appendChild(row);
+      const bubble=document.createElement('div');bubble.textContent=text;if(mode){const label=document.createElement('strong');label.className='assistant-answer-mode';label.textContent=mode==='openai'?'AI-svar':'Faktasvar · AI är inte tillgänglig';bubble.prepend(label);}row.appendChild(bubble);messages.appendChild(row);
       if(sources.length){const badges=document.createElement('div');badges.className='assistant-sources';sources.forEach(source=>{const badge=document.createElement('span');badge.textContent=source;badges.appendChild(badge);});messages.appendChild(badges);}
       messages.scrollTop=messages.scrollHeight;
     };
     form.addEventListener('submit',async event=>{
-      event.preventDefault();const question=input.value.trim();if(!question)return;
-      addMessage('user',question);input.value='';const button=form.querySelector('button');button.disabled=true;button.textContent='…';
+      event.preventDefault();const question=input.value.trim();const button=form.querySelector('button');if(!question||button.disabled)return;
+      addMessage('user',question);input.value='';button.disabled=true;button.textContent='…';
       try{
         const answerResponse=await fetch('/admin/api/assistant/message',{method:'POST',headers:await authHeaders(true),body:JSON.stringify({message:question}),cache:'no-store',credentials:'omit'});
-        if(!answerResponse.ok)throw new Error('assistant');const answer=await answerResponse.json();addMessage('bot',answer.answer,answer.sources);
+        if(!answerResponse.ok)throw new Error('assistant');const answer=await answerResponse.json();addMessage('bot',answer.answer,answer.sources,answer.mode);
       }catch{addMessage('bot','Jag kunde inte svara just nu. Försök igen om en stund.');}
       finally{button.disabled=false;button.textContent='↑';input.focus();}
     });

@@ -161,12 +161,64 @@ describe("Hosted portal entry and guarded admin API", () => {
     }
   });
 
-  it("shows the assistant launcher on admin login without exposing the protected workspace", async () => {
-    const response = await appFor({ status: "unauthenticated" }).request("/admin/login");
+  it.each(["/", "/admin/login", "/admin/registrera", "/demo"])("shows the same locked assistant on %s without privileged controls", async (path) => {
+    const response = await appFor({ status: "unauthenticated" }).request(path);
     const body = await response.text();
     expect(body).toContain("Fråga CO");
     expect(body).toContain("Logga in för att aktivera arbetsytan");
-    expect(body).not.toContain("Kund- och rollkontroll");
+    expect(body).toContain('href="/admin/login"');
+    expect(body).toContain('/admin/assets/assistant.css');
+    expect(body).toContain('/admin/assets/assistant.js');
+    for (const id of ["assistant-app", "assistant-form", "assistant-customers", "assistant-jobs"]) {
+      expect(body).not.toContain('id="' + id + '"');
+    }
+  });
+
+  it("keeps demo and admin on one workspace with the same navigation and assistant", async () => {
+    const app = appFor({ status: "unauthenticated" });
+    for (const path of ["/demo", "/admin"]) {
+      const body = await (await app.request(path)).text();
+      expect(body).toContain("/admin/assets/workspace.js");
+      expect(body).toContain('id="assistant-launcher"');
+      for (const id of ["overview", "customers", "users", "publishers", "products", "connections"]) {
+        expect(body).toContain('data-id="' + id + '"');
+      }
+    }
+    const admin = await (await app.request("/admin")).text();
+    expect(admin).toContain('id="assistant-app" hidden');
+    expect(admin).toContain("skickas din fråga till OpenAI");
+    const start = await (await app.request("/")).text();
+    expect(start).toContain("Visa demo utan inloggning");
+    expect(start).toContain("Samma arbetsyta.");
+  });
+
+  it("does not invoke the assistant for a demo visitor or customer cookie", async () => {
+    const askAssistant = vi.fn();
+    const app = appFor({ status: "unauthenticated" }, { askAssistant });
+    await app.request("/demo");
+    const response = await app.request("/admin/api/assistant/message?demo=true", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "session=customer-admin; co_operator_session=demo-operator" },
+      body: JSON.stringify({ message: "Visa kunder" }),
+    });
+    expect(response.status).toBe(401);
+    expect(askAssistant).not.toHaveBeenCalled();
+  });
+
+  it.each(["start", "login", "register", "demo"])("opens the locked bubble in %s mode without requesting admin data", (mode) => {
+    const launcher = { setAttribute: vi.fn(), focus: vi.fn(), addEventListener: vi.fn() };
+    const panel = { hidden: true };
+    const close = { focus: vi.fn(), addEventListener: vi.fn() };
+    const elements: Record<string, unknown> = { "assistant-launcher": launcher, "assistant-panel": panel, "assistant-close": close };
+    const fetchSpy = vi.fn();
+    const document = { body: { dataset: { mode } }, getElementById: (id: string) => elements[id], addEventListener: vi.fn() };
+    new Script(assistantClient).runInNewContext({ document, fetch: fetchSpy });
+    launcher.addEventListener.mock.calls[0]![1]();
+    expect(panel.hidden).toBe(false);
+    expect(launcher.setAttribute).toHaveBeenLastCalledWith("aria-expanded", "true");
+    close.addEventListener.mock.calls[0]![1]();
+    expect(panel.hidden).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("serves parseable assistant JavaScript without credentials", async () => {

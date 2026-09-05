@@ -10,8 +10,8 @@ export const adminJobs = [
   },
   {
     id: "customer-scope-audit",
-    title: "Kund- och rollkontroll",
-    description: "Summerar demokunder, roller och datagränser i den skyddade konfigurationen.",
+    title: "Kund- och rollöversikt",
+    description: "Summerar syntetiska kunder och konton. Detta är inte en säkerhetsgranskning av faktisk åtkomst.",
     schedule: "Manuell",
     trigger: "manual",
   },
@@ -66,11 +66,11 @@ export function runAdminJob(jobId: string, workspace: DemoWorkspace, now = new D
       mode: "synthetic_read_only",
       startedAt: timestamp,
       finishedAt: timestamp,
-      summary: `${workspace.customers.length} demokund och ${workspace.users.length} demokonton kontrollerades mot dokumenterade roller.`,
+      summary: `${workspace.customers.length} demokunder och ${workspace.users.length} demokonton sammanställdes. Faktisk åtkomst och tenantisolering har inte testats av detta jobb.`,
       facts: [
         { label: "Kundorganisationer", value: String(workspace.customers.length) },
         { label: "Demokonton", value: String(workspace.users.length) },
-        { label: "Global kundåtkomst", value: "Avstängd" },
+        { label: "Åtkomstkontroll", value: "Inte utförd av detta jobb" },
       ],
       persisted: false,
     };
