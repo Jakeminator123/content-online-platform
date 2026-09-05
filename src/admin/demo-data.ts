@@ -46,3 +46,5 @@ export const demoWorkspace = {
   ],
   storage: { status: 'blocked_by_decision', label: 'Visningsläge. Ändringar sparas inte och inga externa licenser påverkas.' },
 };
+
+export type DemoWorkspace = typeof demoWorkspace;

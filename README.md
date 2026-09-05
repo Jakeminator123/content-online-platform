@@ -34,6 +34,7 @@ Kundplattformen ska ge behöriga personer hos Content Onlines kunder en samlad o
 - [Besluts- och faktalogg](docs/BESLUTSLOGG.md)
 - [Källregister och auktoritet](docs/KALLREGISTER.md)
 - [Bottom-up teststrategi](docs/TESTSTRATEGI.md)
+- [Content Online AI-assistent och kontrolljobb](docs/AI_ASSISTENT.md)
 
 ## Kör backend lokalt
 
