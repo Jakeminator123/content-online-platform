@@ -1,6 +1,6 @@
 # Content Online AI-assistent
 
-**Version:** 0.3
+**Version:** 0.4
 
 **Datum:** 2026-09-08
 
@@ -20,11 +20,17 @@ Kundkonton och rollen Kundadministratör ger inte åtkomst till den interna assi
 
 OpenAI Responses API används server-side med `store: false`. Om API:t eller nyckeln inte är tillgängligt svarar en begränsad lokal faktamotor i stället. Sådana svar märks uttryckligen **Faktasvar · AI är inte tillgänglig**, medan modellsvar märks **AI-svar**. Webbläsaren får aldrig API-nyckeln.
 
-## D-ID som röstavatar
+## D-ID dokumentationsagent i separat flik
 
-D-ID är ett valfritt presentationslager, inte en andra assistent. Efter verifierad admininloggning kan användaren uttryckligen aktivera avataren. Först då laddas D-ID:s officiella embed och det färdiga svaret skickas till `speak()` för uppläsning. Den befintliga textchatten fortsätter fungera om D-ID saknas eller får fel.
+Efter verifierad intern inloggning finns en separat ingång till den fungerande Studio-agenten. Den använder egen Agent Prompt och Knowledge; versionshanterade kopior och testfrågor finns i [D-ID-paketet](d-id/README.md). Inga Studio-inställningar ändras automatiskt vid deployment.
 
-Content Onlines instruktioner, källurval och minimerade arbetsytekontext ligger kvar i backend. D-ID:s egna fält för Knowledge/RAG, tools, greetings och starter messages ska lämnas tomma. Om Studio kräver en instruktion ska den bara säga att agenten är en röstavatar som läser upp tillhandahållen text och aldrig svarar självständigt. Integrationen anropar inte D-ID:s `chat()` och aktiverar inte mikrofonen.
+Länken hämtas från `/admin/api/assistant/agent` efter befintlig adminbehörighetskontroll och öppnas först vid klick. Den delar inte CO-session, chatt, kundregister eller jobb. D-ID-sidan är inte skyddad av CO:s inloggning när någon väl har delningslänken. Agenten ska därför endast ha offentligt lämplig dokumentation, aldrig verklig kunddata eller adminverktyg. D-ID:s egna samtal kan belasta ägarens befintliga krediter.
+
+## D-ID som valfri uppläsning av textchatten
+
+I den befintliga speak-integrationen är D-ID endast ett valfritt presentationslager. Detta är skilt från dokumentationsagenten ovan. Efter verifierad admininloggning kan användaren uttryckligen aktivera avataren. Först då laddas D-ID:s officiella embed och det färdiga svaret skickas till `speak()` för uppläsning. Den befintliga textchatten fortsätter fungera om D-ID saknas eller får fel.
+
+Content Onlines instruktioner, källurval och minimerade arbetsytekontext för textchatten ligger kvar i backend. Uppläsningen anropar enbart `speak()` med färdig text, inte D-ID:s `chat()`, och aktiverar inte mikrofonen. Studio-agentens egna Instructions/Knowledge används i det separata samtalet, inte för att formulera backendens textchattsvar. Det äldre kravet att hålla Studio-kunskapen tom gäller inte längre den fristående dokumentationsagenten.
 
 Det färdiga svaret kan fortfarande innehålla intern information. Därför är D-ID avstängt som standard, tracking stängs av i embed-konfigurationen och användaren informeras före aktivering. Verkliga kunddata får inte användas innan DPA, retention, dataresidency och övrig leverantörsbedömning är godkända.
 
@@ -36,7 +42,7 @@ Assistenten kan inte skapa ett valfritt kommando, ändra jobbkod eller köra anv
 - `customer-scope-audit` (visningsnamn **Kund- och rollöversikt**): räknar syntetiska kundorganisationer och konton. Jobbet verifierar inte faktisk åtkomst eller tenantisolering och är inte en säkerhetsgranskning.
 - `renewal-preflight`: kontrollerar om verifierad avtalsdata finns; skapar inget bindande underlag.
 
-Cron-endpointen kräver Vercels server-only `CRON_SECRET`. Manuella körningar kräver verifierad Content Online-admin. Resultaten sparas inte eftersom beständig lagring ännu saknas.
+Cron-endpointen kräver Vercels server-only `CRON_SECRET`. Manuella körningar kräver verifierad Content Online-admin. Jobbresultaten sparas inte ännu. Det separata kund- och publicistregistret har beständig lagring, men det innebär inte sparad jobbhistorik.
 
 ## Dokumenterad kontext
 
@@ -78,7 +84,7 @@ Inför verkliga kunddata ska en separat embed client key användas och dess allo
 
 D-ID:s MCP-server är ett hjälpmedel för lokala utvecklarverktyg och dokumentations/API-arbete. Den är inte en runtime-del av Content Online, exponeras inte för slutanvändaren och får inte användas för att kringgå admin-API:ts behörighetskontroll.
 
-Dokumentationen beskriver en syntetisk, skrivskyddad pilot. Beständig administration och externa integrationer ingår inte i denna leverans.
+Assistentens kundbild och statistikunderlag är syntetiska. Beständig kund- och publicistadministration finns separat enligt [portalstrukturen](PORTALSTRUKTUR.md); assistenten får inte automatiskt databasåtkomst. Verkliga externa dataintegrationer är inte verifierade i denna leverans.
 
 
 ## D-ID-start: regression och felsökning (2026-09-08)

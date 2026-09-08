@@ -5,6 +5,7 @@ import { html } from "hono/html";
 import { secureHeaders } from "hono/secure-headers";
 import { answerAdminQuestion, type AssistantAnswer } from "./assistant.js";
 import { assistantClient } from "./assistant-client.js";
+import { buildDidAgentShareUrl } from "./did-agent.js";
 import { assistantCss } from "./assistant-style.js";
 import { demoWorkspace } from "./demo-data.js";
 import { PLATFORM_ORIGIN } from "./identity.js";
@@ -154,6 +155,13 @@ export function createAdminPortal(
       clientKey: didPresenter.clientKey,
     });
   });
+  // Read-only handoff, behind the same verified staff boundary as the rest of the assistant.
+  app.get("/admin/api/assistant/agent", (c) => {
+    const url = buildDidAgentShareUrl(didPresenter.agentId, didPresenter.clientKey);
+    return c.json(url
+      ? { configured: true, provider: "d-id", mode: "documentation_agent", url }
+      : { configured: false, provider: "d-id", mode: "documentation_agent" });
+  });
   app.get("/admin/api/registry", async (c) => {
     try { return c.json(await registry().read()); }
     catch { return c.json({ error: "storage_unavailable" }, 503); }
@@ -234,7 +242,9 @@ function assistantWidget(mode: "login" | "register" | "admin" | "demo") {
       ${adminMode ? html`
         <div class="assistant-app" id="assistant-app" hidden>
           <div class="assistant-tabs" role="tablist" aria-label="Assistentens arbetsytor"><button class="active" type="button" role="tab" aria-selected="true" data-assistant-tab="chat">Fråga</button><button type="button" role="tab" aria-selected="false" data-assistant-tab="customers">Kundbild</button><button type="button" role="tab" aria-selected="false" data-assistant-tab="jobs">Jobb</button></div>
-          <section class="assistant-view active" id="assistant-view-chat" role="tabpanel"><div class="assistant-presenter"><div><strong>Röstavatar från D-ID</strong><small>Läser upp samma svar som visas här. D-ID skapar inte svaret.</small></div><button id="assistant-presenter-enable" type="button">Aktivera</button></div><p class="assistant-presenter-status" id="assistant-presenter-status" role="status">Avstängd tills du väljer att aktivera den.</p><div class="assistant-presenter-stage" id="assistant-presenter-stage" hidden></div><div class="assistant-messages" id="assistant-messages" aria-live="polite"><div class="assistant-message bot"><div>Hej! Jag svarar utifrån projektets dokumentation och den skyddade pilotöversikten. Jag skiljer alltid på vad plattformen kan nu och vad som återstår.</div></div></div>
+          <section class="assistant-view active" id="assistant-view-chat" role="tabpanel">
+          <div class="assistant-agent"><strong>Prata med Content Online-agenten</strong><p>Din dokumentbaserade D-ID-agent öppnas i en egen flik. Samtalet sker hos D-ID; kundregistret och den här chatten följer inte med.</p><a id="assistant-agent-open" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>Öppna D-ID-agenten ↗</a><p id="assistant-agent-status" role="status">Hämtar agentens länk…</p><button id="assistant-agent-retry" type="button" hidden>Försök igen</button></div>
+          <details class="assistant-speech"><summary>Valfri uppläsning av textchatten</summary><div class="assistant-presenter"><div><strong>Röstavatar från D-ID</strong><small>Läser upp samma svar som visas här. D-ID skapar inte svaret.</small></div><button id="assistant-presenter-enable" type="button">Aktivera</button></div><p class="assistant-presenter-status" id="assistant-presenter-status" role="status">Avstängd tills du väljer att aktivera den.</p><div class="assistant-presenter-stage" id="assistant-presenter-stage" hidden></div></details><div class="assistant-messages" id="assistant-messages" aria-live="polite"><div class="assistant-message bot"><div>Hej! Jag svarar utifrån projektets dokumentation och den skyddade pilotöversikten. Jag skiljer alltid på vad plattformen kan nu och vad som återstår.</div></div></div>
           <div class="assistant-prompts"><button type="button" data-prompt="Vad kan plattformen göra nu och vad ska den kunna senare?">Nu kontra sedan</button><button type="button" data-prompt="Vilken data får respektive användarroll se?">Rollernas data</button><button type="button" data-prompt="Vilka integrationer är inte klara?">Öppna integrationer</button></div>
           <form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-input">Skriv en fråga</label><textarea id="assistant-input" maxlength="1200" rows="1" placeholder="Fråga om plattformen…" required></textarea><button type="submit" aria-label="Skicka fråga">↑</button></form><p class="assistant-footnote">När AI är tillgänglig skickas din fråga till OpenAI. Skriv inga personuppgifter, avtal eller hemligheter. Faktasvar utan AI märks separat.</p></section>
           <section class="assistant-view" id="assistant-view-customers" role="tabpanel" hidden><div class="assistant-section-intro"><span class="assistant-kicker">Skyddad pilotvy</span><h3>Kunder och dataåtkomst</h3><p>Visar bara vad den inloggade Content Online-administratören får läsa.</p></div><div id="assistant-customers"></div></section>

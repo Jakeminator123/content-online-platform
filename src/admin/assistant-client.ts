@@ -18,6 +18,30 @@ export const assistantClient = String.raw`
   async function activate(workspace){
     document.getElementById('assistant-locked').hidden=true;
     document.getElementById('assistant-app').hidden=false;
+    const agentLink=document.getElementById('assistant-agent-open');
+    const agentStatus=document.getElementById('assistant-agent-status');
+    const agentRetry=document.getElementById('assistant-agent-retry');
+    const configureAgentLink=async()=>{
+      agentLink.hidden=true;agentLink.removeAttribute('href');agentRetry.hidden=true;agentRetry.disabled=true;
+      agentStatus.textContent='Hämtar agentens länk…';
+      try{
+        const response=await fetch('/admin/api/assistant/agent',{headers:await authHeaders(false),cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(10000)});
+        if(!response.ok)throw new Error('agent_config');
+        const config=await response.json();
+        if(!config.configured){agentStatus.textContent='D-ID-agentens länk är inte konfigurerad. Textchatten fungerar fortfarande.';agentRetry.hidden=false;return;}
+        const target=new URL(config.url);
+        if(target.origin!=='https://studio.d-id.com'||target.pathname!=='/agents/share'||target.username||target.password||target.hash||!target.searchParams.get('id')||!target.searchParams.get('key'))throw new Error('agent_destination');
+        // A normal, user-clicked link avoids popup blockers and never forwards our session or chat.
+        agentLink.href=target.href;agentLink.hidden=false;
+        agentStatus.textContent='Separat dokumentationsagent utan åtkomst till adminverktyg. Skriv inga personuppgifter, avtal eller hemligheter.';
+      }catch{
+        agentStatus.textContent='Agentens länk kunde inte hämtas. Försök igen; textchatten fungerar fortfarande.';
+        agentRetry.hidden=false;
+      }finally{agentRetry.disabled=false;}
+    };
+    agentRetry.addEventListener('click',()=>configureAgentLink());
+    void configureAgentLink();
+
     const tabs=document.querySelectorAll('[data-assistant-tab]');
     tabs.forEach(tab=>tab.addEventListener('click',()=>{
       tabs.forEach(item=>{const active=item===tab;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));});
