@@ -138,6 +138,9 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("Granska kundsajt");
     expect(registryClient).toContain("Aktiveringssida");
     expect(registryClient).toContain("Styr kundsajt");
+    expect(registryClient).toContain("Ta bort kundsajt");
+    expect(registryClient).toContain("https://fokus-psi-sable.vercel.app");
+    expect(registryClient).toContain("+'/o/'");
     expect(registryClient).toContain("slugify");
     expect(registryClient).toContain("configure_customer_site");
     expect(registryClient).toContain("D-ID Allowed Domains");
@@ -189,6 +192,9 @@ describe("Registry API boundary", () => {
     expect(response.status).toBe(200);
     const text = await response.text();
     expect(text).not.toContain(didClientKey);
+    expect(JSON.parse(text)).toMatchObject({
+      runtime: { customerDomains: { rootDomain: "portal.contentonline.se", wildcardReady: false, previewOrigin: "https://fokus-psi-sable.vercel.app" } },
+    });
     expect(JSON.parse(text)).toMatchObject({
       runtime: { agentModeByCustomer: { "customer-kth-demo": "platform_fallback" } },
     });

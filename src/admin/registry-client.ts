@@ -5,10 +5,14 @@ export const registryClient = String.raw`
   const panel=document.getElementById('registry-panel'),root=document.getElementById('registry-body');
   if(!panel||!root)return;
   const esc=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
-  const fallbackUrl=customer=>'/portal/'+encodeURIComponent(customer.slug);
-  const url=customer=>customer.site?.domainStatus==='ready'&&customer.site.domain?'https://'+customer.site.domain:fallbackUrl(customer);
+  const defaultPreviewOrigin='https://fokus-psi-sable.vercel.app';
+  const previewOrigin=()=>snapshot?.runtime?.customerDomains?.previewOrigin||defaultPreviewOrigin;
+  const fallbackUrl=customer=>previewOrigin()+'/o/'+encodeURIComponent(customer.slug);
+  const managedDomain=customer=>{const rootDomain=snapshot?.runtime?.customerDomains?.rootDomain;return Boolean(rootDomain&&customer?.site?.domain&&customer.site.domain.endsWith('.'+rootDomain)&&!customer.site.domain.slice(0,-rootDomain.length-1).includes('.'));};
+  const domainReady=customer=>customer.site?.domainStatus==='ready'||Boolean(snapshot?.runtime?.customerDomains?.wildcardReady&&managedDomain(customer));
+  const url=customer=>domainReady(customer)&&customer.site.domain?'https://'+customer.site.domain:fallbackUrl(customer);
   const activationUrl=customer=>url(customer)+(url(customer).endsWith('/')?'':'/')+'login';
-  const allowedDomain=customer=>customer.site?.domain?'https://'+customer.site.domain+' (och https://content-online-platform.vercel.app under förhandsgranskning)':'Sätt kunddomänen först';
+  const allowedDomain=customer=>customer.site?.domain?'https://'+customer.site.domain+' (och '+previewOrigin()+' under förhandsgranskning)':'Sätt kunddomänen först';
   const slugify=value=>value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,63).replace(/-+$/g,'');
   const view=()=>location.hash.slice(1)||'overview';
   const label={draft:'Utkast',published:'Publicerad',archived:'Arkiverad',active:'Aktiv',not_configured:'Inte konfigurerad',pending:'DNS väntar',ready:'Klar'};
@@ -31,9 +35,9 @@ export const registryClient = String.raw`
         const agentMode=snapshot.runtime?.agentModeByCustomer?.[customer.id];
         const agentState=agentMode==='customer'?'D-ID konfigurerad per kund':agentMode==='platform_fallback'?'D-ID via plattformskonfiguration':agentMode==='incomplete'?'D-ID väntar på uppgifter':'Agent avstängd';
         const preview=url(customer),activation=activationUrl(customer);
-        return '<article class="registry-customer"><div class="registry-customer-main">'+swatch(customer)+'<div class="body"><strong>'+esc(customer.name)+'</strong><small>'+esc(label[customer.status])+' · '+esc(customer.site.preset)+'-mall · '+esc(agentState)+'</small><small><b>Domän:</b> '+esc(customer.site.domain||'Ej vald')+' · '+esc(label[customer.site.domainStatus])+'</small><small><b>Förhandsvisning:</b> '+esc(preview)+'</small><small><b>Publicister:</b> '+esc(customer.publisherIds.map(id=>publishers.find(p=>p.id===id)?.name||id).join(', ')||'Inga valda')+'</small></div></div><div class="registry-actions">'+button('Styr kundsajt','edit_customer',customer.id,'button teal')+(customer.site.domain?button(customer.site.domainStatus==='ready'?'Kontrollera domän':'Koppla domän','ensure_domain',customer.id):'')+(customer.status==='published'?'<a class="button secondary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(preview)+'">Granska kundsajt</a><a class="button secondary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(activation)+'">Aktiveringssida</a>'+button('Avpublicera','unpublish_customer',customer.id):customer.status==='draft'?button('Publicera','publish_customer',customer.id):button('Återställ till utkast','restore_customer',customer.id))+(customer.status!=='archived'?button('Arkivera','archive_customer',customer.id):'')+'</div></article>';
+        return '<article class="registry-customer"><div class="registry-customer-main">'+swatch(customer)+'<div class="body"><strong>'+esc(customer.name)+'</strong><small>'+esc(label[customer.status])+' · '+esc(customer.site.preset)+'-mall · '+esc(agentState)+'</small><small><b>Domän:</b> '+esc(customer.site.domain||'Ej vald')+' · '+esc(domainReady(customer)?'Klar via wildcard':label[customer.site.domainStatus])+'</small><small><b>Förhandsvisning:</b> '+esc(preview)+'</small><small><b>Publicister:</b> '+esc(customer.publisherIds.map(id=>publishers.find(p=>p.id===id)?.name||id).join(', ')||'Inga valda')+'</small></div></div><div class="registry-actions">'+button('Styr kundsajt','edit_customer',customer.id,'button teal')+(customer.site.domain&&!domainReady(customer)?button('Kontrollera DNS','ensure_domain',customer.id):'')+(customer.status==='published'?'<a class="button secondary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(preview)+'">Granska kundsajt</a><a class="button secondary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(activation)+'">Aktiveringssida</a>'+button('Avpublicera','unpublish_customer',customer.id):customer.status==='draft'?button('Publicera','publish_customer',customer.id):button('Återställ till utkast','restore_customer',customer.id))+(customer.status!=='archived'?button('Ta bort kundsajt','archive_customer',customer.id):'')+'</div></article>';
       }).join('');
-      html+='<div id="registry-editor"></div><p class="footnote">Den interna förhandsvisningsadressen fungerar innan DNS är klar. En riktig kunddomän kräver wildcard-DNS på Vercel. D-ID Allowed Domains ska vara exakt kundens origin, exempelvis https://kth.portal.contentonline.se – aldrig en URL med sökväg.</p>';
+      html+='<div id="registry-editor"></div><p class="footnote">Den delade förhandsvisningen på fokus fungerar innan DNS är klar. När wildcard-DNS är verifierad fungerar alla nya förstahands-subdomäner automatiskt, utan ett nytt Vercel-projekt per kund. D-ID Allowed Domains ska vara exakt kundens origin, exempelvis https://kth.portal.contentonline.se – aldrig en URL med sökväg.</p>';
     }
     if(view()==='publishers'){
       html+='<p>Hantera partnerregistret. Att lägga till en publicist ansluter inte automatiskt dess API eller informationsprodukter.</p><form data-reg-form="add_publisher" class="registry-form">'+field('name','Publicistens namn')+'<button class="button teal" type="submit">Lägg till publicist</button></form>';
@@ -74,7 +78,7 @@ export const registryClient = String.raw`
     try{
       const token=await window.Clerk?.session?.getToken();if(!token)throw new Error('Du behöver logga in igen.');
       const response=await fetch('/admin/api/customers/'+encodeURIComponent(id)+'/domain/ensure',{method:'POST',credentials:'omit',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({version:snapshot.version})});
-      if(!response.ok){if(response.status===503)throw new Error('Domänautomationen saknar Vercel-token eller kunde inte nå Vercel. Förhandsvisningen fungerar fortfarande.');throw new Error('Domänen kunde inte verifieras. Uppdatera registret och försök igen.');}
+      if(!response.ok){if(response.status===503)throw new Error(managedDomain(snapshot.data.customers.find(customer=>customer.id===id))?'Wildcard-DNS är inte färdigverifierad i Vercel ännu. Den delade förhandsvisningen fungerar fortfarande.':'Den anpassade domänen kunde inte nå Vercel. Förhandsvisningen fungerar fortfarande.');throw new Error('Domänen kunde inte verifieras. Uppdatera registret och försök igen.');}
       const result=await response.json();await load();state(result.status==='ready'?'Domänen är verifierad och klar.':'Wildcard-domänen är tillagd. Konfigurera DNS/nameservers i Vercel och kontrollera igen.');
     }catch(error){state(error.message);}finally{busy=false;root.querySelectorAll('button').forEach(node=>node.disabled=false);}
   }
@@ -88,7 +92,8 @@ export const registryClient = String.raw`
     if(action==='edit_publisher'){const publisher=snapshot.data.publishers.find(item=>item.id===id);if(!publisher)return;document.getElementById('registry-editor').innerHTML='<form class="registry-form" data-reg-form="rename_publisher" data-id="'+esc(id)+'">'+field('name','Publicistens namn',publisher.name)+'<button class="button teal" type="submit">Spara namn</button></form>';return;}
     const item=snapshot.data.customers.find(customer=>customer.id===id)||snapshot.data.publishers.find(publisher=>publisher.id===id);
     if(action==='publish_customer'&&!confirm('Publicera '+item.name+' med kundsajt och aktiveringssida? Varumärkesuppgifterna blir offentliga; kunddata och konton publiceras inte.'))return;
-    if(action.startsWith('archive_')&&!confirm('Arkivera '+item.name+'? Kundportalen blir otillgänglig om detta är en kund. Posten kan återställas.'))return;
+    if(action==='archive_customer'&&!confirm('Ta bort kundsajten för '+item.name+'? Portalen blir omedelbart otillgänglig, men kundpost och inställningar bevaras så att sajten kan återställas.'))return;
+    if(action==='archive_publisher'&&!confirm('Arkivera '+item.name+'? Befintliga kopplingar bevaras och posten kan återställas.'))return;
     mutate({action,id});
   });
   root.addEventListener('input',event=>{

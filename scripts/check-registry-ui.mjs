@@ -49,8 +49,8 @@ try{
   assert.ok((await row.innerText()).includes('D-ID konfigurerad per kund'));
   await row.getByRole('button',{name:'Publicera',exact:true}).click();
   await row.getByRole('link',{name:'Granska kundsajt'}).waitFor();
-  assert.equal(await row.getByRole('link',{name:'Granska kundsajt'}).getAttribute('href'),'/portal/browser-customer');
-  assert.equal(await row.getByRole('link',{name:'Aktiveringssida'}).getAttribute('href'),'/portal/browser-customer/login');
+  assert.equal(await row.getByRole('link',{name:'Granska kundsajt'}).getAttribute('href'),'https://fokus-psi-sable.vercel.app/o/browser-customer');
+  assert.equal(await row.getByRole('link',{name:'Aktiveringssida'}).getAttribute('href'),'https://fokus-psi-sable.vercel.app/o/browser-customer/login');
   const directory=await(await fetch(base+'/portal-directory/browser-customer')).json();
   assert.deepEqual({name:directory.name,slug:directory.slug,mode:directory.mode},{name:'Browser Customer',slug:'browser-customer',mode:'awaiting_accounts'});
   assert.equal(directory.brand.heading,'Browser kunskapsportal');
@@ -62,7 +62,7 @@ try{
   await row.getByRole('link',{name:'Granska kundsajt'}).waitFor();
   assert.ok((await row.innerText()).includes('Browser Partner'));
   await page.screenshot({path:'test-artifacts/registry-desktop.png',fullPage:true});
-  await row.getByRole('button',{name:'Arkivera',exact:true}).click();
+  await row.getByRole('button',{name:'Ta bort kundsajt',exact:true}).click();
   await row.getByRole('button',{name:'Återställ till utkast'}).waitFor();
   assert.equal((await fetch(base+'/portal-directory/browser-customer')).status,404);
   await row.getByRole('button',{name:'Återställ till utkast'}).click();

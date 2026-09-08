@@ -49,6 +49,23 @@ describe("Vercel customer-domain automation", () => {
     await expect(service.ensure("kth.portal.contentonline.se")).rejects.toEqual(expect.objectContaining({ code: "unconfigured" }));
   });
 
+  it("accepts a preverified managed wildcard without a long-lived token", async () => {
+    const fetcher = vi.fn();
+    const service = new VercelCustomerDomainService({
+      token: "",
+      projectId: "",
+      teamId: "",
+      portalRootDomain: "portal.contentonline.se",
+      managedWildcardReady: true,
+    }, fetcher);
+    await expect(service.ensure("new-customer.portal.contentonline.se")).resolves.toEqual({
+      status: "ready",
+      managedDomain: "*.portal.contentonline.se",
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(service.ensure("nested.new-customer.portal.contentonline.se")).rejects.toEqual(expect.objectContaining({ code: "unconfigured" }));
+  });
+
   it("keeps the ensure endpoint admin-only and persists verified status", async () => {
     const registryStore = store();
     const domainService = { ensure: vi.fn(async () => ({ status: "ready" as const, managedDomain: "*.portal.contentonline.se" })) };
