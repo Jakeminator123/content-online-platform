@@ -20,7 +20,7 @@ const knowledgeSources = [
     id: "ADMIN_DRIFT.md",
     keywords: ["kan", "klart", "nu", "status", "login", "inlogg", "clerk", "lagring", "integration"],
     facts:
-      "Intern Clerk-inloggning och en skyddad syntetisk adminöversikt finns. Beständig lagring, skrivande kundadministration, produktionsauth och livekopplingar till publishers, Salesforce och Fortnox återstår.",
+      "Intern Clerk-inloggning och ett beständigt kund- och publicistregister finns. Content Online kan skapa, anpassa, publicera, arkivera och permanent radera skyddade kundposter. Produkt-, användar- och statistikvyer är fortfarande demo; produktionsauth och livekopplingar till publishers, Salesforce och Fortnox återstår.",
   },
   {
     id: "BACKEND_ANSVAR.md",
@@ -38,15 +38,15 @@ const knowledgeSources = [
     id: "AI_ASSISTENT.md",
     keywords: ["assistent", "ai", "bot", "cron", "jobb", "automat", "schema"],
     facts:
-      "Assistenten svarar från projektets dokumenterade kontext och en minimerad adminöversikt. Den kan starta allowlistade kontrolljobb, men får inte köra godtyckliga kommandon eller påstå att ej anslutna system har uppdaterats.",
+      "Assistenten svarar från projektets dokumenterade kontext och en minimerad demoöversikt. Allowlistade kontrolljobb finns server-side, men chatten kan inte starta dem och får aldrig påstå att ett jobb eller ett ej anslutet system har uppdaterats.",
   },
 ] as const;
 
 const instructions = `Du är Content Onlines interna assistent. Svara på svenska, konkret och med korta stycken.
 Använd endast DOKUMENTERAD KONTEXT och SKYDDAD ÖVERSIKT i frågan. Hitta inte på kunddata, avtal, integrationer eller funktioner.
 Skilj alltid tydligt mellan KAN NU, SKA KUNNA och INTE KLART när frågan gäller förmågor eller status.
-All kunddata i nuvarande översikt är syntetisk demo. Säg det när du beskriver kunder, användare eller usage.
-Du kan inte själv köra jobb i chattsvaret. Hänvisa till fliken Jobb när användaren vill starta ett allowlistat jobb.
+Den minimerade översikt som skickas till dig innehåller endast syntetisk demo. Det beständiga registret finns, men dess verkliga kundposter ingår inte i din kontext; hitta aldrig på dem.
+Du kan inte köra jobb i chattsvaret. Kundspecifika Cronjobb och Rapportflöde är ännu inte aktiverade i adminytan.
 Säg aldrig att en extern synk, renewal, accessändring eller affärshändelse har utförts. Ge inte juridiska eller bindande besked.
 Avsluta med "Källor:" och namnen på relevanta dokument från kontexten.`;
 
@@ -154,13 +154,13 @@ function fallbackAnswer(question: string, workspace: DemoWorkspace, sources: rea
   const sourceLine = `Källor: ${sources.join(", ")}`;
 
   if (/cron|jobb|automat|schema/.test(normalized)) {
-    return `KAN NU: Du kan starta fördefinierade, skrivskyddade kontrolljobb från fliken Jobb. Ett dagligt readiness-jobb är förberett för Vercel Cron.\n\nSKA KUNNA: Fler importer, kvalitetskontroller och förnyelseunderlag kan kopplas in när datakällor och lagring är beslutade.\n\nINTE KLART: Assistenten kör aldrig godtyckliga kommandon och inga externa system är anslutna ännu.\n\n${sourceLine}`;
+    return `KAN NU: Ett dagligt, skrivskyddat readiness-jobb är förberett för Vercel Cron och servern har allowlistade kontrolljobb.\n\nSKA KUNNA: Kundspecifika Cronjobb och Rapportflöde kan aktiveras när datakällor, ansvar och lagring för resultaten är beslutade.\n\nINTE KLART: Chatten kan inte starta jobb, de kundspecifika menyvalen är ännu inte aktiverade och inga externa system är anslutna.\n\n${sourceLine}`;
   }
   if (/kund|använd|roll|behör|data|kth/.test(normalized)) {
     const users = workspace.users.length;
-    return `KAN NU: Den skyddade vyn innehåller ${workspace.customers.length} syntetiska kundorganisationer och ${users} demokonton. Kundadministratör ser den kompletta tillåtna organisationsbilden; Läsare ser en begränsad vy.\n\nSKA KUNNA: Samma överblick ska senare bygga på serverfiltrerad live-data per kund och roll.\n\nINTE KLART: Nuvarande kund-, användar- och produktdata är syntetisk och ingen beständig kunddatabas är ansluten.\n\n${sourceLine}`;
+    return `KAN NU: Content Online har ett beständigt register för kund- och publicistposter samt publicerade portalskal. Assistentens skyddade underlag innehåller däremot endast ${workspace.customers.length} syntetiska kundorganisationer och ${users} demokonton.\n\nSKA KUNNA: Kundportalen ska bygga på serverfiltrerad live-data per medlemskap, kund och roll.\n\nINTE KLART: Verkliga kundanvändare, produkttilldelningar och usage ingår inte i assistentens underlag och får inte härledas från demon.\n\n${sourceLine}`;
   }
-  return `KAN NU: Plattformen har en skyddad intern admininloggning, en syntetisk kundöversikt och API-kontrakt för portfölj, usage, medlemmar och ärenden.\n\nSKA KUNNA: Kunder ska få en samlad bild av produkter, användning, förnyelser, access, dokument och ärenden medan innehållet ligger kvar hos publishers.\n\nINTE KLART: Beständig lagring, skrivande administration, produktionsauth och livekopplingar till publishers, Salesforce och Fortnox återstår.\n\n${sourceLine}`;
+  return `KAN NU: Plattformen har skyddad intern admininloggning, ett beständigt kund- och publicistregister, publicerbara kundportalskal och API-kontrakt för portfölj, usage, medlemmar och ärenden.\n\nSKA KUNNA: Kunder ska få en samlad bild av produkter, användning, förnyelser, access, dokument och ärenden medan innehållet ligger kvar hos publishers.\n\nINTE KLART: Produktionsauth, verkliga kundmedlemskap, live-statistik och kopplingar till publishers, Salesforce och Fortnox återstår.\n\n${sourceLine}`;
 }
 
 function dataAccessForRole(role: string): string[] {

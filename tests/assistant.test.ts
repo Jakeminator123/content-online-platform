@@ -9,6 +9,8 @@ describe("documentation-grounded admin assistant", () => {
     expect(result.answer).toContain("KAN NU");
     expect(result.answer).toContain("SKA KUNNA");
     expect(result.answer).toContain("INTE KLART");
+    expect(result.answer).toContain("beständigt kund- och publicistregister");
+    expect(result.answer).not.toContain("Beständig lagring, skrivande administration");
     expect(result.sources).toContain("ADMIN_DRIFT.md");
   });
 
@@ -45,7 +47,8 @@ describe("documentation-grounded admin assistant", () => {
       fetchImpl,
     });
     expect(result.mode).toBe("local_fallback");
-    expect(result.answer).toContain("fördefinierade");
+    expect(result.answer).toContain("servern har allowlistade kontrolljobb");
+    expect(result.answer).not.toContain("fliken Jobb");
     expect(result.answer).not.toContain("provider detail");
   });
 

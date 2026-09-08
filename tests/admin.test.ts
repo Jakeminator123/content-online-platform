@@ -181,41 +181,59 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(styles).not.toContain('logo-scan-in');
   });
 
-  it.each(["/", "/admin/login", "/admin/registrera", "/demo"])("shows the same locked assistant on %s without privileged controls", async (path) => {
+  it.each(["/", "/admin/login", "/admin/registrera", "/demo"])("keeps the protected assistant out of %s", async (path) => {
     const response = await appFor({ status: "unauthenticated" }).request(path);
     const body = await response.text();
-    expect(body).toContain("Fråga CO");
-    expect(body).toContain("Logga in för att aktivera arbetsytan");
-    expect(body).toContain('href="/admin/login"');
-    expect(body).toContain('/admin/assets/assistant.css');
-    expect(body).toContain('/admin/assets/assistant.js');
-    for (const id of ["assistant-app", "assistant-form", "assistant-customers", "assistant-jobs"]) {
-      expect(body).not.toContain('id="' + id + '"');
-    }
+    expect(body).not.toContain('id="assistant-launcher"');
+    expect(body).not.toContain('/admin/assets/assistant.css');
+    expect(body).not.toContain('/admin/assets/assistant.js');
   });
 
-  it("keeps demo and admin on one workspace with the same navigation and assistant", async () => {
+  it("uses grouped workspace navigation and keeps the chat exclusive to admin", async () => {
     const app = appFor({ status: "unauthenticated" });
     for (const path of ["/demo", "/admin"]) {
       const body = await (await app.request(path)).text();
       expect(body).toContain("/admin/assets/workspace.js");
-      expect(body).toContain('id="assistant-launcher"');
       expect(body).toContain('class="brand portal-brand"');
       expect(body).toContain('/admin/assets/co-logo.png');
       expect(body).toContain('INTERN ARBETSYTA');
-      for (const id of ["overview", "customers", "users", "publishers", "products", "connections", "salesforce"]) {
+      expect(body).toContain('data-nav-group="customers"');
+      expect(body).toContain('data-nav-group="connections"');
+      expect(body).toContain('Användare <small>Välj kund</small>');
+      expect(body).toContain('Cronjobb <small>Välj kund</small>');
+      expect(body).toContain('Rapportflöde <small>Välj kund</small>');
+      for (const id of ["overview", "customers", "publishers", "products", "connections", "salesforce"]) {
         expect(body).toContain('data-id="' + id + '"');
       }
+      expect(body).not.toContain('data-id="users"');
+      expect(body).not.toContain('Kundregister & kundportaler');
     }
+    const demo = await (await app.request("/demo")).text();
+    expect(demo).not.toContain('id="assistant-launcher"');
     const admin = await (await app.request("/admin")).text();
+    expect(admin).toContain('id="assistant-launcher"');
     expect(admin).toContain('id="assistant-app" hidden');
-    expect(admin).toContain("skickas din fråga till OpenAI");
+    expect(admin).toContain("Frågan skickas till OpenAI");
+    expect(admin).not.toContain('data-assistant-tab');
+    expect(admin).not.toContain('id="assistant-customers"');
+    expect(admin).not.toContain('id="assistant-jobs"');
     const start = await (await app.request("/")).text();
     expect(start).toContain('data-mode="login"');
     expect(start).toContain('id="auth-widget"');
     expect(start).not.toContain("Öppna kundportalen");
     expect(start).not.toContain("FÖR KUNDORGANISATIONER");
     expect(start).not.toContain("KTH");
+  });
+
+  it("does not treat a transient Clerk reconnect as a signed-out session", () => {
+    expect(workspaceClient).toContain("if(Clerk.session===null)");
+    expect(workspaceClient).toContain("if(state.session===null)");
+    expect(workspaceClient).not.toContain("if(!s.session)");
+    expect(workspaceClient).not.toContain("adminHeaders");
+    expect(workspaceClient).toContain("headers:await freshAdminHeaders()");
+    expect(workspaceClient).toContain("Clerk.addListener(handleClerkState)");
+    expect(workspaceClient).toContain("if(window.Clerk?.session===undefined)hideProtectedWorkspace");
+    expect(workspaceClient).toContain("},15000)");
   });
 
   it("does not invoke the assistant for a demo visitor or customer cookie", async () => {
@@ -231,13 +249,13 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(askAssistant).not.toHaveBeenCalled();
   });
 
-  it.each(["start", "login", "register", "demo"])("opens the locked bubble in %s mode without requesting admin data", (mode) => {
+  it("opens the compact admin chat without requesting data before workspace authorization", () => {
     const launcher = { setAttribute: vi.fn(), focus: vi.fn(), addEventListener: vi.fn() };
     const panel = { hidden: true };
     const close = { focus: vi.fn(), addEventListener: vi.fn() };
     const elements: Record<string, unknown> = { "assistant-launcher": launcher, "assistant-panel": panel, "assistant-close": close };
     const fetchSpy = vi.fn();
-    const document = { body: { dataset: { mode } }, getElementById: (id: string) => elements[id], addEventListener: vi.fn() };
+    const document = { body: { dataset: { mode: "admin" } }, getElementById: (id: string) => elements[id], addEventListener: vi.fn() };
     new Script(assistantClient).runInNewContext({ document, fetch: fetchSpy });
     launcher.addEventListener.mock.calls[0]![1]();
     expect(panel.hidden).toBe(false);
@@ -257,6 +275,10 @@ describe("Hosted portal entry and guarded admin API", () => {
     const response = await appFor({ status: "unauthenticated" }).request("/admin/assets/assistant.js");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/javascript");
+    const css = await (await appFor({ status: "unauthenticated" }).request("/admin/assets/assistant.css")).text();
+    expect(css).toContain("width:min(380px");
+    expect(css).toContain("height:min(560px");
+    expect(css).not.toContain(".assistant-tabs");
   });
 
   it("keeps the customer-facing D-ID agent out of the internal admin portal", async () => {
@@ -268,7 +290,8 @@ describe("Hosted portal entry and guarded admin API", () => {
     }
     const admin = await (await appFor({ status: "unauthenticated" }).request("/admin")).text();
     expect(admin).toContain("Intern kunskapsassistent");
-    expect(admin).toContain("D-ID-agenten finns i kundportalen");
+    expect(admin).toContain("Fråga CO");
+    expect(admin).not.toContain("D-ID-agenten finns i kundportalen");
   });
 
   it("routes the legacy selector to the internal customer register without credentials", async () => {

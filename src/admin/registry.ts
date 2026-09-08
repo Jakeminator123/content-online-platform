@@ -120,6 +120,7 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("publish_customer"), id }),
   z.object({ action: z.literal("unpublish_customer"), id }),
   z.object({ action: z.literal("archive_customer"), id }),
+  z.object({ action: z.literal("delete_customer"), id, confirmation: z.string().trim().min(2).max(120) }),
   z.object({ action: z.literal("restore_customer"), id }),
   z.object({
     action: z.literal("link_salesforce_account"),
@@ -194,9 +195,17 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
         p.name = command.name;
       } else p.status = command.action === "archive_publisher" ? "archived" : "active";
     } else {
-      const c = next.customers.find(c => c.id === command.id);
-      if (!c) throw new RegistryError("not_found", 404);
-      if (command.action === "update_customer") {
+      const customerIndex = next.customers.findIndex(c => c.id === command.id);
+      if (customerIndex < 0) throw new RegistryError("not_found", 404);
+      const c = next.customers[customerIndex]!;
+      if (command.action === "delete_customer") {
+        if (c.kind !== "customer") throw new RegistryError("demo_customer_protected", 409);
+        if (c.status !== "archived") throw new RegistryError("delete_requires_archived", 409);
+        if (command.confirmation !== c.name && command.confirmation !== c.slug) {
+          throw new RegistryError("delete_confirmation_mismatch", 422);
+        }
+        next.customers.splice(customerIndex, 1);
+      } else if (command.action === "update_customer") {
         const unique = [...new Set(command.publisherIds)];
         if (unique.some(id => !next.publishers.some(p => p.id === id && (p.status === "active" || c.publisherIds.includes(id))))) throw new RegistryError("publisher_unavailable");
         c.name = command.name;
