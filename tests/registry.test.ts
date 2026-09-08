@@ -178,6 +178,21 @@ describe("Registry API boundary", () => {
     expect((await app.request("/admin/api/registry", { method: "POST", body: JSON.stringify({ version: 2, command: { action: "delete_everything" } }) })).status).toBe(422);
     expect((await app.request("/admin/api/registry", { method: "POST", headers: { origin: "https://evil.example" }, body: "{}" })).status).toBe(403);
   });
+  it("reports runtime agent mode without exposing the fallback client key", async () => {
+    const didClientKey = "ck_runtime_status_key";
+    const app = createAdminPortal(
+      { authenticate: async () => ({ status: "authenticated", identity: { id: actor, email: cfg.allowedEmail, role: "content_admin" } }) },
+      cfg,
+      { registryStore: memoryStore(), didAgentId: "v2_agt_runtime_status", didClientKey },
+    );
+    const response = await app.request("/admin/api/registry");
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).not.toContain(didClientKey);
+    expect(JSON.parse(text)).toMatchObject({
+      runtime: { agentModeByCustomer: { "customer-kth-demo": "platform_fallback" } },
+    });
+  });
   it("fails closed instead of returning fabricated successful empty data", async () => {
     const store = { read: async () => { throw new Error("private-db-credentials"); }, write: vi.fn() };
     const app = createAdminPortal({ authenticate: async () => ({ status: "authenticated", identity: { id: actor, email: cfg.allowedEmail, role: "content_admin" } }) }, cfg, { registryStore: store });

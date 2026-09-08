@@ -12,7 +12,7 @@ import { PLATFORM_ORIGIN } from "./identity.js";
 import type { AdminAuthenticator, AdminConfig, AdminIdentity } from "./identity.js";
 import { adminJobs, runAdminJob } from "./jobs.js";
 import { z } from "zod";
-import { applyRegistryCommand, commandSchema, initialRegistry, publicPortal, publishedCustomer, RegistryError, type Registry, type RegistryStore } from "./registry.js";
+import { applyRegistryCommand, commandSchema, initialRegistry, publicPortal, publishedCustomer, RegistryError, type Registry, type RegistrySnapshot, type RegistryStore } from "./registry.js";
 import { registryStoreFromEnvironment } from "./registry-store.js";
 import { registryClient } from "./registry-client.js";
 import {
@@ -27,7 +27,7 @@ import {
 } from "./salesforce.js";
 import { workspaceClient } from "./workspace-client.js";
 import { workspaceCss } from "./workspace-style.js";
-import { resolveCustomerAgent } from "../customer-portal/agent.js";
+import { didEmbedConfiguration, resolveCustomerAgent } from "../customer-portal/agent.js";
 import { customerPortalClient } from "../customer-portal/client.js";
 import { CustomerDomainError, customerDomainServiceFromEnvironment, type CustomerDomainService } from "../customer-portal/domains.js";
 import { customerSlugFromHostname, isCustomerSlug } from "../customer-portal/routing.js";
@@ -96,6 +96,16 @@ export function createAdminPortal(
 
   const registry = () => options.registryStore ?? registryStoreFromEnvironment();
   const domainService = () => options.domainService ?? customerDomainServiceFromEnvironment(options.fetchImpl);
+  const adminRegistrySnapshot = (snapshot: RegistrySnapshot) => ({
+    ...snapshot,
+    runtime: {
+      agentModeByCustomer: Object.fromEntries(snapshot.data.customers.map((customer) => {
+        if (!customer.site.agent.enabled) return [customer.id, "disabled"];
+        if (didEmbedConfiguration(customer.site.agent.agentId, customer.site.agent.clientKey)) return [customer.id, "customer"];
+        return [customer.id, resolveCustomerAgent(customer, fallbackDidAgent) ? "platform_fallback" : "incomplete"];
+      })),
+    },
+  });
   const loadPortal = async (slug: string): Promise<{ registry: Registry; customer: NonNullable<ReturnType<typeof publishedCustomer>> } | null> => {
     if (!isCustomerSlug(slug)) return null;
     const data = (await registry().read()).data;
@@ -317,7 +327,7 @@ export function createAdminPortal(
     }
   });
   app.get("/admin/api/registry", async (c) => {
-    try { return c.json(await registry().read()); }
+    try { return c.json(adminRegistrySnapshot(await registry().read())); }
     catch { return c.json({ error: "storage_unavailable" }, 503); }
   });
   app.post("/admin/api/registry", async (c) => {
@@ -333,7 +343,7 @@ export function createAdminPortal(
       const current = await store.read();
       if (current.version !== body.data.version) return c.json({ error: "version_conflict" }, 409);
       const next = applyRegistryCommand(current.data, body.data.command, c.get("adminIdentity").id, options.now?.() ?? new Date());
-      return c.json(await store.write(current.version, next));
+      return c.json(adminRegistrySnapshot(await store.write(current.version, next)));
     } catch (error) {
       if (error instanceof SyntaxError) return c.json({ error: "invalid_json" }, 422);
       if (error instanceof RegistryError) return c.json({ error: error.code }, error.status);
