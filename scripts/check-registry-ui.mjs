@@ -25,6 +25,7 @@ try{
   await panel.locator('.list-item').filter({hasText:'Browser Partner'}).waitFor();
   await page.locator('.nav [data-id="customers"]').click();
   assert.equal(await page.locator('#view').innerText(), '', 'Real customer management must not display fictional organizations');
+  assert.ok((await panel.locator('.registry-customer').filter({hasText:'KTH'}).innerText()).includes('D-ID via plattformskonfiguration'));
   await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
   assert.equal(await panel.getByLabel('URL-namn').inputValue(),'browser-customer');
   await panel.getByRole('button',{name:'Lägg till kund',exact:true}).click();
@@ -45,6 +46,7 @@ try{
   await panel.getByRole('button',{name:'Spara kundsajt',exact:true}).click();
   await page.waitForFunction(()=>document.getElementById('registry-status')?.textContent==='Ändringen är sparad.');
   row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
+  assert.ok((await row.innerText()).includes('D-ID konfigurerad per kund'));
   await row.getByRole('button',{name:'Publicera',exact:true}).click();
   await row.getByRole('link',{name:'Granska kundsajt'}).waitFor();
   assert.equal(await row.getByRole('link',{name:'Granska kundsajt'}).getAttribute('href'),'/portal/browser-customer');
