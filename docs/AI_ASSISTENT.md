@@ -72,7 +72,9 @@ Assistenten får aldrig beskriva en demo, planerad funktion eller misslyckad kon
 
 Ägaren hanterar `OPENAI_API_KEY` separat, server-side i det befintliga Vercel-projektet. Inga nycklar skapas eller kopieras med denna integration. Efter ändrad miljökonfiguration behövs en ny deployment och ett separat autentiserat live-test. CI använder injicerade testnycklar och simulerade providers, inte betalda modellanrop.
 
-D-ID-agenten är `v2_agt_4xrfqG8W`. `DID_AGENT_ID` och den domänbegränsade `DID_CLIENT_KEY` konfigureras i Vercel; client key returneras endast från det skyddade admin-API:t efter lyckad autentisering. D-ID API key ska aldrig läggas i repositoryt eller skickas till webbläsaren. Tillåt bara de exakta utvecklings- och produktionsdomäner som faktiskt används, aldrig wildcard. Nyckeln i en publik delningslänk ska bytas mot en separat embed client key om dess allowed domains inte är uttryckligen begränsade till dessa origins.
+D-ID-agenten är `v2_agt_4xrfqG8W`. `DID_AGENT_ID` och den frontendavsedda `DID_CLIENT_KEY` är konfigurerade som läsbara **Config**-värden för **All Environments** i Vercel-projektet `content-online-platform`. Det är ett uttryckligt pilotval: båda värdena används i webbläsarintegrationen och behandlas därför inte som serverhemligheter. Client key returneras ändå endast från det skyddade admin-API:t efter lyckad autentisering. D-ID API key ska aldrig läggas i repositoryt, markeras som Config eller skickas till webbläsaren.
+
+Inför verkliga kunddata ska en separat embed client key användas och dess allowed domains begränsas till de exakta origins som faktiskt används. Den skärpningen är inte ett blockerande krav för den nuvarande syntetiska piloten. Ändringar av Vercels miljövariabler börjar gälla först i en ny deployment.
 
 D-ID:s MCP-server är ett hjälpmedel för lokala utvecklarverktyg och dokumentations/API-arbete. Den är inte en runtime-del av Content Online, exponeras inte för slutanvändaren och får inte användas för att kringgå admin-API:ts behörighetskontroll.
 

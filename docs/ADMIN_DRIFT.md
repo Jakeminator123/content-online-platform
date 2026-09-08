@@ -34,7 +34,7 @@ Ingen e-postadress, lösenord eller hemlig nyckel hör hemma i detta publika rep
 
 - `CLERK_SECRET_KEY` och `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: tillförs av Vercel Marketplace.
 - `CONTENT_ONLINE_ADMIN_EMAIL`: server-only, satt som sensitive enbart i Vercels production-miljö.
-- `DID_AGENT_ID`: agentens publika identifierare. `DID_CLIENT_KEY`: frontendavsedd client key som ändå returneras först efter adminauth och ska begränsas till exakta allowed domains. D-ID API key används inte av applikationen.
+- `DID_AGENT_ID` och `DID_CLIENT_KEY`: satta som **Config** (icke-känsliga) i **All Environments** för Vercel-projektet `content-online-platform`. Det är avsiktligt för den syntetiska piloten eftersom båda används av frontendintegrationen; client key returneras ändå först efter adminauth. D-ID API key används inte av applikationen och får inte behandlas på samma sätt.
 - `.env.example`: konfigurationsnamn och icke-hemliga standardvärden, aldrig credentials.
 - `scripts/configure-admin-auth.mjs`: explicit körd, idempotent registreringsallowlist för den konfigurerade adressen. Skickar inte e-post och skapar inte ett verifierat användarkonto.
 
