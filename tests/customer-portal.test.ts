@@ -146,6 +146,46 @@ describe("shared multi-tenant customer portal", () => {
     expect(parsed.customers[0]!.site).toMatchObject({ preset: "insight", domainStatus: "not_configured", agent: { enabled: false, positivity: 5 } });
   });
 
+  it("migrates only a legacy KTH demo without site settings to the intended agent-enabled pilot", async () => {
+    const legacyKth = {
+      id: "customer-kth-demo",
+      name: "KTH",
+      slug: "kth",
+      status: "published" as const,
+      kind: "demo" as const,
+      publisherIds: ["ieee"],
+    };
+    const data = registrySchema.parse({
+      customers: [legacyKth],
+      publishers: [{ id: "ieee", name: "IEEE", status: "active" }],
+      events: [],
+    });
+    expect(data.customers[0]!.site).toMatchObject({
+      domain: "kth.portal.contentonline.se",
+      primaryColor: "#1954a6",
+      agent: { enabled: true, positivity: 7 },
+    });
+
+    const app = createAdminPortal({ authenticate: async () => admin }, cfg, {
+      registryStore: storeFor(data),
+      didAgentId: "v2_agt_legacy_kth",
+      didClientKey: "ck_legacy_kth_domain_key",
+    });
+    const body = await (await app.request("/portal/kth")).text();
+    expect(body).toContain('data-agent-id="v2_agt_legacy_kth"');
+    expect(body).toContain('data-client-key="ck_legacy_kth_domain_key"');
+
+    const explicitOff = registrySchema.parse({
+      customers: [{
+        ...legacyKth,
+        site: { ...data.customers[0]!.site, agent: { ...data.customers[0]!.site.agent, enabled: false } },
+      }],
+      publishers: data.publishers,
+      events: [],
+    });
+    expect(explicitOff.customers[0]!.site.agent.enabled).toBe(false);
+  });
+
   it("ships allowlisted D-ID client tools and preserves truthfulness at positivity ten", () => {
     expect(() => new Script(customerPortalClient)).not.toThrow();
     for (const name of ["get_portal_context", "navigate_portal", "get_portfolio_summary", "get_usage_summary"]) {
