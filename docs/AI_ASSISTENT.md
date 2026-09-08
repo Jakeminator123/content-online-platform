@@ -1,8 +1,8 @@
 # Content Online AI-assistent
 
-**Version:** 0.2
+**Version:** 0.3
 
-**Datum:** 2026-09-05
+**Datum:** 2026-09-08
 
 **Status:** Implementerad pilot med dokumentationsbaserade svar, syntetisk kundbild och allowlistade kontrolljobb
 
@@ -19,6 +19,14 @@ Kundkonton och rollen Kundadministratör ger inte åtkomst till den interna assi
 3. Lista och starta tre fördefinierade, skrivskyddade kontrolljobb. `platform-readiness` är förberett för daglig körning 06:10 UTC via Vercel Cron, men kräver att `CRON_SECRET` konfigurerats. Samma jobb kan startas manuellt från popupen.
 
 OpenAI Responses API används server-side med `store: false`. Om API:t eller nyckeln inte är tillgängligt svarar en begränsad lokal faktamotor i stället. Sådana svar märks uttryckligen **Faktasvar · AI är inte tillgänglig**, medan modellsvar märks **AI-svar**. Webbläsaren får aldrig API-nyckeln.
+
+## D-ID som röstavatar
+
+D-ID är ett valfritt presentationslager, inte en andra assistent. Efter verifierad admininloggning kan användaren uttryckligen aktivera avataren. Först då laddas D-ID:s officiella embed och det färdiga svaret skickas till `speak()` för uppläsning. Den befintliga textchatten fortsätter fungera om D-ID saknas eller får fel.
+
+Content Onlines instruktioner, källurval och minimerade arbetsytekontext ligger kvar i backend. D-ID:s egna fält för Knowledge/RAG, tools, greetings och starter messages ska lämnas tomma. Om Studio kräver en instruktion ska den bara säga att agenten är en röstavatar som läser upp tillhandahållen text och aldrig svarar självständigt. Integrationen anropar inte D-ID:s `chat()` och aktiverar inte mikrofonen.
+
+Det färdiga svaret kan fortfarande innehålla intern information. Därför är D-ID avstängt som standard, tracking stängs av i embed-konfigurationen och användaren informeras före aktivering. Verkliga kunddata får inte användas innan DPA, retention, dataresidency och övrig leverantörsbedömning är godkända.
 
 ## Jobb och säkerhetsgräns
 
@@ -56,9 +64,18 @@ Assistenten får aldrig beskriva en demo, planerad funktion eller misslyckad kon
 
 - [OpenAI Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create)
 - [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs)
+- [D-ID Agents Embed](https://docs.d-id.com/docs/embed-quickstart)
+- [D-ID Embed Controls (`speak`)](https://docs.d-id.com/docs/embed-methods)
+- [D-ID MCP för utvecklarverktyg](https://docs.d-id.com/docs/mcp)
 
 ## Aktivering och verifieringsgräns
 
 Ägaren hanterar `OPENAI_API_KEY` separat, server-side i det befintliga Vercel-projektet. Inga nycklar skapas eller kopieras med denna integration. Efter ändrad miljökonfiguration behövs en ny deployment och ett separat autentiserat live-test. CI använder injicerade testnycklar och simulerade providers, inte betalda modellanrop.
+
+D-ID-agenten är `v2_agt_4xrfqG8W`. `DID_AGENT_ID` och den frontendavsedda `DID_CLIENT_KEY` är konfigurerade som läsbara **Config**-värden för **All Environments** i Vercel-projektet `content-online-platform`. Det är ett uttryckligt pilotval: båda värdena används i webbläsarintegrationen och behandlas därför inte som serverhemligheter. Client key returneras ändå endast från det skyddade admin-API:t efter lyckad autentisering. D-ID API key ska aldrig läggas i repositoryt, markeras som Config eller skickas till webbläsaren.
+
+Inför verkliga kunddata ska en separat embed client key användas och dess allowed domains begränsas till de exakta origins som faktiskt används. Den skärpningen är inte ett blockerande krav för den nuvarande syntetiska piloten. Ändringar av Vercels miljövariabler börjar gälla först i en ny deployment.
+
+D-ID:s MCP-server är ett hjälpmedel för lokala utvecklarverktyg och dokumentations/API-arbete. Den är inte en runtime-del av Content Online, exponeras inte för slutanvändaren och får inte användas för att kringgå admin-API:ts behörighetskontroll.
 
 Dokumentationen beskriver en syntetisk, skrivskyddad pilot. Beständig administration och externa integrationer ingår inte i denna leverans.

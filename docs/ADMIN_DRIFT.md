@@ -23,6 +23,7 @@ Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planera
 - Kundfrontendens meny och rollnamn säger nu `KTH:s användare`, `Kundadministratör` och `Läsare`. Icke fungerande knappar för inbjudan/ändring har ersatts med en tydlig länk till kundserviceförhandsvisning och påståendet om automatisk COUNTER/SUSHI-hämtning har ersatts med korrekt demostatus.
 - Content Onlines admininloggning har en modern assistentbubbla. Efter verifierad admininloggning kan den svara från projektets dokumenterade kontext, visa den syntetiska kund-/rollbilden och starta allowlistade skrivskyddade kontrolljobb.
 - OpenAI-anrop görs server-side med minimerad kontext och `store: false`; personnamn, e-post, identitets-ID och kundnamn från arbetsytan skickas inte till modellen. Vid providerfel används ett begränsat lokalt faktasvar.
+- Den interna assistenten kan valfritt aktivera D-ID-agenten `v2_agt_4xrfqG8W` som röstavatar. D-ID får bara det färdiga svaret för uppläsning via `speak()`; Knowledge/RAG, verktyg, intern D-ID-chatt och mikrofon används inte.
 - Ett dagligt `platform-readiness`-jobb är konfigurerat för Vercel Cron. Endpointen kräver `CRON_SECRET`, och manuella körningar kräver samma adminbehörighet som arbetsytan. Jobbresultat sparas inte ännu.
 
 ## Första kontot
@@ -33,7 +34,8 @@ Ingen e-postadress, lösenord eller hemlig nyckel hör hemma i detta publika rep
 
 - `CLERK_SECRET_KEY` och `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: tillförs av Vercel Marketplace.
 - `CONTENT_ONLINE_ADMIN_EMAIL`: server-only, satt som sensitive enbart i Vercels production-miljö.
-- `.env.example`: namn utan värden.
+- `DID_AGENT_ID` och `DID_CLIENT_KEY`: satta som **Config** (icke-känsliga) i **All Environments** för Vercel-projektet `content-online-platform`. Det är avsiktligt för den syntetiska piloten eftersom båda används av frontendintegrationen; client key returneras ändå först efter adminauth. D-ID API key används inte av applikationen och får inte behandlas på samma sätt.
+- `.env.example`: konfigurationsnamn och icke-hemliga standardvärden, aldrig credentials.
 - `scripts/configure-admin-auth.mjs`: explicit körd, idempotent registreringsallowlist för den konfigurerade adressen. Skickar inte e-post och skapar inte ett verifierat användarkonto.
 
 ## Återstår / får inte beskrivas som klart

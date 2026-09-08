@@ -44,6 +44,33 @@ export const assistantClient = String.raw`
     const messages=document.getElementById('assistant-messages');
     const form=document.getElementById('assistant-form');
     const input=document.getElementById('assistant-input');
+    const presenterButton=document.getElementById('assistant-presenter-enable');
+    const presenterStatus=document.getElementById('assistant-presenter-status');
+    const presenterStage=document.getElementById('assistant-presenter-stage');
+    let didApi=null;
+    const activatePresenter=async()=>{
+      presenterButton.disabled=true;presenterStatus.textContent='Kontrollerar D-ID-konfiguration…';
+      const response=await fetch('/admin/api/assistant/presenter',{headers:await authHeaders(false),cache:'no-store',credentials:'omit'});
+      if(!response.ok)throw new Error('presenter_config');
+      const config=await response.json();
+      if(!config.configured){presenterButton.textContent='Inte konfigurerad';presenterStatus.textContent='D-ID saknar Agent ID eller domänbegränsad client key.';return;}
+      presenterStatus.textContent='Laddar röstavataren…';presenterStage.hidden=false;
+      const script=document.createElement('script');script.type='module';script.src='https://agent.d-id.com/v2/index.js';
+      script.dataset.mode='full';script.dataset.targetId='assistant-presenter-stage';script.dataset.clientKey=config.clientKey;script.dataset.agentId=config.agentId;
+      script.dataset.autoConnect='true';script.dataset.showRestartButton='false';script.dataset.showAgentName='false';script.dataset.track='false';
+      await new Promise((resolve,reject)=>{script.addEventListener('load',resolve,{once:true});script.addEventListener('error',reject,{once:true});document.body.appendChild(script);});
+      if(!window.DID_AGENTS_API)throw new Error('presenter_api');
+      didApi=window.DID_AGENTS_API;didApi.configure({showChatToggle:false,showMicToggle:false,showRestartButton:false,autoConnect:true});
+      presenterButton.textContent='Röstavatar aktiv';presenterStatus.textContent='Aktiv utan mikrofon. Endast färdiga assistentsvar skickas till D-ID för uppläsning.';
+    };
+    presenterButton.addEventListener('click',()=>activatePresenter().catch(()=>{didApi=null;presenterStage.hidden=true;presenterButton.disabled=false;presenterButton.textContent='Försök igen';presenterStatus.textContent='Röstavataren kunde inte startas. Textchatten fungerar fortfarande.';}));
+    const speakAnswer=text=>{
+      if(!didApi)return;
+      const speechText=text.replace(/\n+Källor:[\s\S]*$/u,'').trim();
+      if(!speechText)return;
+      try{Promise.resolve(didApi.functions.speak({type:'text',input:speechText})).catch(()=>{presenterStatus.textContent='Svaret visas i text men kunde inte läsas upp av D-ID.';});}
+      catch{presenterStatus.textContent='Svaret visas i text men kunde inte läsas upp av D-ID.';}
+    };
     const addMessage=(role,text,sources=[],mode)=>{
       const row=document.createElement('div');row.className='assistant-message '+role;
       const bubble=document.createElement('div');bubble.textContent=text;if(mode){const label=document.createElement('strong');label.className='assistant-answer-mode';label.textContent=mode==='openai'?'AI-svar':'Faktasvar · AI är inte tillgänglig';bubble.prepend(label);}row.appendChild(bubble);messages.appendChild(row);
@@ -55,7 +82,7 @@ export const assistantClient = String.raw`
       addMessage('user',question);input.value='';button.disabled=true;button.textContent='…';
       try{
         const answerResponse=await fetch('/admin/api/assistant/message',{method:'POST',headers:await authHeaders(true),body:JSON.stringify({message:question}),cache:'no-store',credentials:'omit'});
-        if(!answerResponse.ok)throw new Error('assistant');const answer=await answerResponse.json();addMessage('bot',answer.answer,answer.sources,answer.mode);
+        if(!answerResponse.ok)throw new Error('assistant');const answer=await answerResponse.json();addMessage('bot',answer.answer,answer.sources,answer.mode);speakAnswer(answer.answer);
       }catch{addMessage('bot','Jag kunde inte svara just nu. Försök igen om en stund.');}
       finally{button.disabled=false;button.textContent='↑';input.focus();}
     });
