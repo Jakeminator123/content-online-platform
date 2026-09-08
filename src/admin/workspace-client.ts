@@ -126,7 +126,7 @@ export const workspaceClient = statisticsClient + String.raw`
   }
   async function salesforceConnect(){
     try{
-      const response=await fetch('/admin/api/salesforce/oauth/start',{headers:adminHeaders,cache:'no-store',credentials:'omit'});
+      const response=await fetch('/admin/api/salesforce/oauth/start',{headers:adminHeaders,cache:'no-store',credentials:'same-origin'});
       if(!response.ok)throw new Error('unavailable');
       const body=await response.json();
       if(typeof body.authorizationUrl!=='string'||!body.authorizationUrl.startsWith('https://'))throw new Error('invalid');
