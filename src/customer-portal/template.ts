@@ -37,7 +37,7 @@ function contrastText(hex: string): string {
   const channels = [hex.slice(1, 3), hex.slice(3, 5), hex.slice(5, 7)].map((value) => Number.parseInt(value, 16) / 255);
   const [red, green, blue] = channels.map((value) => value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
   const luminance = (red ?? 0) * 0.2126 + (green ?? 0) * 0.7152 + (blue ?? 0) * 0.0722;
-  return luminance > 0.42 ? "#132a39" : "#ffffff";
+  return luminance > 0.179 ? "#000000" : "#ffffff";
 }
 
 function formatNumber(value: number): string {
@@ -107,6 +107,7 @@ export function customerPortalContext(customer: RegistryCustomer, registry: Regi
           metric: "syntetisk produktanvändning",
           period: demoWorkspace.provenance.period,
           value: products.reduce((sum, product) => sum + product.usage, 0),
+          items: products.map(({ id, name, publisher, usage }) => ({ id, name, publisher, value: usage })),
           warning: "Exempelvärdet är inte live-statistik och får inte beskrivas som ett verifierat kundutfall.",
         }
       : { status: "authentication_required", message: "Ingen kundstatistik lämnas från en publik portaladress." },

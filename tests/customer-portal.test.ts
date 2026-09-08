@@ -106,6 +106,8 @@ describe("shared multi-tenant customer portal", () => {
     expect(context).toMatchObject({ portal: { customer: "KTH", dataMode: "synthetic_demo" } });
     expect(context.portfolio.items).toHaveLength(8);
     expect(context.portfolio.items.map((item: { name: string }) => item.name)).toContain("ScienceDirect Freedom Collection");
+    expect(context.usage.items).toHaveLength(8);
+    expect(context.usage.items.find((item: { name: string }) => item.name === "ScienceDirect Freedom Collection")).toMatchObject({ value: 521760 });
   });
 
   it("renders a new customer's own brand and keeps protected data behind authentication", async () => {
@@ -136,6 +138,15 @@ describe("shared multi-tenant customer portal", () => {
     expect(loginHtml).toContain("https://content-online-customer-login.vercel.app/");
     expect(loginHtml).not.toContain("returnUrl");
     expect(loginHtml).not.toContain("session_token");
+  });
+
+  it("keeps primary button text accessible for middle-luminance customer colors", async () => {
+    const data = publishedCustomer();
+    data.customers[1]!.site.primaryColor = "#999999";
+    const app = createAdminPortal({ authenticate: async () => admin }, cfg, { registryStore: storeFor(data) });
+    const html = await (await app.request("/portal/north")).text();
+    expect(html).toContain("--portal-primary:#999999");
+    expect(html).toContain("--portal-on-primary:#000000");
   });
 
   it("fails closed for unknown or unpublished subdomains and never falls back to KTH", async () => {
@@ -208,6 +219,8 @@ describe("shared multi-tenant customer portal", () => {
     expect(customerPortalClient).toContain("configuredSections");
     expect(customerPortalClient).toContain("panel.hidden = !active");
     expect(customerPortalClient).toContain("registeredTools");
+    expect(customerPortalClient).toContain("toggleAttribute('inert'");
+    expect(customerPortalClient).toContain("window.scrollTo");
     expect(customerPortalClient).not.toContain("eval(");
     const customer = publishedCustomer().customers[1]!;
     const policy = customerAgentPolicy(customer);

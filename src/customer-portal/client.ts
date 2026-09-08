@@ -29,11 +29,21 @@ export const customerPortalClient = String.raw`
   const breadcrumb = document.getElementById('portal-breadcrumb');
   const liveStatus = document.getElementById('portal-live-status');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const mobileLayout = matchMedia('(max-width: 980px)');
+
+  const setSidebarAccess = (open) => {
+    if (!sidebar) return;
+    const hidden = mobileLayout.matches && !open;
+    sidebar.toggleAttribute('inert', hidden);
+    if (hidden) sidebar.setAttribute('aria-hidden', 'true');
+    else sidebar.removeAttribute('aria-hidden');
+  };
 
   const closeMenu = () => {
     sidebar?.classList.remove('open');
     scrim?.classList.remove('visible');
     menu?.setAttribute('aria-expanded', 'false');
+    setSidebarAccess(false);
   };
 
   const activateSection = (section, options = {}) => {
@@ -55,6 +65,9 @@ export const customerPortalClient = String.raw`
 
     if (options.updateHash !== false && location.hash !== '#' + section) {
       history.replaceState(null, '', '#' + section);
+    }
+    if (options.scroll !== false) {
+      window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
     }
     if (options.focus) {
       target.setAttribute('tabindex', '-1');
@@ -81,11 +94,16 @@ export const customerPortalClient = String.raw`
     const open = sidebar?.classList.toggle('open');
     scrim?.classList.toggle('visible', Boolean(open));
     menu.setAttribute('aria-expanded', String(Boolean(open)));
+    setSidebarAccess(Boolean(open));
   });
   scrim?.addEventListener('click', closeMenu);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeMenu();
   });
+  mobileLayout.addEventListener('change', () => {
+    setSidebarAccess(Boolean(sidebar?.classList.contains('open')));
+  });
+  setSidebarAccess(false);
 
   const activateHash = () => {
     if (!sections.size) return;
