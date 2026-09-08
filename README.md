@@ -37,6 +37,7 @@ Kundplattformen ska ge behöriga personer hos Content Onlines kunder en samlad o
 - [Källregister och auktoritet](docs/KALLREGISTER.md)
 - [Bottom-up teststrategi](docs/TESTSTRATEGI.md)
 - [Content Online AI-assistent och kontrolljobb](docs/AI_ASSISTENT.md)
+- [Salesforce-integration och kundkopplingar](docs/SALESFORCE_INTEGRATION.md)
 - [D-ID-agentens Prompt, Knowledge och portalanslutning](docs/d-id/README.md)
 
 ## Kör backend lokalt

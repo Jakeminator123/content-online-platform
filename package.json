@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "tsx src/dev.ts",
+    "dev:admin": "tsx scripts/serve-admin-demo.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

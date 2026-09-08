@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { Buffer } from "node:buffer";
 import { timingSafeEqual } from "node:crypto";
 import { html } from "hono/html";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { secureHeaders } from "hono/secure-headers";
 import { answerAdminQuestion, type AssistantAnswer } from "./assistant.js";
 import { assistantClient } from "./assistant-client.js";
@@ -14,6 +15,16 @@ import { z } from "zod";
 import { applyRegistryCommand, commandSchema, initialRegistry, publicPortal, publishedCustomer, RegistryError, type Registry, type RegistrySnapshot, type RegistryStore } from "./registry.js";
 import { registryStoreFromEnvironment } from "./registry-store.js";
 import { registryClient } from "./registry-client.js";
+import {
+  completeSalesforceOAuth,
+  createSalesforceOAuthRequest,
+  listSalesforceAccounts,
+  readSalesforceConfiguration,
+  salesforceStoreFromEnvironment,
+  verifySalesforceOAuthState,
+  type SalesforceConfiguration,
+  type SalesforceConnectionStore,
+} from "./salesforce.js";
 import { workspaceClient } from "./workspace-client.js";
 import { workspaceCss } from "./workspace-style.js";
 import { didEmbedConfiguration, resolveCustomerAgent } from "../customer-portal/agent.js";
@@ -25,6 +36,8 @@ import { customerPortalContext, renderCustomerPortal, type CustomerPortalPage } 
 
 type AdminPortalOptions = {
   registryStore?: RegistryStore;
+  salesforceConfig?: SalesforceConfiguration | null;
+  salesforceStore?: SalesforceConnectionStore;
   assistantApiKey?: string;
   assistantModel?: string;
   didAgentId?: string;
@@ -57,6 +70,9 @@ export function createAdminPortal(
     agentId: options.didAgentId ?? process.env.DID_AGENT_ID ?? "",
     clientKey: options.didClientKey ?? process.env.DID_CLIENT_KEY ?? "",
   };
+  const salesforceConfig = options.salesforceConfig === undefined
+    ? readSalesforceConfiguration(process.env)
+    : options.salesforceConfig;
   const askAssistant =
     options.askAssistant ??
     ((question: string, adminId: string) => {
@@ -130,6 +146,7 @@ export function createAdminPortal(
       return portal ? c.json(customerPortalContext(portal.customer, portal.registry)) : c.json({ error: "not_found" }, 404);
     } catch { return c.json({ error: "portal_unavailable" }, 503); }
   });
+  const salesforceStore = () => options.salesforceStore ?? salesforceStoreFromEnvironment();
   app.get("/admin/assets/registry.js", (c) => c.body(registryClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   app.get("/portal-directory/:slug", async (c) => {
     try {
@@ -185,6 +202,34 @@ export function createAdminPortal(
   // Public HTML contains no user/customer data. All identity and admin data comes from guarded APIs.
   app.get("/admin", (c) => c.html(page("admin", host, config.publishableKey, configured)));
 
+  // Salesforce returns here without an Authorization header. The short-lived signed state and
+  // HttpOnly PKCE cookie are the authorization boundary; provider payloads are never reflected.
+  app.get("/admin/api/salesforce/oauth/callback", async (c) => {
+    const code = c.req.query("code") ?? "";
+    const state = c.req.query("state") ?? "";
+    const verifier = getCookie(c, "co_sf_pkce") ?? "";
+    deleteCookie(c, "co_sf_pkce", { path: "/admin/api/salesforce/oauth/callback", secure: true });
+    if (!salesforceConfig) return c.redirect("/admin?sf=unconfigured#salesforce", 302);
+    const verified = verifySalesforceOAuthState(state, salesforceConfig.stateSecret, options.now?.() ?? new Date());
+    if (!verified || !/^[A-Za-z0-9._~+/=-]{8,2048}$/.test(code) || !/^[A-Za-z0-9_-]{43,128}$/.test(verifier)) {
+      return c.redirect("/admin?sf=invalid_callback#salesforce", 302);
+    }
+    try {
+      await completeSalesforceOAuth({
+        config: salesforceConfig,
+        store: salesforceStore(),
+        code,
+        codeVerifier: verifier,
+        adminId: verified.adminId,
+        now: options.now?.() ?? new Date(),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+      });
+      return c.redirect("/admin?sf=connected#salesforce", 302);
+    } catch {
+      return c.redirect("/admin?sf=connection_failed#salesforce", 302);
+    }
+  });
+
   app.get("/api/cron/platform-readiness", (c) => {
     const cronSecret = options.cronSecret ?? process.env.CRON_SECRET ?? "";
     if (!authorizedCronRequest(c.req.header("authorization"), cronSecret)) {
@@ -201,6 +246,7 @@ export function createAdminPortal(
   });
 
   app.use("/admin/api/*", async (c, next) => {
+    if (c.req.path === "/admin/api/salesforce/oauth/callback") return next();
     let auth;
     try {
       auth = await authenticator.authenticate(c.req.raw);
@@ -235,6 +281,51 @@ export function createAdminPortal(
     }),
   );
   app.get("/admin/api/workspace", (c) => c.json(demoWorkspace));
+  app.get("/admin/api/salesforce/status", async (c) => {
+    if (!salesforceConfig) return c.json({ configured: false, connected: false, provider: "salesforce" });
+    try {
+      const connection = await salesforceStore().read();
+      return c.json({
+        configured: true,
+        connected: !!connection,
+        provider: "salesforce",
+        apiVersion: salesforceConfig.apiVersion,
+        ...(connection ? { instanceUrl: connection.instanceUrl, updatedAt: connection.updatedAt } : {}),
+      });
+    } catch {
+      return c.json({ error: "salesforce_storage_unavailable" }, 503);
+    }
+  });
+  app.get("/admin/api/salesforce/oauth/start", (c) => {
+    if (!salesforceConfig) return c.json({ error: "salesforce_unconfigured" }, 503);
+    const request = createSalesforceOAuthRequest(salesforceConfig, c.get("adminIdentity").id, options.now?.() ?? new Date());
+    setCookie(c, "co_sf_pkce", request.codeVerifier, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+      path: "/admin/api/salesforce/oauth/callback",
+      maxAge: 10 * 60,
+    });
+    return c.json({ authorizationUrl: request.authorizationUrl, expiresAt: request.expiresAt });
+  });
+  app.get("/admin/api/salesforce/accounts", async (c) => {
+    if (!salesforceConfig) return c.json({ error: "salesforce_unconfigured" }, 503);
+    const query = c.req.query("q") ?? "";
+    if (query.length > 80) return c.json({ error: "invalid_query" }, 422);
+    try {
+      const accounts = await listSalesforceAccounts({
+        config: salesforceConfig,
+        store: salesforceStore(),
+        query,
+        adminId: c.get("adminIdentity").id,
+        now: options.now?.() ?? new Date(),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+      });
+      return c.json({ accounts, mode: "read_only" });
+    } catch {
+      return c.json({ error: "salesforce_unavailable" }, 503);
+    }
+  });
   app.get("/admin/api/registry", async (c) => {
     try { return c.json(adminRegistrySnapshot(await registry().read())); }
     catch { return c.json({ error: "storage_unavailable" }, 503); }
@@ -373,6 +464,7 @@ function icon(name: string) {
     info: 'M12 11v6m0-10v1M21 12a9 9 0 1 0-18 0 9 9 0 1 0 18 0',
     calendar: 'M3 5h18v16H3z M7 3v4m10-4v4M3 10h18',
     search: 'M16 10a6 6 0 1 0-12 0 6 6 0 1 0 12 0m-1 5 6 6',
+    cloud: 'M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.2 8.5 4.5 4.5 0 0 0 7 18Z',
     menu: 'M4 6h16M4 12h16M4 18h16',
     close: 'm6 6 12 12M6 18 18 6',
   };
@@ -382,7 +474,7 @@ function brand() { return html`<a class="brand portal-brand" href="/" aria-label
 function page(mode: "login" | "register" | "admin" | "demo", host: string | null, key: string, configured: boolean) {
   const workspace = mode === "admin" || mode === "demo";
   const demo = mode === "demo";
-  const navigation = [["overview","Överblick","grid"],["customers","Kundorganisationer","customers"],["users","Användare","users"],["publishers","Publicister","book"],["products","Produkter & tilldelningar","link"],["connections","Anslutningar","grid"]];
+  const navigation = [["overview","Överblick","grid"],["customers","Kundorganisationer","customers"],["users","Användare","users"],["publishers","Publicister","book"],["products","Produkter & tilldelningar","link"],["connections","Anslutningar","grid"],["salesforce","Salesforce","cloud"]];
   return html`<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${workspace ? "Arbetsyta" : "Logga in"} · Content Online</title>
   <meta name="description" content="En samlad arbetsyta för forskningsinformation, standarder och kundrelationer.">

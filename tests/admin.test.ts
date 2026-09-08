@@ -203,7 +203,7 @@ describe("Hosted portal entry and guarded admin API", () => {
       expect(body).toContain('class="brand portal-brand"');
       expect(body).toContain('/admin/assets/co-logo.png');
       expect(body).toContain('INTERN ARBETSYTA');
-      for (const id of ["overview", "customers", "users", "publishers", "products", "connections"]) {
+      for (const id of ["overview", "customers", "users", "publishers", "products", "connections", "salesforce"]) {
         expect(body).toContain('data-id="' + id + '"');
       }
     }

@@ -92,6 +92,8 @@ const customerSchema = z.object({
   kind: z.enum(["demo", "customer"]),
   publisherIds: z.array(id).max(100),
   site: customerSiteSchema.optional(),
+  salesforceAccountId: z.string().regex(/^001[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?$/).nullable().default(null),
+  salesforceAccountName: z.string().trim().min(1).max(255).nullable().default(null),
 }).transform((customer) => ({
   ...customer,
   // Existing KTH demo rows predate site configuration. Migrate only a missing
@@ -119,6 +121,13 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("unpublish_customer"), id }),
   z.object({ action: z.literal("archive_customer"), id }),
   z.object({ action: z.literal("restore_customer"), id }),
+  z.object({
+    action: z.literal("link_salesforce_account"),
+    id,
+    accountId: z.string().regex(/^001[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?$/),
+    accountName: z.string().trim().min(1).max(255),
+  }),
+  z.object({ action: z.literal("unlink_salesforce_account"), id }),
   z.object({ action: z.literal("add_publisher"), name }),
   z.object({ action: z.literal("rename_publisher"), id, name }),
   z.object({ action: z.literal("archive_publisher"), id }),
@@ -138,6 +147,8 @@ export function initialRegistry(): Registry {
       kind: "demo",
       publisherIds: ["ieee"],
       site: kthDemoCustomerSite(),
+      salesforceAccountId: null,
+      salesforceAccountName: null,
     }],
     publishers: [
       { id: "ieee", name: "IEEE", status: "active" },
@@ -166,6 +177,8 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
         domain: `${command.slug}.portal.contentonline.se`,
         domainStatus: "pending",
       }),
+      salesforceAccountId: null,
+      salesforceAccountName: null,
     });
   } else if (command.action === "add_publisher") {
     if (next.publishers.some(p => p.name.toLocaleLowerCase() === command.name.toLocaleLowerCase())) throw new RegistryError("publisher_exists", 409);
@@ -201,6 +214,15 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
       } else if (command.action === "set_customer_domain_status") {
         if (!c.site.domain) throw new RegistryError("domain_unconfigured", 409);
         c.site.domainStatus = command.domainStatus;
+      } else if (command.action === "link_salesforce_account") {
+        if (next.customers.some(other => other.id !== c.id && other.salesforceAccountId === command.accountId)) {
+          throw new RegistryError("salesforce_account_already_linked", 409);
+        }
+        c.salesforceAccountId = command.accountId;
+        c.salesforceAccountName = command.accountName;
+      } else if (command.action === "unlink_salesforce_account") {
+        c.salesforceAccountId = null;
+        c.salesforceAccountName = null;
       } else if (command.action === "publish_customer") {
         if (c.status === "archived") throw new RegistryError("restore_before_publishing", 409);
         c.status = "published";

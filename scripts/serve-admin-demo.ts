@@ -10,4 +10,7 @@ const localApp = new Hono();
 localApp.use('/admin/assets/*', serveStatic({ root: './public' }));
 localApp.route('/', app);
 
-serve({ fetch: localApp.fetch, hostname: '127.0.0.1', port: 3000 });
+const port = Number.parseInt(process.env.PORT ?? '3000', 10);
+serve({ fetch: localApp.fetch, hostname: '127.0.0.1', port }, ({ port: activePort }) => {
+  console.log('Content Online admin demo: http://127.0.0.1:' + activePort + '/demo');
+});

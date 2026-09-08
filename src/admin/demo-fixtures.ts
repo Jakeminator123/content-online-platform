@@ -41,9 +41,30 @@ export const demoWorkspace = {
   connections: [
     { name: 'MPS / MPS Insight', owner: 'IEEE', mode: 'Källspecifik anslutning', status: 'Inte ansluten', lastImport: null },
     { name: 'Övriga publicister', owner: 'Flera partners', mode: 'API, fil eller annan lösning', status: 'Ej kartlagda', lastImport: null },
-    { name: 'Salesforce', owner: 'Content Online', mode: 'Kund- och avtalsinformation', status: 'Framtida datakälla', lastImport: null },
+    { name: 'Salesforce', owner: 'Content Online', mode: 'Kund- och avtalsinformation', status: 'Redo att konfigurera', lastImport: null },
     { name: 'Fortnox', owner: 'Content Online', mode: 'Ekonomi och fakturaunderlag', status: 'Framtida datakälla', lastImport: null },
   ],
+  salesforce: {
+    connection: {
+      label: 'Content Online · Salesforce CRM',
+      environment: 'Testkonto',
+      status: 'Inte ansluten',
+      authMode: 'OAuth 2.0 · External Client App',
+      lastSync: null,
+    },
+    customerLinks: [
+      { customerId: 'customer-kth-demo', accountRef: 'DEMO-ACCOUNT-KTH', accountName: 'KTH · demopost', status: 'Klar för granskning', review: 'Bekräftad demokoppling', owner: 'CO kundansvarig · demo', contacts: 2, openOpportunities: 1, renewal: '2026-12-31', updatedAt: '2026-09-06' },
+      { customerId: 'customer-akademi-demo', accountRef: null, accountName: 'Akademi Nord · föreslagen matchning', status: 'Behöver matchas', review: 'Väntar på bekräftelse', owner: 'Ej tilldelad', contacts: 1, openOpportunities: 0, renewal: null, updatedAt: '2026-09-04' },
+      { customerId: 'customer-norrvik-demo', accountRef: 'DEMO-ACCOUNT-NORRVIK', accountName: 'Norrvik Teknik · demopost', status: 'Klar för granskning', review: 'Bekräftad demokoppling', owner: 'CO kundansvarig · demo', contacts: 1, openOpportunities: 2, renewal: '2027-03-31', updatedAt: '2026-09-05' },
+    ],
+    fieldMappings: [
+      { source: 'Account.Id', target: 'Extern kundreferens', purpose: 'Stabil koppling till kundregistret' },
+      { source: 'Account.Name', target: 'Kundnamn', purpose: 'Visas vid granskning, skriver inte över automatiskt' },
+      { source: 'Account.Owner.Name', target: 'Kundansvarig', purpose: 'Ansvar och uppföljning' },
+      { source: 'Contact', target: 'Kontaktöversikt', purpose: 'Antal och roller, efter separat fältbeslut' },
+      { source: 'Opportunity', target: 'Affär och förnyelse', purpose: 'Steg och datum, efter separat fältbeslut' },
+    ],
+  },
   storage: { status: 'blocked_by_decision', label: 'Visningsläge. Ändringar sparas inte och inga externa licenser påverkas.' },
 };
 
