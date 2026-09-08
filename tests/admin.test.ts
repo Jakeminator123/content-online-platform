@@ -75,7 +75,7 @@ describe("Hosted portal entry and guarded admin API", () => {
     const response = await appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }).request("/admin/api/session");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ admin: { role: "content_admin" }, authentication: "development_instance",
-      administration: { users: "read_only_demo", publishers: "read_only_demo" } });
+      administration: { users: "read_only_demo", publishers: "persistent_registry" } });
   });
 
   it("serves the read-only internal configuration only after admin authorization", async () => {
@@ -218,8 +218,11 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(admin).toContain('id="assistant-app" hidden');
     expect(admin).toContain("skickas din fråga till OpenAI");
     const start = await (await app.request("/")).text();
-    expect(start).toContain("Visa demo utan inloggning");
-    expect(start).toContain("Samma arbetsyta.");
+    expect(start).toContain('data-mode="login"');
+    expect(start).toContain('id="auth-widget"');
+    expect(start).not.toContain("Öppna kundportalen");
+    expect(start).not.toContain("FÖR KUNDORGANISATIONER");
+    expect(start).not.toContain("KTH");
   });
 
   it("does not invoke the assistant for a demo visitor or customer cookie", async () => {
@@ -262,10 +265,10 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(response.headers.get("content-type")).toContain("text/javascript");
   });
 
-  it("links to the existing hosted customer app without granting admin credentials", async () => {
+  it("routes the legacy selector to the internal customer register without credentials", async () => {
     const response = await appFor({ status: "unauthenticated" }).request("/kundportal?redirect=https://evil.example");
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe(`${CUSTOMER_PORTAL}/login`);
+    expect(response.headers.get("location")).toBe("/admin#customers");
     expect(response.headers.get("set-cookie")).toBeNull();
   });
 

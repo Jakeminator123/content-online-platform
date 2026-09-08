@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+const base = 'http://127.0.0.1:3002';
+for(let attempt=0;attempt<30;attempt++){
+  try{if((await fetch(base)).ok)break;}catch{}
+  if(attempt===29)throw new Error('Registry CI server unavailable');
+  await new Promise(resolve=>setTimeout(resolve,1000));
+}
+assert.equal((await fetch(base+'/admin/api/registry')).status,401);
+const html=await(await fetch(base)).text();
+assert.ok(!html.includes('Öppna kundportalen'));
+assert.ok(!html.includes('KTH'));
+const browser=await chromium.launch();
+try{
+  const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  page.on('dialog',dialog=>dialog.accept());
+  await page.addInitScript(()=>{window.Clerk={load:async()=>{},session:{getToken:async()=>'ci-registry-browser'},addListener:()=>{},signOut:()=>{}}});
+  await page.goto(base+'/admin#publishers',{waitUntil:'networkidle'});
+  const panel=page.locator('#registry-panel');
+  await panel.locator('form[data-reg-form="add_publisher"]').waitFor();
+  assert.equal(await page.locator('#view').innerText(), '', 'Real publisher management must not display fixture partners');
+  await panel.getByLabel('Publicistens namn').fill('Browser Partner');
+  await panel.getByRole('button',{name:'Lägg till publicist',exact:true}).click();
+  await panel.locator('.list-item').filter({hasText:'Browser Partner'}).waitFor();
+  await page.locator('.nav [data-id="customers"]').click();
+  assert.equal(await page.locator('#view').innerText(), '', 'Real customer management must not display fictional organizations');
+  await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
+  await panel.getByLabel('URL-namn').fill('browser-customer');
+  await panel.getByRole('button',{name:'Lägg till kund',exact:true}).click();
+  let row=panel.locator('.list-item').filter({hasText:'Browser Customer'});
+  await row.waitFor();
+  await row.getByRole('button',{name:'Redigera',exact:true}).click();
+  await panel.getByLabel('Browser Partner',{exact:true}).check();
+  await panel.getByRole('button',{name:'Spara kund',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('registry-status')?.textContent==='Ändringen är sparad.');
+  await row.getByRole('button',{name:'Publicera',exact:true}).click();
+  await row.getByRole('link',{name:'Öppna kundportal'}).waitFor();
+  assert.equal(await row.getByRole('link',{name:'Öppna kundportal'}).getAttribute('href'),'https://fokus-psi-sable.vercel.app/o/browser-customer/login');
+  assert.deepEqual(await(await fetch(base+'/portal-directory/browser-customer')).json(),{name:'Browser Customer',slug:'browser-customer',mode:'awaiting_accounts'});
+  await page.reload({waitUntil:'networkidle'});
+  row=panel.locator('.list-item').filter({hasText:'Browser Customer'});
+  await row.getByRole('link',{name:'Öppna kundportal'}).waitFor();
+  assert.ok((await row.innerText()).includes('Browser Partner'));
+  await page.screenshot({path:'test-artifacts/registry-desktop.png',fullPage:true});
+  await row.getByRole('button',{name:'Arkivera',exact:true}).click();
+  await row.getByRole('button',{name:'Återställ till utkast'}).waitFor();
+  assert.equal((await fetch(base+'/portal-directory/browser-customer')).status,404);
+  await row.getByRole('button',{name:'Återställ till utkast'}).click();
+  await row.getByRole('button',{name:'Publicera',exact:true}).waitFor();
+  assert.equal((await fetch(base+'/portal-directory/browser-customer')).status,404);
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'test-artifacts/registry-mobile.png',fullPage:true});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+  assert.deepEqual(errors,[]);
+  console.log('Registry browser -> guarded API -> real CI PostgreSQL -> reload: customer, publisher, assignment, publication, archive and restore passed');
+}finally{await browser.close()}
