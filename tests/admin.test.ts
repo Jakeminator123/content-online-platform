@@ -227,6 +227,26 @@ describe("Hosted portal entry and guarded admin API", () => {
     }
   });
 
+  it("uses the supplied Content Online brand assets without changing the auth boundary", async () => {
+    const app = appFor({ status: "unauthenticated" });
+    const login = await (await app.request("/admin/login")).text();
+    const register = await (await app.request("/admin/registrera")).text();
+    const styles = await (await app.request("/admin/assets/style.css")).text();
+
+    for (const body of [login, register]) {
+      expect(body).toContain('/admin/assets/co-logo.png');
+      expect(body).toContain('/admin/assets/home-video.webm');
+      expect(body).toContain('autoplay muted loop playsinline');
+      expect(body).not.toContain(config.allowedEmail);
+      expect(body).not.toContain(config.secretKey);
+    }
+    expect(styles).toContain('@media(prefers-reduced-motion:reduce)');
+    expect(styles).toContain('logo-draw-in');
+    expect(styles).toContain('brand-dock');
+    expect(styles).toContain('orbit-dot-lap');
+    expect(styles).not.toContain('logo-scan-in');
+  });
+
   it.each(["/", "/admin/login", "/admin/registrera", "/demo"])("shows the same locked assistant on %s without privileged controls", async (path) => {
     const response = await appFor({ status: "unauthenticated" }).request(path);
     const body = await response.text();
@@ -246,6 +266,9 @@ describe("Hosted portal entry and guarded admin API", () => {
       const body = await (await app.request(path)).text();
       expect(body).toContain("/admin/assets/workspace.js");
       expect(body).toContain('id="assistant-launcher"');
+      expect(body).toContain('class="brand portal-brand"');
+      expect(body).toContain('/admin/assets/co-logo.png');
+      expect(body).toContain('INTERN ARBETSYTA');
       for (const id of ["overview", "customers", "users", "publishers", "products", "connections"]) {
         expect(body).toContain('data-id="' + id + '"');
       }

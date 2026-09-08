@@ -268,7 +268,7 @@ function icon(name: string) {
   };
   return html`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${paths[name] || paths.grid}"/></svg>`;
 }
-function brand() { return html`<a class="brand" href="/"><span class="brand-logo">c.</span><span>Content Online<small>KNOWLEDGE. CONNECTED.</small></span></a>`; }
+function brand() { return html`<a class="brand portal-brand" href="/" aria-label="Content Online · intern arbetsyta"><span class="brand-logo"><img src="/admin/assets/co-logo.png" alt="" width="96" height="96"></span><span class="portal-brand-copy"><strong>Content Online</strong><small>INTERN ARBETSYTA</small></span></a>`; }
 function page(mode: "login" | "register" | "admin" | "demo", host: string | null, key: string, configured: boolean) {
   const workspace = mode === "admin" || mode === "demo";
   const demo = mode === "demo";
@@ -293,11 +293,26 @@ function page(mode: "login" | "register" | "admin" | "demo", host: string | null
     <div class="toolbar" id="toolbar" hidden><label class="search">${icon("search")}<input id="search" type="search" placeholder="Sök i den här vyn…" aria-label="Sök i aktuell vy"></label><small>Syntetiskt presentationsunderlag</small></div>
     ${!demo ? html`<section id="registry-panel" class="card" hidden aria-label="Sparat register"><div class="card-body" id="registry-body"></div></section>` : ""}<div id="view" aria-live="polite"></div><p class="footnote">Content Online · Forskning, standarder och kunskap i samma arbetsyta.</p></main></div></div>
     <dialog class="dialog" id="detail-dialog" aria-labelledby="detail-title"><div class="dialog-head"><div><div class="eyebrow" id="detail-subtitle"></div><h2 id="detail-title"></h2></div><button class="close-button" data-action="close" aria-label="Stäng detaljer">${icon("close")}</button></div><div class="dialog-body" id="detail-body"></div></dialog>` : html`
-    <div class="landing"><header class="landing-header">${brand()}<span class="pill">FORSKNING & STANDARDER</span></header>
-    <section class="auth-card"><div class="eyebrow">CONTENT ONLINE · INTERN ÅTKOMST</div><h1>${mode === "register" ? "Aktivera ditt konto" : "Välkommen tillbaka."}</h1><p class="lead">${mode === "register" ? "Använd den godkända adressen och verifiera den för att aktivera ditt personliga konto." : "Logga in i Content Onlines egen arbetsyta för kundrelationer och informationsprodukter."}</p><p id="message" role="status">${configured ? "Laddar säker inloggning…" : "Intern inloggning är inte konfigurerad."}</p>${configured ? html`<div id="auth-widget"></div>` : ""}<div class="quiet-row"><a href="${mode === "register" ? "/admin/login" : "/admin/registrera"}">${mode === "register" ? "Redan ett konto? Logga in" : "Aktivera ditt konto"}</a><a href="/demo">Se visningsdemon →</a></div><p class="footnote">${key.startsWith("pk_live_") ? "Endast godkända konton har intern behörighet." : "Pilot: inloggningen använder Clerks utvecklingsinstans."}</p></section>
-    <footer class="landing-footer">Content Online · Intern administration. Kundorganisationer använder sina egna portaladresser.</footer></div>`}
+    <div class="auth-shell"><section class="auth-showcase" aria-label="Content Online">
+    <video class="auth-showcase-video" id="auth-background-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true"><source src="/admin/assets/home-video.webm" type="video/webm"></video>
+    <div class="auth-showcase-inner"><a class="auth-logo-stage" href="/" aria-label="Till Content Online"><span class="auth-logo-reveal"><img class="auth-logo-image" src="/admin/assets/co-logo.png" alt="Content Online" width="1254" height="1254"></span><span class="auth-orbit-cover" aria-hidden="true"></span><span class="auth-orbit" aria-hidden="true"><span class="auth-orbit-dot"></span></span></a><p class="auth-tagline">KNOWLEDGE. CONNECTED.</p></div></section>
+    <main class="auth-main"><header class="auth-main-header"><span class="pill">INTERN ÅTKOMST</span><a href="/demo">Se visningsdemon →</a></header>
+    <section class="auth-card"><div class="eyebrow">CONTENT ONLINE · INTERN ÅTKOMST</div><h1>${mode === "register" ? "Aktivera ditt konto" : "Välkommen tillbaka."}</h1><p class="lead">${mode === "register" ? "Använd den godkända adressen och verifiera den för att aktivera ditt personliga konto." : "Logga in i Content Onlines egen arbetsyta för kundrelationer och informationsprodukter."}</p><p id="message" role="status">${configured ? "Laddar säker inloggning…" : "Intern inloggning är inte konfigurerad."}</p>${configured ? html`<div id="auth-widget"></div>` : ""}<div class="quiet-row"><a href="${mode === "register" ? "/admin/login" : "/admin/registrera"}">${mode === "register" ? "Redan ett konto? Logga in" : "Aktivera ditt konto"}</a></div><p class="footnote">${key.startsWith("pk_live_") ? "Endast godkända konton har intern behörighet." : "Pilot: inloggningen använder Clerks utvecklingsinstans."}</p></section>
+    <footer class="auth-footer">Content Online · Intern administration. Kundorganisationer använder sina egna portaladresser.</footer></main></div>`}
     ${assistantWidget(mode)}
     <noscript><p class="banner">Aktivera JavaScript för att använda denna arbetsyta.</p></noscript>
+    ${!workspace ? html`<script>
+    window.addEventListener('DOMContentLoaded',function(){
+      var video=document.getElementById('auth-background-video');
+      if(!video)return;
+      var reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+      var speed=function(){video.playbackRate=.55;};
+      var sync=function(){if(reduced.matches){video.pause();return;}speed();video.play().catch(function(){});};
+      if(video.readyState>0)speed();else video.addEventListener('loadedmetadata',speed,{once:true});
+      if(reduced.addEventListener)reduced.addEventListener('change',sync);
+      sync();
+    });
+    </script>` : ""}
     ${configured && (mode === "login" || mode === "register") ? html`<script>
     window.addEventListener('load', async function () {
       var message=document.getElementById('message');
