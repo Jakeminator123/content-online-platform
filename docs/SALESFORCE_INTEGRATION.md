@@ -28,7 +28,7 @@ För stora datamängder kan Bulk API bedömas senare. Pilotens små, läsande fr
 ## Miljövariabler och Vercel
 
 External Client App-konfigurationen tillhör endast Vercel-projektet
-`content-online-platform`. Den får inte läggas i kundportalen `fokus`.
+`content-online-platform`. Den får inte exponeras i den publika Fokus-mallen eller någon kundroute.
 
 Lokalt används `.env.local`, som är ignorerad av Git. I Vercel används krypterade,
 server-only miljövariabler med separat scope för Development, Preview och Production.

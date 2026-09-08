@@ -8,7 +8,7 @@
 
 ## Kort svar
 
-Vercel är en rimlig kandidat för detta repos backend/API i en publik demo och en avgränsad B2B-pilot. Frontendens drift väljs i det separata frontendspåret. Att lösningen är B2B tar inte bort kraven på GDPR, upphandling, tenantisolering, loggning eller datarättigheter. Content Onlines kundbild omfattar dessutom universitet, myndigheter och försvarsanknutna verksamheter, vilket gör data- och leverantörskraven särskilt viktiga.
+Vercel är en rimlig kandidat för detta repos backend/API och delade kundportal i en publik demo och en avgränsad B2B-pilot. Admin och kundroutes delar deployment men har separata behörighetsgränser. Att lösningen är B2B tar inte bort kraven på GDPR, upphandling, tenantisolering, loggning eller datarättigheter. Content Onlines kundbild omfattar dessutom universitet, myndigheter och försvarsanknutna verksamheter, vilket gör data- och leverantörskraven särskilt viktiga.
 
 En Vercel-region i Stockholm betyder att funktionernas compute kan placeras där. Det betyder inte att all data, metadata, loggning och backup garanterat stannar i Sverige eller EU.
 

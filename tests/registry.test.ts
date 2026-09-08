@@ -21,7 +21,7 @@ describe("Persistent registry domain", () => {
       status: "draft",
       kind: "customer",
       publisherIds: [],
-      site: { domain: "example-university.portal.contentonline.se", domainStatus: "pending", preset: "insight" },
+      site: { domain: "", domainStatus: "not_configured", preset: "insight" },
     });
     expect(publicPortal(next, "example-university")).toBeNull();
     expect(initialRegistry().customers).toHaveLength(1);
@@ -139,9 +139,10 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("Aktiveringssida");
     expect(registryClient).toContain("Styr kundsajt");
     expect(registryClient).toContain("Ta bort kundsajt");
-    expect(registryClient).toContain("https://fokus-psi-sable.vercel.app");
-    expect(registryClient).toContain("+'/o/'");
+    expect(registryClient).not.toContain("fokus-psi-sable.vercel.app");
+    expect(registryClient).toContain("'/portal'");
     expect(registryClient).toContain("slugify");
+    expect(registryClient).toContain("availableSlug");
     expect(registryClient).toContain("configure_customer_site");
     expect(registryClient).toContain("D-ID Allowed Domains");
     expect(registryClient).not.toContain("VERCEL_AUTOMATION_TOKEN");
@@ -193,7 +194,10 @@ describe("Registry API boundary", () => {
     const text = await response.text();
     expect(text).not.toContain(didClientKey);
     expect(JSON.parse(text)).toMatchObject({
-      runtime: { customerDomains: { rootDomain: "portal.contentonline.se", wildcardReady: false, previewOrigin: "https://fokus-psi-sable.vercel.app" } },
+      runtime: {
+        customerSites: { canonicalOrigin: "https://content-online-platform.vercel.app", pathPrefix: "/portal" },
+        customerDomains: { rootDomain: "portal.contentonline.se", wildcardReady: false },
+      },
     });
     expect(JSON.parse(text)).toMatchObject({
       runtime: { agentModeByCustomer: { "customer-kth-demo": "platform_fallback" } },

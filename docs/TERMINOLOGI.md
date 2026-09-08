@@ -36,7 +36,7 @@ Syftet är att ge verksamhet, design och kod samma språk. Termer med status **�
 | **Salesforce** | Ett av Content Onlines centrala affärssystem där mycket kund- och abonnemangsrelaterad information finns. | Bekräftat på övergripande nivå. Objekt, fält och dataägarskap ska verifieras. |
 | **Fortnox** | Ekonomisystem som innehåller delar av den relevanta affärsinformationen, exempelvis fakturarelaterad data. | Bekräftat på övergripande nivå. Exakta datatyper och integrationsbehov är öppna. |
 | **GitHub** | Versionshantering, samarbete och framtida CI. | Publikt repository anslutet: `Jakeminator123/content-online-platform`. |
-| **Vercel** | Hosting av plattform/backend och separat kundfrontend. | Pilot publicerad. Säkerhet, region och kundkrav behöver fortsatt produktionsprövning. |
+| **Vercel** | Gemensam hosting av plattform/backend och den inbyggda multikundsportalen. | Pilot publicerad. Säkerhet, region och kundkrav behöver fortsatt produktionsprövning. |
 | **Clerk** | Identitetsleverantör för Content Onlines interna admininloggning. Backend beslutar separat om behörigheten. | Ansluten gratis utvecklingsinstans. Egen domän och produktionskonfiguration återstår. |
 | **Neon** | Postgres-tjänst med gratisplan, föreslagen för beständig kund- och publisheradministration. | Inte provisionerad; pausad tills vidare. |
 

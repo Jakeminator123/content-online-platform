@@ -4,20 +4,20 @@ Detta repository är dokumentations- och utvecklingsytan för Content Onlines pl
 
 **GitHub:** [Jakeminator123/content-online-platform](https://github.com/Jakeminator123/content-online-platform) (publikt repository)
 
-Projektet är en publicerad pilot med intern admininloggning, skyddade API:er och det beständiga kundregistret. Den gemensamma multikundsportalen ägs av det separata `content-online-kundplatform-frontend`-repot och Vercel-projektet `fokus`. Den första pilotpersonan är en bibliotekarie på KTH med rollen Kundadmin. KTH visar uttryckligt märkt demodata; verklig kund-, publisher- och affärssystemsdata är inte ansluten.
+Projektet är en publicerad pilot med intern admininloggning, skyddade API:er, det beständiga kundregistret och en gemensam multikundsportal. Kundportalen använder den inbyggda **Fokus-mallen** i samma repository och samma Vercel-projekt som Content Online-plattformen. Den första pilotpersonan är en bibliotekarie på KTH med rollen Kundadmin. KTH visar uttryckligt märkt demodata; verklig kund-, publisher- och affärssystemsdata är inte ansluten.
 
 ## Publicerade ingångar och aktuell gräns
 
 - [Plattformen](https://content-online-platform.vercel.app): enbart Content Onlines interna inloggning.
-- Kundförhandsvisning `https://fokus-psi-sable.vercel.app/o/{url-namn}`: samma versionsstyrda frontend för alla kunder medan DNS aktiveras.
+- Kundsida `https://content-online-platform.vercel.app/portal/{url-namn}`: den gemensamma Fokus-mallen med en rimlig, kundspecifik slug.
 - Designgranskning `/demo/customer/kth`: oföränderlig, tydligt märkt KTH-fixture som fungerar även när en PR-preview avsiktligt saknar produktionsdatabas.
-- Ren kunddomän `https://{url-namn}.portal.contentonline.se`: värdbaserad tenant-routing via en Vercel-wildcard på `fokus`, inte ett projekt per kund.
+- Valfri kunddomän `https://{url-namn}.portal.contentonline.se`: kan kopplas senare till samma Vercel-projekt; den behövs inte för att publicera kundsidan.
 - [Content Online-admin](https://content-online-platform.vercel.app/admin/login): Clerk-inloggning, separat från kundkonton.
 - [Första aktiveringen](https://content-online-platform.vercel.app/admin/registrera): endast tillåten e-postadress; användaren måste själv verifiera den.
 
 Admin kräver en giltig Clerk-session från plattformens origin, en aktiv session och ett icke spärrat konto med verifierad primär e-post som matchar serverns `CONTENT_ONLINE_ADMIN_EMAIL`. Adressen ligger endast i Vercel och Clerk, aldrig i Git. Kundcookies, kundadminroller och klientredigerbar metadata ger inte intern adminbehörighet. Se [driftsinstruktionerna](docs/ADMIN_DRIFT.md).
 
-Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Det skyddade Neon-registret kan hantera, publicera och reversibelt ta bort kundsajter samt arkivera publicister. Det lagrar även kundens portal-mall, domän, logotyp-URL, färger, rubriker och D-ID-profil. Publicering ger en egen varumärkesanpassad portal och aktiveringssida i den delade frontend-appen; riktiga kundkonton återstår. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). En portalanknytning är inte samma sak som en färdig dataintegration. Den dokumentbaserade D-ID-agenten med video, chatt och valfri mikrofon hör till respektive kundportal, inte den interna adminportalen. Content Online styr agentens hälsning, positivitetsnivå och tillåtna verktyg, men nivån får aldrig påverka faktauppgifterna. [Prompt, Knowledge och verifieringsinstruktioner](docs/d-id/README.md) är versionshanterade; Studio synkroniseras inte automatiskt. Content Onlines skyddade interna textchatt finns kvar i admin.
+Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Det skyddade Neon-registret kan hantera, publicera och reversibelt ta bort kundsajter samt arkivera publicister. Det lagrar även kundens portal-mall, valfria domän, logotyp-URL, färger, rubriker och D-ID-profil. Publicering gör den varumärkesanpassade portalen och aktiveringssidan tillgänglig direkt under `/portal/{url-namn}` i den delade Vercel-runtime som redan är deployad; riktiga kundkonton återstår. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). En portalanknytning är inte samma sak som en färdig dataintegration. Den dokumentbaserade D-ID-agenten med video, chatt och valfri mikrofon hör till respektive kundportal, inte den interna adminportalen. Content Online styr agentens hälsning, positivitetsnivå och tillåtna verktyg, men nivån får aldrig påverka faktauppgifterna. [Prompt, Knowledge och verifieringsinstruktioner](docs/d-id/README.md) är versionshanterade; Studio synkroniseras inte automatiskt. Content Onlines skyddade interna textchatt finns kvar i admin.
 
 ## Produktmål
 
@@ -68,7 +68,7 @@ GET  /v1/organizations/{organizationId}/members
 
 GitHub Actions kör typkontroll och regressionstester vid push och pull request, inklusive separat adminbehörighet. Kund-API:t `/v1/*` förblir låst i produktion tills beständiga kundmedlemskap och kundautentisering har kopplats in. Admininloggningen ligger under `/admin` och använder inte demobackendens identiteter.
 
-`content-online-kundplatform-frontend` är den delade kundportal-appen och ska inte raderas eller ersättas med ett repo per kund. Backendregistret, adminbehörigheten och Neon förblir separata från dess runtime.
+Det tidigare `content-online-kundplatform-frontend`/`fokus` är endast migrationskälla medan den inbyggda Fokus-mallen godkänns och kan därefter arkiveras. Det är inte längre driftauktoritet eller mål för nya kundsidor. Ett nytt repo eller Vercel-projekt får aldrig skapas per kund.
 
 ## Statusord
 
