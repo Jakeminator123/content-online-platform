@@ -1,0 +1,10 @@
+---
+description: Content Online main-only integration and production policy
+alwaysApply: true
+---
+
+# Integration and production
+
+Read and follow the repository and production rules in the root `AGENTS.md`.
+Use current remote `main` as the only baseline and PR target; feature branches are Preview-only.
+Vercel Production must follow `main`. Verify the deployed production SHA matches GitHub `main` before reporting delivery.
