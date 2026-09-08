@@ -2,7 +2,7 @@
 
 Adminarbetsytan får tydligare KPI-kort, en kundspecifik insiktsyta och jämförelser per produkt, publicist och förändring. KTH:s kundportal har ytterligare perspektiv för tid, skolor, efterfrågan och förnyelser; budget visas endast för kundadministratörer. Befintliga flöden, behörigheter och jobballowlist är kvar.
 
-`src/admin/statistics-policy.ts` är den kanoniska dependency-fria policyn. Det tidigare `lib/statistics-policy.ts` i migrationsrepot `content-online-kundplatform-frontend` är inte längre en parallell driftauktoritet. Policyn prioriterar minskad användning över 5 %, efterfrågan utan tillgång och förnyelser inom 90 dagar, med förklaringar. Den behandlar inte saknad statistik som noll och flaggar gammal eller okänd rapportperiod. Urvalet ska gynna kundens förståelse, inte selektivt framställa resultaten som positiva.
+`src/admin/statistics-policy.ts` är den kanoniska dependency-fria policyn. Policyn prioriterar minskad användning över 5 %, efterfrågan utan tillgång och förnyelser inom 90 dagar, med förklaringar. Den behandlar inte saknad statistik som noll och flaggar gammal eller okänd rapportperiod. Urvalet ska gynna kundens förståelse, inte selektivt framställa resultaten som positiva.
 
 `statistics.ts` använder enbart syntetiska KTH-observationer för `customer-kth-demo`, filtrerade på tilldelade produkt-ID:n. Andra kunder har tilldelningar men får inget fabricerat användningsunderlag. Namn, e-post, belopp och persondata skickas inte till någon ny tjänst.
 

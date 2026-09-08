@@ -4,12 +4,12 @@ Detta repository är dokumentations- och utvecklingsytan för Content Onlines pl
 
 **GitHub:** [Jakeminator123/content-online-platform](https://github.com/Jakeminator123/content-online-platform) (publikt repository)
 
-Projektet är en publicerad pilot med intern admininloggning, skyddade API:er, det beständiga kundregistret och en gemensam multikundsportal. Kundportalen använder den inbyggda **Fokus-mallen** i samma repository och samma Vercel-projekt som Content Online-plattformen. Den första pilotpersonan är en bibliotekarie på KTH med rollen Kundadmin. KTH visar uttryckligt märkt demodata; verklig kund-, publisher- och affärssystemsdata är inte ansluten.
+Projektet är en publicerad pilot med intern admininloggning, skyddade API:er, det beständiga kundregistret och en gemensam multikundsportal. Kundportalen använder plattformens inbyggda standardmall i samma repository och samma Vercel-projekt som Content Online-plattformen. Den första pilotpersonan är en bibliotekarie på KTH med rollen Kundadmin. KTH visar uttryckligt märkt demodata; verklig kund-, publisher- och affärssystemsdata är inte ansluten.
 
 ## Publicerade ingångar och aktuell gräns
 
 - [Plattformen](https://content-online-platform.vercel.app): enbart Content Onlines interna inloggning.
-- Kundsida `https://content-online-platform.vercel.app/portal/{url-namn}`: den gemensamma Fokus-mallen med en rimlig, kundspecifik slug.
+- Kundsida `https://content-online-platform.vercel.app/portal/{url-namn}`: den gemensamma portalmallen med en rimlig, kundspecifik slug.
 - Designgranskning `/demo/customer/kth`: oföränderlig, tydligt märkt KTH-fixture som fungerar även när en PR-preview avsiktligt saknar produktionsdatabas.
 - Valfri kunddomän `https://{url-namn}.portal.contentonline.se`: kan kopplas senare till samma Vercel-projekt; den behövs inte för att publicera kundsidan.
 - [Content Online-admin](https://content-online-platform.vercel.app/admin/login): Clerk-inloggning, separat från kundkonton.
@@ -68,7 +68,7 @@ GET  /v1/organizations/{organizationId}/members
 
 GitHub Actions kör typkontroll och regressionstester vid push och pull request, inklusive separat adminbehörighet. Kund-API:t `/v1/*` förblir låst i produktion tills beständiga kundmedlemskap och kundautentisering har kopplats in. Admininloggningen ligger under `/admin` och använder inte demobackendens identiteter.
 
-Det tidigare `content-online-kundplatform-frontend`/`fokus` är endast migrationskälla medan den inbyggda Fokus-mallen godkänns och kan därefter arkiveras. Det är inte längre driftauktoritet eller mål för nya kundsidor. Ett nytt repo eller Vercel-projekt får aldrig skapas per kund.
+Den gemensamma portalruntimen i detta repository är enda driftauktoritet för kundsidor. Ett separat kundfrontend-repo eller Vercel-projekt får inte återskapas, och ett nytt repo eller projekt får aldrig skapas per kund.
 
 ## Statusord
 

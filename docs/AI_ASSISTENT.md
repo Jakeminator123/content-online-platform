@@ -22,7 +22,7 @@ OpenAI Responses API används server-side med `store: false`. Om API:t eller nyc
 
 ## D-ID-agent på kundportalerna
 
-D-ID-agenten är flyttad från Fråga CO till plattformens inbyggda Fokus-mall. Den laddas endast på kundadresser under `/portal/{slug}` som registret bekräftar som publicerade, inklusive KTH-demon. Okända, avpublicerade och otillgängliga portaler får inget embed-script. Agentens versionshanterade Instructions, Knowledge och testfrågor finns i [D-ID-paketet](d-id/README.md); en deployment ändrar inte Studio automatiskt.
+D-ID-agenten ligger i plattformens inbyggda portalmall. Den laddas endast på kundadresser under `/portal/{slug}` som registret bekräftar som publicerade, inklusive KTH-demon. Okända, avpublicerade och otillgängliga portaler får inget embed-script. Agentens versionshanterade Instructions, Knowledge och testfrågor finns i [D-ID-paketet](d-id/README.md); en deployment ändrar inte Studio automatiskt.
 
 Content Onlines skyddade backendchatt finns kvar i admin och är ett helt separat samtal. Frågor, svar, Clerk-session, kundregister, jobb, organisationsnamn och slug överförs inte till D-ID. Kundmallen tillför bara den domänbegränsade webbläsarkonfiguration som D-ID:s embed behöver.
 
@@ -84,6 +84,6 @@ Assistentens kundbild och statistikunderlag är syntetiska. Beständig kund- och
 
 ## D-ID-start: regression och felsökning (2026-09-08)
 
-Fokus-mallen använder D-ID:s officiella modulscript med `data-name="did-agent"` och compact-läge. Regressionstester verifierar konfigurationsvalidering, att både path- och eventuell host-routing kräver en publicerad portal och att ingen tenantmetadata läggs i embed-attributen. De gör inga betalda leverantörsanrop.
+Portalmallen använder D-ID:s officiella modulscript med `data-name="did-agent"` och compact-läge. Regressionstester verifierar konfigurationsvalidering, att både path- och eventuell host-routing kräver en publicerad portal och att ingen tenantmetadata läggs i embed-attributen. De gör inga betalda leverantörsanrop.
 
 HTTP 200 för scriptet bevisar inte en fungerande agent. Efter varje deployment krävs därför ett kundportaltest som verifierar att D-ID:s runtime-anrop lyckas och att rätt avatar och chattkontroller visas. Ett 401-fel brukar betyda att den exakta origin saknas i client keyns Allowed Domains.
