@@ -83,6 +83,23 @@ describe("shared multi-tenant customer portal", () => {
     expect(internal).not.toContain("agent.d-id.com/v2/index.js");
   });
 
+  it("offers a database-free synthetic KTH review route for protected previews", async () => {
+    const app = createAdminPortal({ authenticate: async () => admin }, cfg, {
+      registryStore: { read: async () => { throw new Error("preview database is intentionally unavailable"); }, write: async () => { throw new Error("unreachable"); } },
+      didAgentId: "v2_agt_preview",
+      didClientKey: "ck_preview_domain_key",
+    });
+    const portal = await app.request("/demo/customer/kth");
+    expect(portal.status).toBe(200);
+    const body = await portal.text();
+    expect(body).toContain("Kunskap i användning");
+    expect(body).toContain("DEMO · SYNTETISKA EXEMPEL");
+    expect(body).toContain('data-agent-id="v2_agt_preview"');
+    expect((await app.request("/demo/customer/kth/login")).status).toBe(200);
+    const context = await (await app.request("/demo/customer/kth/api/agent-context")).json();
+    expect(context).toMatchObject({ portal: { customer: "KTH", dataMode: "synthetic_demo" } });
+  });
+
   it("renders a new customer's own brand and keeps protected data behind authentication", async () => {
     const data = publishedCustomer();
     const app = createAdminPortal({ authenticate: async () => admin }, cfg, { registryStore: storeFor(data) });

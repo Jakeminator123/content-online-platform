@@ -9,6 +9,7 @@ Vercel-projekt. Den skapar en tenant-konfiguration som samma deployment läser.
 | Område | Adress | Behörighet |
 | --- | --- | --- |
 | Content Online-admin | `https://content-online-platform.vercel.app/admin` | Intern Clerk-session och serverkontrollerad administratör |
+| Designgranskning | `/demo/customer/kth` | Oföränderlig och tydligt märkt syntetisk fixture, utan databasberoende |
 | Förhandsvisning | `/portal/{url-namn}` | Publik, varumärkesmärkt struktur utan verklig kunddata |
 | Kunddomän | `https://{url-namn}.portal.contentonline.se` | Samma publicerade tenant via Vercel wildcard |
 | KTH | `kth` | Syntetisk pilot; alla exempel märks som demo |

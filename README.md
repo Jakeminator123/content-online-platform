@@ -10,6 +10,7 @@ Projektet är en publicerad pilot med intern admininloggning och en gemensam, mu
 
 - [Plattformen](https://content-online-platform.vercel.app): enbart Content Onlines interna inloggning.
 - Kundförhandsvisning `/portal/{url-namn}`: samma versionsstyrda mall för alla kunder medan DNS aktiveras.
+- Designgranskning `/demo/customer/kth`: oföränderlig, tydligt märkt KTH-fixture som fungerar även när en PR-preview avsiktligt saknar produktionsdatabas.
 - Planerad ren kunddomän `https://{url-namn}.portal.contentonline.se`: värdbaserad tenant-routing via en Vercel-wildcard, inte ett projekt per kund.
 - [Content Online-admin](https://content-online-platform.vercel.app/admin/login): Clerk-inloggning, separat från kundkonton.
 - [Första aktiveringen](https://content-online-platform.vercel.app/admin/registrera): endast tillåten e-postadress; användaren måste själv verifiera den.

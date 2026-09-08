@@ -11,7 +11,7 @@ import { PLATFORM_ORIGIN } from "./identity.js";
 import type { AdminAuthenticator, AdminConfig, AdminIdentity } from "./identity.js";
 import { adminJobs, runAdminJob } from "./jobs.js";
 import { z } from "zod";
-import { applyRegistryCommand, commandSchema, publicPortal, publishedCustomer, RegistryError, type Registry, type RegistryStore } from "./registry.js";
+import { applyRegistryCommand, commandSchema, initialRegistry, publicPortal, publishedCustomer, RegistryError, type Registry, type RegistryStore } from "./registry.js";
 import { registryStoreFromEnvironment } from "./registry-store.js";
 import { registryClient } from "./registry-client.js";
 import { workspaceClient } from "./workspace-client.js";
@@ -135,6 +135,35 @@ export function createAdminPortal(
   app.get("/admin/assets/assistant.js", (c) => c.body(assistantClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   // This public route returns only immutable presentation fixtures. It never authenticates or saves.
   app.get("/demo/workspace", (c) => c.json(demoWorkspace));
+  app.get("/demo/customer/kth", (c) => {
+    const data = initialRegistry();
+    const customer = publishedCustomer(data, "kth");
+    if (!customer) return c.text("Demokundportalen saknas.", 404);
+    const didAgent = resolveCustomerAgent(customer, fallbackDidAgent);
+    return c.html(renderCustomerPortal(customer, data, {
+      basePath: "/demo/customer/kth",
+      contextUrl: "/demo/customer/kth/api/agent-context",
+      page: "portal",
+      didAgent,
+    }));
+  });
+  app.get("/demo/customer/kth/login", (c) => {
+    const data = initialRegistry();
+    const customer = publishedCustomer(data, "kth");
+    if (!customer) return c.text("Demokundportalen saknas.", 404);
+    const didAgent = resolveCustomerAgent(customer, fallbackDidAgent);
+    return c.html(renderCustomerPortal(customer, data, {
+      basePath: "/demo/customer/kth",
+      contextUrl: "/demo/customer/kth/api/agent-context",
+      page: "login",
+      didAgent,
+    }));
+  });
+  app.get("/demo/customer/kth/api/agent-context", (c) => {
+    const data = initialRegistry();
+    const customer = publishedCustomer(data, "kth");
+    return customer ? c.json(customerPortalContext(customer, data)) : c.json({ error: "not_found" }, 404);
+  });
   app.get("/demo", (c) => c.html(page("demo", null, "", false)));
   app.get("/", (c) => c.html(page("login", host, config.publishableKey, configured)));
   // Staff choose the customer inside their own workspace; never default to KTH.

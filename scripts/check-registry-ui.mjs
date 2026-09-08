@@ -41,7 +41,7 @@ try{
   await panel.getByLabel('Visa agenten på kundens portal').check();
   await panel.getByLabel('Agent ID').fill('v2_agt_browser');
   await panel.getByLabel('Client key från D-ID Embed').fill('ck_browser_domain_key');
-  await panel.getByLabel('Positivitet:').fill('8');
+  await panel.locator('input[name="positivity"]').fill('8');
   await panel.getByRole('button',{name:'Spara kundsajt',exact:true}).click();
   await page.waitForFunction(()=>document.getElementById('registry-status')?.textContent==='Ändringen är sparad.');
   row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
