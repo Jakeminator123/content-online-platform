@@ -16,6 +16,8 @@ import { workspaceCss } from "./workspace-style.js";
 type AdminPortalOptions = {
   assistantApiKey?: string;
   assistantModel?: string;
+  didAgentId?: string;
+  didClientKey?: string;
   cronSecret?: string;
   fetchImpl?: typeof fetch;
   now?: () => Date;
@@ -36,6 +38,10 @@ export function createAdminPortal(
   const app = new Hono<{ Variables: { adminIdentity: AdminIdentity } }>();
   const host = clerkFrontendHost(config.publishableKey);
   const configured = !!(host && config.secretKey && config.allowedEmail);
+  const didPresenter = {
+    agentId: (options.didAgentId ?? process.env.DID_AGENT_ID ?? "").trim(),
+    clientKey: (options.didClientKey ?? process.env.DID_CLIENT_KEY ?? "").trim(),
+  };
   const askAssistant =
     options.askAssistant ??
     ((question: string, adminId: string) => {
@@ -119,6 +125,18 @@ export function createAdminPortal(
     }),
   );
   app.get("/admin/api/workspace", (c) => c.json(demoWorkspace));
+  app.get("/admin/api/assistant/presenter", (c) => {
+    if (!didPresenter.agentId || !didPresenter.clientKey) {
+      return c.json({ configured: false, provider: "d-id", mode: "speech_only" });
+    }
+    return c.json({
+      configured: true,
+      provider: "d-id",
+      mode: "speech_only",
+      agentId: didPresenter.agentId,
+      clientKey: didPresenter.clientKey,
+    });
+  });
 
   app.post("/admin/api/assistant/message", async (c) => {
     let body: unknown;
@@ -175,7 +193,7 @@ function assistantWidget(mode: "start" | "login" | "register" | "admin" | "demo"
       ${adminMode ? html`
         <div class="assistant-app" id="assistant-app" hidden>
           <div class="assistant-tabs" role="tablist" aria-label="Assistentens arbetsytor"><button class="active" type="button" role="tab" aria-selected="true" data-assistant-tab="chat">Fråga</button><button type="button" role="tab" aria-selected="false" data-assistant-tab="customers">Kundbild</button><button type="button" role="tab" aria-selected="false" data-assistant-tab="jobs">Jobb</button></div>
-          <section class="assistant-view active" id="assistant-view-chat" role="tabpanel"><div class="assistant-messages" id="assistant-messages" aria-live="polite"><div class="assistant-message bot"><div>Hej! Jag svarar utifrån projektets dokumentation och den skyddade pilotöversikten. Jag skiljer alltid på vad plattformen kan nu och vad som återstår.</div></div></div>
+          <section class="assistant-view active" id="assistant-view-chat" role="tabpanel"><div class="assistant-presenter"><div><strong>Röstavatar från D-ID</strong><small>Läser upp samma svar som visas här. D-ID skapar inte svaret.</small></div><button id="assistant-presenter-enable" type="button">Aktivera</button></div><p class="assistant-presenter-status" id="assistant-presenter-status" role="status">Avstängd tills du väljer att aktivera den.</p><div class="assistant-presenter-stage" id="assistant-presenter-stage" hidden></div><div class="assistant-messages" id="assistant-messages" aria-live="polite"><div class="assistant-message bot"><div>Hej! Jag svarar utifrån projektets dokumentation och den skyddade pilotöversikten. Jag skiljer alltid på vad plattformen kan nu och vad som återstår.</div></div></div>
           <div class="assistant-prompts"><button type="button" data-prompt="Vad kan plattformen göra nu och vad ska den kunna senare?">Nu kontra sedan</button><button type="button" data-prompt="Vilken data får respektive användarroll se?">Rollernas data</button><button type="button" data-prompt="Vilka integrationer är inte klara?">Öppna integrationer</button></div>
           <form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-input">Skriv en fråga</label><textarea id="assistant-input" maxlength="1200" rows="1" placeholder="Fråga om plattformen…" required></textarea><button type="submit" aria-label="Skicka fråga">↑</button></form><p class="assistant-footnote">När AI är tillgänglig skickas din fråga till OpenAI. Skriv inga personuppgifter, avtal eller hemligheter. Faktasvar utan AI märks separat.</p></section>
           <section class="assistant-view" id="assistant-view-customers" role="tabpanel" hidden><div class="assistant-section-intro"><span class="assistant-kicker">Skyddad pilotvy</span><h3>Kunder och dataåtkomst</h3><p>Visar bara vad den inloggade Content Online-administratören får läsa.</p></div><div id="assistant-customers"></div></section>

@@ -61,7 +61,7 @@ describe("Content Online admin identity boundary", () => {
 describe("Hosted portal entry and guarded admin API", () => {
   it.each(["unauthenticated", "forbidden", "unconfigured"] as const)("denies %s on every admin API path", async (status) => {
     const app = appFor({ status });
-    for (const path of ["/admin/api/session", "/admin/api/workspace", "/admin/api/assistant/message", "/admin/api/jobs", "/admin/api/jobs/platform-readiness/run", "/admin/api/publishers", "/admin/api/users"]) {
+    for (const path of ["/admin/api/session", "/admin/api/workspace", "/admin/api/assistant/presenter", "/admin/api/assistant/message", "/admin/api/jobs", "/admin/api/jobs/platform-readiness/run", "/admin/api/publishers", "/admin/api/users"]) {
       for (const method of ["GET", "POST"]) {
         const response = await app.request(path, { method });
         expect(response.status).toBe(status === "unauthenticated" ? 401 : status === "forbidden" ? 403 : 503);
@@ -87,6 +87,36 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(body.users.filter((user: { customer: string }) => user.customer === "KTH").map((user: { role: string }) => user.role)).toEqual(["Kundadministratör", "Läsare"]);
     expect(body.publishers[0]).toMatchObject({ name: "IEEE", route: "MPS / MPS Insight", status: "Inte ansluten" });
     expect(body.storage.status).toBe("blocked_by_decision");
+  });
+
+  it("returns D-ID speech-only presenter configuration only after admin authorization", async () => {
+    const didAgentId = "v2_agt_test-presenter";
+    const didClientKey = "domain-scoped-browser-client-key";
+    const app = appFor(
+      { status: "authenticated", identity: { id: "admin", email, role: "content_admin" } },
+      { didAgentId, didClientKey },
+    );
+    const response = await app.request("/admin/api/assistant/presenter");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      configured: true,
+      provider: "d-id",
+      mode: "speech_only",
+      agentId: didAgentId,
+      clientKey: didClientKey,
+    });
+
+    for (const path of ["/", "/admin", "/admin/assets/assistant.js"]) {
+      const body = await (await app.request(path)).text();
+      expect(body).not.toContain(didAgentId);
+      expect(body).not.toContain(didClientKey);
+    }
+
+    const unconfigured = await appFor(
+      { status: "authenticated", identity: { id: "admin", email, role: "content_admin" } },
+      { didAgentId, didClientKey: "" },
+    ).request("/admin/api/assistant/presenter");
+    expect(await unconfigured.json()).toEqual({ configured: false, provider: "d-id", mode: "speech_only" });
   });
 
   it("answers through the protected assistant API and validates input", async () => {
@@ -225,6 +255,8 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(() => new Script(assistantClient)).not.toThrow();
     expect(assistantClient).not.toContain(config.secretKey);
     expect(assistantClient).not.toContain(config.allowedEmail);
+    expect(assistantClient).toContain("didApi.functions.speak");
+    expect(assistantClient).not.toContain("didApi.chat(");
     const response = await appFor({ status: "unauthenticated" }).request("/admin/assets/assistant.js");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/javascript");
