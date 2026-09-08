@@ -63,6 +63,11 @@ describe("Persistent registry domain", () => {
   it("emits syntactically valid client code without secret handling", () => {
     expect(() => new Script(registryClient)).not.toThrow();
     expect(registryClient).not.toContain("DATABASE_URL");
+    expect(registryClient).toContain("Granska kundyta");
+    expect(registryClient).toContain("Aktiveringssida");
+    expect(registryClient).toContain("Styr kund");
+    expect(registryClient).toContain("slugify");
+    expect(registryClient).toContain("const activationUrl=c=>url(c)+'/login'");
   });
 });
 describe("Registry API boundary", () => {

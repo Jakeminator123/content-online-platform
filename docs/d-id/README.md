@@ -1,4 +1,4 @@
-# D-ID: dokumentationsagent och portalens ingång
+# D-ID: interaktiv dokumentationsagent i Fråga CO
 
 ## Leveransens gräns
 
@@ -11,20 +11,22 @@ Detta paket versionshanterar de två texter som ägaren godkände i dialogen 202
 
 ## Ingång från Content Online
 
-Efter verifierad intern inloggning visas **Öppna D-ID-agenten** i Fråga CO. En vanlig länk öppnar den konfigurerade Studio-agenten i en separat flik efter användarens klick. Inget D-ID-script, samtal, mikrofon eller ljud startar automatiskt genom denna ingång. D-ID:s egen startsida styr eventuell samtalsstart och mikrofonbehörighet.
+Efter verifierad intern inloggning visas **Starta agenten här** i Fråga CO. Först efter klick laddas D-ID:s officiella v2-script i `full`-läge i portalens egen behållare. Agentens video, mikrofonkontroll, omstart och D-ID-chatt är synliga. `autoConnect` aktiveras först i detta användarinitierade flöde; webbläsaren styr mikrofonbehörigheten.
 
-Den skyddade GET-rutten `/admin/api/assistant/agent` bygger länken från de redan befintliga browser-config-värdena `DID_AGENT_ID` och `DID_CLIENT_KEY`. Den tar inte emot en godtycklig redirect-URL och skickar inte Clerk-token, fråga, kundregister eller jobbinformation till D-ID. Länken använder `noopener noreferrer` och `no-referrer`. Publik HTML innehåller inga av värdena. Saknad konfiguration eller fel döljer länken, erbjuder återförsök och blockerar inte textchatten.
+Den skyddade GET-rutten `/admin/api/assistant/presenter` lämnar ut endast validerat Agent ID och rå, frontendavsedd client key. D-ID:s Studio-delningslänk innehåller client key Base64-kodad; servern accepterar både denna form och den råa `ck_…`-formen men skickar endast normaliserad rå nyckel till embed-scriptet. En provider-API-nyckel matchar inte formatet och accepteras inte.
 
-Den befintliga client key måste vara giltig för just den delade agenten. Den här PR:n ändrar inga Vercel-värden. Om D-ID roterar eller skiljer på delnings- och embednycklar behöver konfigurationen ses över separat; en giltig länkform är inte bevis för att leverantören accepterar den.
+`/admin/api/assistant/agent` bygger fortfarande en separat-flik-länk som reserv. Den tar inte emot en godtycklig redirect-URL och skickar inte Clerk-token, fråga, kundregister eller jobbinformation till D-ID. Länken använder `noopener noreferrer` och `no-referrer`. Publik HTML innehåller inga konfigurationsvärden. Saknad konfiguration eller D-ID-fel blockerar inte Content Onlines textchatt.
+
+Client key måste vara giltig för agenten och ha portalens exakta origin i D-ID:s `allowed_domains`. En giltig delningslänk bevisar inte att embed-nyckeln tillåter en viss domän.
 
 **Viktigt:** Content Onlines autentisering skyddar hämtningen av länken, inte D-ID:s delade sida efteråt. Den som får en kopia av delningslänken kan potentiellt använda den. Därför har den fristående agenten bara offentligt lämpligt underlag och inga adminverktyg. Konversationer hos D-ID kan förbruka ägarens D-ID-krediter. Ingen ny plan eller prenumeration införs.
 
-## Två skilda funktioner
+## Två skilda samtal
 
-1. **D-ID dokumentationsagent:** formulerar egna svar från Studio-instruktioner och uppladdad kunskap. Används i den separata fliken.
-2. **Valfri uppläsning av textchatten:** den tidigare embed-integrationen anropar enbart `speak()` med backendens färdiga svar. Den skapar inte dessa svar, skickar inte frågorna och aktiverar inte mikrofonen. Kontrollen finns kvar under en utfällbar rubrik.
+1. **D-ID dokumentationsagent:** formulerar egna svar från Studio-instruktioner och uppladdad kunskap. Video, D-ID-chatt och röst finns direkt i Fråga CO.
+2. **Content Onlines skyddade textchatt:** använder plattformens backend, modell, källurval, minimerade kundbild och allowlistade jobb.
 
-Textchatten, dess modell, källurval, kundbild och allowlistade jobb ändras inte. Inga kundfrontendfiler, databasposter eller behörighetsregler ändras.
+Ingen fråga eller svar kopieras mellan samtalen. Den tidigare `speak()`-bryggan är borttagen för att gränsen ska vara tydlig.
 
 ## Kunskapens källor och uppdatering
 
@@ -37,10 +39,10 @@ Vid ändring: granska faktauppgifterna, versionsmärk Knowledge, öppna PR mot m
 
 ## Verifiering
 
-CI testar åtkomstnekande, no-store, URL-kodning, avsaknad av konfigurationsvärden i publik HTML, felaktiga destinationer, återförsök och fortsatt fungerande textchatt. De tidigare röstavatarregressionerna behålls. Inga betalda modell- eller D-ID-anrop görs i testerna.
+CI testar åtkomstnekande, no-store, nyckelnormalisering, avsaknad av konfigurationsvärden i publik HTML, felaktiga reservdestinationer, D-ID-bootstrap, synliga chat-/mikrofonkontroller och fortsatt fungerande separat textchatt. Inga betalda modell- eller D-ID-anrop görs i testerna.
 
 Manuellt acceptanstest i ägarens autentiserade miljö:
-1. Öppna Fråga CO och välj D-ID-agenten. Rätt agent ska visas i en ny flik utan att CO-session eller chatt skickas dit.
+1. Öppna Fråga CO och välj **Starta agenten här**. Rätt avatar, D-ID-chatt och mikrofonkontroll ska visas i panelen. Reservlänken ska öppna samma agent i en ny flik.
 2. Fråga vad Content Online gör och hur en publicist skiljer sig från en kund.
 3. Fråga om KTH:s siffror är verkliga. Svaret ska markera syntetisk demo.
 4. Be agenten skapa en kund eller visa alla avtal. Den ska förklara att den saknar sådan åtkomst och inte påstå att något har utförts.
@@ -53,3 +55,6 @@ En grön CI/READY-preview bevisar inte korrekt D-ID-konfiguration, Studio-kunska
 
 - [Skapa agent, Instructions och Knowledge](https://help.d-id.com/hc/en-us/articles/31199968565521-How-do-I-create-an-interactive-visual-agent)
 - [Dela agent och kontoansvar](https://help.d-id.com/hc/en-us/articles/31201506735889-How-do-I-share-an-Agent)
+- [Agents Embed Quickstart](https://docs.d-id.com/docs/embed-quickstart)
+- [Embed-attribut](https://docs.d-id.com/docs/embed-attributes)
+- [Kontroller och händelser](https://docs.d-id.com/docs/embed-methods)
