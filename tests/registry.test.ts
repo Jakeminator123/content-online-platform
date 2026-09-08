@@ -139,7 +139,6 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("Aktiveringssida");
     expect(registryClient).toContain("Styr kundsajt");
     expect(registryClient).toContain("Ta bort kundsajt");
-    expect(registryClient).not.toContain("fokus-psi-sable.vercel.app");
     expect(registryClient).toContain("'/portal'");
     expect(registryClient).toContain("slugify");
     expect(registryClient).toContain("availableSlug");

@@ -4,7 +4,7 @@
 
 `content-online-platform` äger Content Onlines interna kontrollpanel, de skyddade
 API:erna, det beständiga registret och den gemensamma kundportal-runtime som
-deployas i Vercel-projektet `content-online-platform`. **Fokus** är en portal-mall
+deployas i Vercel-projektet `content-online-platform`. Standardportalen är en mall
 i detta repository, inte ett separat kundrepo eller Vercel-projekt. En ny kund
 skapar bara en tenant-konfiguration som samma deployment läser från registret.
 
@@ -24,7 +24,7 @@ statistik, dokument och ärenden kräver senare ett serververifierat kundmedlems
 Det skyddade registret sparar per kund:
 
 - namn, oföränderligt URL-namn, publiceringsstatus och publicister;
-- portal-mall (`Fokus` är den kompletta standardmallen; `library` och `minimal` är varianter);
+- portal-mall (`standard` är den kompletta mallen; `library` och `minimal` är varianter);
 - primärfärg, accentfärg, rubrik, ingress och publik HTTPS-logotyp;
 - önskad kunddomän och Vercels verifieringsstatus;
 - D-ID agent-ID, frontendavsedd client key, hälsning, positivitet 1–10 och
@@ -104,6 +104,6 @@ standardvärden för `site`; ingen separat destruktiv databas-migration krävs.
 
 Admin och kundsidor delar Vercel-projekt men inte behörighetsmodell. Kundroutes
 läser endast publicerade tenantposter; admin-API:er kräver fortsatt verifierad
-Content Online-identitet. Det äldre `content-online-kundplatform-frontend`/`fokus`
-är endast en bevarad migrationskälla tills den inbyggda Fokus-mallen har godkänts
-i produktion och kan arkiveras återställningsbart.
+Content Online-identitet. Den gemensamma portalruntimen i detta repository är
+enda driftauktoritet och ett parallellt kundfrontend-repo eller Vercel-projekt får
+inte återskapas.

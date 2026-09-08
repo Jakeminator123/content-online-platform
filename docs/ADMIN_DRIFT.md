@@ -12,7 +12,7 @@ Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planera
 
 ## Levererat
 
-- Hono-plattformen innehåller både portalval och den delade Fokus-mallen utan att blanda kund- och adminbehörighet.
+- Hono-plattformen innehåller både portalval och den delade portalmallen utan att blanda kund- och adminbehörighet.
 - `/admin/login` och `/admin/registrera` använder Clerk JS/UI. Den nya rollen heter `content_admin`.
 - HTML-skalet på `/admin` är publikt men innehåller inga identitets- eller kunduppgifter. Personlig information hämtas från serverns skyddade `/admin/api/session` efter verifiering.
 - API accepterar endast Clerk-bearertoken med plattformens uttryckliga `azp`/origin. Signatur och livslängd kontrolleras av SDK:n; servern kontrollerar även aktiv session, spärrstatus samt verifierad primär e-post mot serverns allowlist.
@@ -20,10 +20,10 @@ Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planera
 - Äldre frontendvägar var migrationsbryggor till plattformens administration. KTH-demons cookies används aldrig som behörighetsbevis.
 - Den skyddade, interna arbetsytan visar nu ett serverlevererat och skrivskyddat pilotregister för kunder, publicister, produkt-/kundtilldelningar samt anslutningar/importstatus. `/admin/api/workspace` har samma Clerk- och allowlistkontroll som övriga admin-API:er.
 - Pilotregistret är uttryckligen syntetiskt. Alla skrivåtgärder är avstängda eftersom beständig lagring ännu saknas; inget sparas i serverminne, webbläsarlagring eller Git.
-- Den tidigare kundfrontendens mer omfattande KTH-demo är migrationsunderlag. Den inbyggda Fokus-mallen är nu den kanoniska publiceringsytan och återanvänder aldrig KTH-data för en annan kund.
+- Den inbyggda portalmallen är den kanoniska publiceringsytan och återanvänder aldrig KTH-data för en annan kund.
 - Content Onlines admininloggning har en modern assistentbubbla. Efter verifierad admininloggning kan den svara från projektets dokumenterade kontext, visa den syntetiska kund-/rollbilden och starta allowlistade skrivskyddade kontrolljobb.
 - OpenAI-anrop görs server-side med minimerad kontext och `store: false`; personnamn, e-post, identitets-ID och kundnamn från arbetsytan skickas inte till modellen. Vid providerfel används ett begränsat lokalt faktasvar.
-- Den interna assistenten innehåller bara Content Onlines skyddade textchatt och adminverktyg. D-ID-agenten med video, egen chatt och valfri mikrofon ligger i den inbyggda Fokus-mallen på publicerade kundadresser; ingen kund- eller admindata kopieras dit automatiskt.
+- Den interna assistenten innehåller bara Content Onlines skyddade textchatt och adminverktyg. D-ID-agenten med video, egen chatt och valfri mikrofon ligger i den inbyggda portalmallen på publicerade kundadresser; ingen kund- eller admindata kopieras dit automatiskt.
 - Ett dagligt `platform-readiness`-jobb är konfigurerat för Vercel Cron. Endpointen kräver `CRON_SECRET`, och manuella körningar kräver samma adminbehörighet som arbetsytan. Jobbresultat sparas inte ännu.
 
 ## Första kontot
@@ -85,4 +85,4 @@ Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projekt
 
 Plattformens rot är nu intern inloggning. Aktuell lagring, kundadresser, arkivering och återstående kundidentitet beskrivs i [PORTALSTRUKTUR.md](PORTALSTRUKTUR.md). Detta ersätter äldre uppgifter ovan om pausad Neon eller att alla kund-/publicistlistor saknar sparning. Statistik och demofixtures är fortfarande separata.
 
-Adminregistret skiljer nu på **Styr kund**, **Granska kundyta** och **Aktiveringssida**. Publicerade icke-KTH-kunder får en organisationsmärkt sida under `/portal/{slug}` i plattformens gemensamma Fokus-mall. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.
+Adminregistret skiljer nu på **Styr kund**, **Granska kundyta** och **Aktiveringssida**. Publicerade icke-KTH-kunder får en organisationsmärkt sida under `/portal/{slug}` i plattformens gemensamma portalmall. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.
