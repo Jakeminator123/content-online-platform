@@ -17,7 +17,12 @@ function memoryStore(): RegistryStore {
 describe("Persistent registry domain", () => {
   it("creates unpublished empty customer tenants without inheriting KTH data", () => {
     const next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example University", slug: "example-university" }, actor);
-    expect(next.customers[1]).toMatchObject({ status: "draft", kind: "customer", publisherIds: [] });
+    expect(next.customers[1]).toMatchObject({
+      status: "draft",
+      kind: "customer",
+      publisherIds: [],
+      site: { domain: "example-university.portal.contentonline.se", domainStatus: "pending", preset: "insight" },
+    });
     expect(publicPortal(next, "example-university")).toBeNull();
     expect(initialRegistry().customers).toHaveLength(1);
   });
@@ -26,7 +31,12 @@ describe("Persistent registry domain", () => {
     const id = next.customers[1]!.id;
     next = applyRegistryCommand(next, { action: "update_customer", id, name: "Example", publisherIds: ["ieee"] }, actor);
     next = applyRegistryCommand(next, { action: "publish_customer", id }, actor);
-    expect(publicPortal(next, "example")).toEqual({ name: "Example", slug: "example", mode: "awaiting_accounts" });
+    expect(publicPortal(next, "example")).toMatchObject({
+      name: "Example",
+      slug: "example",
+      mode: "awaiting_accounts",
+      brand: { primaryColor: "#285b70", accentColor: "#338578" },
+    });
     next = applyRegistryCommand(next, { action: "archive_customer", id }, actor);
     expect(publicPortal(next, "example")).toBeNull();
     expect(next.customers[1]!.publisherIds).toEqual(["ieee"]);
@@ -42,6 +52,49 @@ describe("Persistent registry domain", () => {
     const cmd = commandSchema.parse({ action: "update_customer", id: "customer-kth-demo", name: "KTH", publisherIds: [], slug: "other", kind: "customer" });
     const next = applyRegistryCommand(initialRegistry(), cmd, actor);
     expect(next.customers[0]).toMatchObject({ slug: "kth", kind: "demo" });
+  });
+  it("persists brand, domain and constrained D-ID policy without weakening truthfulness", () => {
+    let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
+    const customer = next.customers[1]!;
+    next = applyRegistryCommand(next, {
+      action: "configure_customer_site",
+      id: customer.id,
+      site: {
+        preset: "library",
+        domain: "example.portal.contentonline.se",
+        logoUrl: "https://assets.example.test/logo.svg",
+        primaryColor: "#123456",
+        accentColor: "#abcdef",
+        heading: "Example knowledge",
+        tagline: "A customer-specific portal.",
+        agent: {
+          enabled: true,
+          agentId: "v2_agt_example",
+          clientKey: "ck_domain_scoped_key",
+          greeting: "Hej från Example!",
+          positivity: 10,
+          tools: ["portal_context", "portal_navigation", "usage_summary", "usage_summary"],
+        },
+      },
+    }, actor);
+    expect(next.customers[1]!.site).toMatchObject({
+      preset: "library",
+      domainStatus: "pending",
+      primaryColor: "#123456",
+      agent: { positivity: 10, tools: ["portal_context", "portal_navigation", "usage_summary"] },
+    });
+    next = applyRegistryCommand(next, { action: "set_customer_domain_status", id: customer.id, domainStatus: "ready" }, actor);
+    expect(next.customers[1]!.site.domainStatus).toBe("ready");
+    expect(commandSchema.safeParse({
+      action: "configure_customer_site",
+      id: customer.id,
+      site: { ...next.customers[1]!.site, agent: { ...next.customers[1]!.site.agent, positivity: 11 } },
+    }).success).toBe(false);
+    expect(commandSchema.safeParse({
+      action: "configure_customer_site",
+      id: customer.id,
+      site: { ...next.customers[1]!.site, agent: { ...next.customers[1]!.site.agent, clientKey: "not-a-browser-client-key" } },
+    }).success).toBe(false);
   });
   it("archives publishers without deleting existing assignments and rejects new archived assignments", () => {
     let next = applyRegistryCommand(initialRegistry(), { action: "archive_publisher", id: "ieee" }, actor);
@@ -63,11 +116,13 @@ describe("Persistent registry domain", () => {
   it("emits syntactically valid client code without secret handling", () => {
     expect(() => new Script(registryClient)).not.toThrow();
     expect(registryClient).not.toContain("DATABASE_URL");
-    expect(registryClient).toContain("Granska kundyta");
+    expect(registryClient).toContain("Granska kundsajt");
     expect(registryClient).toContain("Aktiveringssida");
-    expect(registryClient).toContain("Styr kund");
+    expect(registryClient).toContain("Styr kundsajt");
     expect(registryClient).toContain("slugify");
-    expect(registryClient).toContain("const activationUrl=c=>url(c)+'/login'");
+    expect(registryClient).toContain("configure_customer_site");
+    expect(registryClient).toContain("D-ID Allowed Domains");
+    expect(registryClient).not.toContain("VERCEL_AUTOMATION_TOKEN");
   });
 });
 describe("Registry API boundary", () => {
@@ -94,7 +149,12 @@ describe("Registry API boundary", () => {
     const unknown = await app.request("/portal-directory/new-org");
     expect(unknown.status).toBe(404);
     expect((await app.request("/portal-directory/kth")).headers.get("cache-control")).toBe("no-store");
-    expect(await (await app.request("/portal-directory/kth")).json()).toEqual({ name: "KTH", slug: "kth", mode: "demo" });
+    expect(await (await app.request("/portal-directory/kth")).json()).toMatchObject({
+      name: "KTH",
+      slug: "kth",
+      mode: "demo",
+      brand: { heading: "Kunskap i användning" },
+    });
     expect((await app.request("/admin/api/registry", { method: "POST", body: "{" })).status).toBe(422);
     expect((await app.request("/admin/api/registry", { method: "POST", body: JSON.stringify({ version: 2, command: { action: "delete_everything" } }) })).status).toBe(422);
     expect((await app.request("/admin/api/registry", { method: "POST", headers: { origin: "https://evil.example" }, body: "{}" })).status).toBe(403);

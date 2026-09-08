@@ -18,22 +18,6 @@ export const assistantClient = String.raw`
   async function activate(workspace){
     document.getElementById('assistant-locked').hidden=true;
     document.getElementById('assistant-app').hidden=false;
-    const agentLink=document.getElementById('assistant-agent-open');
-    const configureAgentLink=async()=>{
-      agentLink.hidden=true;agentLink.removeAttribute('href');
-      try{
-        const response=await fetch('/admin/api/assistant/agent',{headers:await authHeaders(false),cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(10000)});
-        if(!response.ok)throw new Error('agent_config');
-        const config=await response.json();
-        if(!config.configured)return;
-        const target=new URL(config.url);
-        if(target.origin!=='https://studio.d-id.com'||target.pathname!=='/agents/share'||target.username||target.password||target.hash||!target.searchParams.get('id')||!target.searchParams.get('key'))throw new Error('agent_destination');
-        // Secondary fallback only. A normal, user-clicked link never forwards our session or chat.
-        agentLink.href=target.href;agentLink.hidden=false;
-      }catch{agentLink.hidden=true;agentLink.removeAttribute('href');}
-    };
-    void configureAgentLink();
-
     const tabs=document.querySelectorAll('[data-assistant-tab]');
     tabs.forEach(tab=>tab.addEventListener('click',()=>{
       tabs.forEach(item=>{const active=item===tab;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));});
@@ -60,69 +44,6 @@ export const assistantClient = String.raw`
     const messages=document.getElementById('assistant-messages');
     const form=document.getElementById('assistant-form');
     const input=document.getElementById('assistant-input');
-    const presenterButton=document.getElementById('assistant-presenter-enable');
-    const presenterStatus=document.getElementById('assistant-presenter-status');
-    const presenterStage=document.getElementById('assistant-presenter-stage');
-    let presenterNeedsReload=false;
-    let presenterPhase='config';
-    const waitForPresenterApi=()=>new Promise((resolve,reject)=>{
-      const deadline=Date.now()+15000;
-      const check=()=>{
-        const api=window.DID_AGENTS_API;
-        if(typeof api?.configure==='function'&&typeof api?.events?.on==='function'){resolve(api);return;}
-        if(Date.now()>=deadline){reject(new Error('presenter_init_timeout'));return;}
-        setTimeout(check,100);
-      };
-      check();
-    });
-    const activatePresenter=async()=>{
-      if(presenterNeedsReload){window.location.reload();return;}
-      presenterPhase='config';
-      presenterButton.disabled=true;presenterStatus.textContent='Kontrollerar D-ID-konfiguration…';
-      const response=await fetch('/admin/api/assistant/presenter',{headers:await authHeaders(false),cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(10000)});
-      if(!response.ok)throw new Error('presenter_config');
-      const config=await response.json();
-      if(!config.configured){presenterButton.disabled=false;presenterButton.textContent='Inte konfigurerad';presenterStatus.textContent='D-ID saknar ett giltigt Agent ID eller en domänbegränsad client key.';return;}
-      presenterPhase='script';
-      presenterStatus.textContent='Laddar video, röst och chatt…';presenterStage.hidden=false;
-      const script=document.createElement('script');script.type='module';script.src='https://agent.d-id.com/v2/index.js';
-      // D-ID auto-initializes only the script selected by this exact attribute.
-      script.dataset.name='did-agent';
-      script.dataset.mode='full';script.dataset.targetId='assistant-presenter-stage';script.dataset.clientKey=config.clientKey;script.dataset.agentId=config.agentId;
-      script.dataset.orientation='vertical';script.dataset.openMode='expanded';script.dataset.autoConnect='true';script.dataset.showRestartButton='true';script.dataset.showAgentName='true';script.dataset.track='false';
-      await new Promise((resolve,reject)=>{
-        const timer=setTimeout(()=>reject(new Error('presenter_script_timeout')),15000);
-        script.addEventListener('load',()=>{clearTimeout(timer);resolve();},{once:true});
-        script.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('presenter_script_load'));},{once:true});
-        presenterNeedsReload=true;document.body.appendChild(script);
-      });
-      presenterPhase='initialization';
-      // A module load event can precede registration of the asynchronous UI methods.
-      const didApi=await waitForPresenterApi();
-      const presenterSubscriptions=[];
-      presenterSubscriptions.push(didApi.events.on('connection',event=>{
-        const state=event?.state;
-        if(state==='connecting'||state==='new')presenterStatus.textContent='Ansluter till D-ID-agenten…';
-        if(state==='connected')presenterStatus.textContent='Redo – skriv i agentens chatt eller använd mikrofonen.';
-        if(state==='disconnected')presenterStatus.textContent='Anslutningen bröts. D-ID försöker ansluta igen.';
-        if(state==='fail')presenterStatus.textContent='D-ID kunde inte ansluta. Kontrollera att den här domänen är tillåten för client key.';
-      }));
-      presenterSubscriptions.push(didApi.events.on('error',()=>{
-        presenterStatus.textContent='D-ID rapporterade ett anslutningsfel. Textchatten nedan fungerar fortfarande.';
-        console.warn('content_online_presenter_runtime_failed',{stage:'connection'});
-      }));
-      if(typeof window.addEventListener==='function')window.addEventListener('beforeunload',()=>presenterSubscriptions.forEach(unsubscribe=>{if(typeof unsubscribe==='function')unsubscribe();}),{once:true});
-      didApi.configure({orientation:'vertical',openMode:'expanded',showChatToggle:true,showMicToggle:true,showRestartButton:true,autoConnect:true});
-      presenterButton.textContent='Agenten är startad';presenterStatus.textContent='Agenten startar. Tillåt mikrofonen om du vill prata.';
-    };
-    presenterButton.addEventListener('click',()=>activatePresenter().catch(()=>{
-      presenterStage.hidden=true;presenterButton.disabled=false;
-      presenterButton.textContent=presenterNeedsReload?'Ladda om och försök igen':'Försök igen';
-      const explanation=presenterPhase==='config'?'Adminsessionen eller D-ID-konfigurationen kunde inte hämtas.':presenterPhase==='script'?'D-ID:s skript kunde inte laddas.':'D-ID kunde inte initieras. Kontrollera agenten och client keyns tillåtna domän.';
-      presenterStatus.textContent=explanation+' Textchatten fungerar fortfarande.';
-      // Only a fixed stage label; never log config, keys, tokens, questions or provider payloads.
-      console.warn('content_online_presenter_start_failed',{stage:presenterPhase});
-    }));
     const addMessage=(role,text,sources=[],mode)=>{
       const row=document.createElement('div');row.className='assistant-message '+role;
       const bubble=document.createElement('div');bubble.textContent=text;if(mode){const label=document.createElement('strong');label.className='assistant-answer-mode';label.textContent=mode==='openai'?'AI-svar':'Faktasvar · AI är inte tillgänglig';bubble.prepend(label);}row.appendChild(bubble);messages.appendChild(row);

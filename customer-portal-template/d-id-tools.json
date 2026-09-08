@@ -1,0 +1,64 @@
+[
+  {
+    "name": "get_portal_context",
+    "display_name": "Read portal context",
+    "description": "Read the current customer portal, its truthfulness rules and configured tone before answering tenant-specific questions.",
+    "provider": "Content Online",
+    "schema": {
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    "config": { "type": "client" }
+  },
+  {
+    "name": "navigate_portal",
+    "display_name": "Navigate customer portal",
+    "description": "Move the visitor to one allowlisted section in the current Content Online customer portal. Never use arbitrary selectors or clicks.",
+    "provider": "Content Online",
+    "schema": {
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": ["overview", "products", "usage", "documents", "service"]
+          }
+        },
+        "required": ["section"],
+        "additionalProperties": false
+      }
+    },
+    "config": { "type": "client" }
+  },
+  {
+    "name": "get_portfolio_summary",
+    "display_name": "Read portfolio summary",
+    "description": "Read the current tenant's allowed portfolio summary. Report authentication_required or synthetic_demo exactly as returned.",
+    "provider": "Content Online",
+    "schema": {
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    "config": { "type": "client" }
+  },
+  {
+    "name": "get_usage_summary",
+    "display_name": "Read usage summary",
+    "description": "Read the current tenant's allowed usage summary including source mode and warning. Never infer missing values or financial benefit.",
+    "provider": "Content Online",
+    "schema": {
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    "config": { "type": "client" }
+  }
+]

@@ -4,18 +4,20 @@ Detta repository är dokumentations- och utvecklingsytan för Content Onlines pl
 
 **GitHub:** [Jakeminator123/content-online-platform](https://github.com/Jakeminator123/content-online-platform) (publikt repository)
 
-Projektet är en publicerad pilot med separat kundfrontend och intern admininloggning. Den första pilotpersonan är en bibliotekarie på KTH med rollen Kundadmin. Kundfrontenden visar fortfarande demodata; verklig kund-, publisher- och affärssystemsdata är inte ansluten.
+Projektet är en publicerad pilot med intern admininloggning och en gemensam, multikundsanpassad portal-runtime i samma repository. Den första pilotpersonan är en bibliotekarie på KTH med rollen Kundadmin. KTH visar uttryckligt märkt demodata; verklig kund-, publisher- och affärssystemsdata är inte ansluten.
 
 ## Publicerade ingångar och aktuell gräns
 
 - [Plattformen](https://content-online-platform.vercel.app): enbart Content Onlines interna inloggning.
-- [Kundportalen](https://fokus-psi-sable.vercel.app/o/kth/login): befintlig separat Next.js-frontend, KTH-demokonton.
+- Kundförhandsvisning `/portal/{url-namn}`: samma versionsstyrda mall för alla kunder medan DNS aktiveras.
+- Designgranskning `/demo/customer/kth`: oföränderlig, tydligt märkt KTH-fixture som fungerar även när en PR-preview avsiktligt saknar produktionsdatabas.
+- Planerad ren kunddomän `https://{url-namn}.portal.contentonline.se`: värdbaserad tenant-routing via en Vercel-wildcard, inte ett projekt per kund.
 - [Content Online-admin](https://content-online-platform.vercel.app/admin/login): Clerk-inloggning, separat från kundkonton.
 - [Första aktiveringen](https://content-online-platform.vercel.app/admin/registrera): endast tillåten e-postadress; användaren måste själv verifiera den.
 
 Admin kräver en giltig Clerk-session från plattformens origin, en aktiv session och ett icke spärrat konto med verifierad primär e-post som matchar serverns `CONTENT_ONLINE_ADMIN_EMAIL`. Adressen ligger endast i Vercel och Clerk, aldrig i Git. Kundcookies, kundadminroller och klientredigerbar metadata ger inte intern adminbehörighet. Se [driftsinstruktionerna](docs/ADMIN_DRIFT.md).
 
-Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Kundregister, publicister, produkter, kundförhandsvisningar och källstatus använder syntetiska fixtures. Ett separat internt kund- och publicistregister sparas nu i Neon Free i Frankfurt. Registret kan hantera, publicera och arkivera kunder och publicister. Ny kundportal får en egen organisationsmärkt förhandsvisningsyta och aktiveringssida; riktiga kundkonton återstår. Statistikdemon är fortsatt fristående. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). En portalanknytning är inte samma sak som en färdig dataintegration. Efter intern inloggning kan Fråga CO bädda in den dokumentbaserade D-ID-agenten med video, D-ID-chatt och valfri mikrofon. [Prompt, Knowledge och verifieringsinstruktioner](docs/d-id/README.md) är versionshanterade; Studio synkroniseras inte automatiskt. Content Onlines egen skyddade textchatt finns kvar som ett separat samtal.
+Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Det skyddade Neon-registret kan hantera, publicera och arkivera kunder och publicister och lagrar nu även kundens portal-mall, domän, logotyp-URL, färger, rubriker och D-ID-profil. Publicering ger en egen varumärkesanpassad portal och aktiveringssida från samma runtime; riktiga kundkonton återstår. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). En portalanknytning är inte samma sak som en färdig dataintegration. Den dokumentbaserade D-ID-agenten med video, chatt och valfri mikrofon hör till respektive kundportal, inte den interna adminportalen. Content Online styr agentens hälsning, positivitetsnivå och tillåtna verktyg, men nivån får aldrig påverka faktauppgifterna. [Prompt, Knowledge och verifieringsinstruktioner](docs/d-id/README.md) är versionshanterade; Studio synkroniseras inte automatiskt. Content Onlines skyddade interna textchatt finns kvar i admin.
 
 ## Produktmål
 
@@ -64,6 +66,8 @@ GET  /v1/organizations/{organizationId}/members
 ```
 
 GitHub Actions kör typkontroll och regressionstester vid push och pull request, inklusive separat adminbehörighet. Kund-API:t `/v1/*` förblir låst i produktion tills beständiga kundmedlemskap och kundautentisering har kopplats in. Admininloggningen ligger under `/admin` och använder inte demobackendens identiteter.
+
+Den gamla `content-online-kundplatform-frontend` ska inte raderas förrän denna runtime är mergad, KTH-vägen och wildcard-domänen är liveverifierade, kundautentisering har ersatt demoinloggningen och återställningsvägen är godkänd.
 
 ## Statusord
 

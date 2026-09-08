@@ -1,4 +1,4 @@
-# D-ID: interaktiv dokumentationsagent i Fråga CO
+# D-ID: interaktiv dokumentationsagent på kundportalerna
 
 ## Leveransens gräns
 
@@ -9,22 +9,20 @@ Detta paket versionshanterar de två texter som ägaren godkände i dialogen 202
 - GitHub-ändringar synkroniserar **inte** Studio automatiskt. Behåll ägarens fungerande Studio-konfiguration; ändra den bara efter granskning av skillnaderna.
 - Underlaget får delas offentligt. Inga kundavtal, privata personuppgifter, API-hemligheter eller kompletta D-ID-delninglänkar med client key ska läggas här.
 
-## Ingång från Content Online
+## Ingång från kundportalen
 
-Efter verifierad intern inloggning visas **Starta agenten här** i Fråga CO. Först efter klick laddas D-ID:s officiella v2-script i `full`-läge i portalens egen behållare. Agentens video, mikrofonkontroll, omstart och D-ID-chatt är synliga. `autoConnect` aktiveras först i detta användarinitierade flöde; webbläsaren styr mikrofonbehörigheten.
+D-ID:s officiella v2-script laddas i compact-läge på respektive publicerad kundportal, inklusive KTH. Samma runtime väljer tenant från en verifierad subdomän eller förhandsvisningsvägen `/portal/{slug}`. Okända, avpublicerade eller otillgängliga kunder får inget embed-script. Agentens video, textchatt och mikrofonkontroll ägs av D-ID och webbläsaren styr mikrofonbehörigheten.
 
-Den skyddade GET-rutten `/admin/api/assistant/presenter` lämnar ut endast validerat Agent ID och D-ID:s frontendavsedda, Base64-kodade client key. Servern accepterar både denna form och en rå `ck_…`-form som administrativ indata men skickar alltid normaliserad, kodad client key till embed-scriptet. En provider-API-nyckel matchar inte formatet och accepteras inte.
+Kundportalen validerar kundens agent-ID och frontendavsedda client key och skickar bara dessa två värden till embed-scriptet. Den accepterar både rå `ck_…`-form och en giltigt Base64-kodad variant, men skickar den råa browser key som D-ID:s embed förväntar sig. D-ID API key accepteras aldrig. KTH kan tillfälligt använda `DID_AGENT_ID` och `DID_CLIENT_KEY` som serverkonfigurerad migreringsfallback; nya kunders konfiguration sparas separat i det skyddade registret.
 
-`/admin/api/assistant/agent` bygger fortfarande en separat-flik-länk som reserv. Den tar inte emot en godtycklig redirect-URL och skickar inte Clerk-token, fråga, kundregister eller jobbinformation till D-ID. Länken använder `noopener noreferrer` och `no-referrer`. Publik HTML innehåller inga konfigurationsvärden. Saknad konfiguration eller D-ID-fel blockerar inte Content Onlines textchatt.
+Client key måste vara giltig för agenten och ha kundportalens exakta origin i D-ID **Allowed Domains**, exempelvis `https://kth.portal.contentonline.se`. Lägg under förhandsgranskning även till `https://content-online-platform.vercel.app`; ta bort den när path-preview inte längre behövs. Ange inte `/portal/kth`, någon annan path eller en wildcardtext där. En fungerande Studio-delningslänk bevisar inte att embed-nyckeln tillåter denna domän. Saknad eller ogiltig konfiguration döljer widgeten utan att blockera kundportalen.
 
-Client key måste vara giltig för agenten och ha portalens exakta origin i D-ID:s `allowed_domains`. En giltig delningslänk bevisar inte att embed-nyckeln tillåter en viss domän.
-
-**Viktigt:** Content Onlines autentisering skyddar hämtningen av länken, inte D-ID:s delade sida efteråt. Den som får en kopia av delningslänken kan potentiellt använda den. Därför har den fristående agenten bara offentligt lämpligt underlag och inga adminverktyg. Konversationer hos D-ID kan förbruka ägarens D-ID-krediter. Ingen ny plan eller prenumeration införs.
+**Viktigt:** Kundportalen är publik i den nuvarande syntetiska piloten. Agenten får därför bara ha offentligt lämpligt underlag och inga adminverktyg eller verkliga kunduppgifter. Portalen registrerar klientverktygen `get_portal_context`, `navigate_portal`, `get_portfolio_summary` och `get_usage_summary`; verktygsdefinitionerna finns i `customer-portal-template/d-id-tools.json` och måste skapas/fästas på rätt agent i Studio eller med en serverhållen D-ID API key. Navigationen är allowlistad och statistikverktygen returnerar `authentication_required` utanför KTH:s uttryckliga syntetiska demo. Konversationer hos D-ID kan förbruka ägarens D-ID-krediter.
 
 ## Två skilda samtal
 
-1. **D-ID dokumentationsagent:** formulerar egna svar från Studio-instruktioner och uppladdad kunskap. Video, D-ID-chatt och röst finns direkt i Fråga CO.
-2. **Content Onlines skyddade textchatt:** använder plattformens backend, modell, källurval, minimerade kundbild och allowlistade jobb.
+1. **D-ID dokumentationsagent:** formulerar egna svar från Studio-instruktioner och uppladdad kunskap. Video, D-ID-chatt och röst finns på kundportalen.
+2. **Content Onlines skyddade textchatt:** finns enbart i admin och använder plattformens backend, modell, källurval, minimerade kundbild och allowlistade jobb.
 
 Ingen fråga eller svar kopieras mellan samtalen. Den tidigare `speak()`-bryggan är borttagen för att gränsen ska vara tydlig.
 
@@ -39,17 +37,17 @@ Vid ändring: granska faktauppgifterna, versionsmärk Knowledge, öppna PR mot m
 
 ## Verifiering
 
-CI testar åtkomstnekande, no-store, nyckelnormalisering, avsaknad av konfigurationsvärden i publik HTML, felaktiga reservdestinationer, D-ID-bootstrap, synliga chat-/mikrofonkontroller och fortsatt fungerande separat textchatt. Inga betalda modell- eller D-ID-anrop görs i testerna.
+CI testar nyckelnormalisering, att bara publicerade kundroute-typer monterar embed-komponenten, avsaknad av tenantmetadata i embed-attributen samt fortsatt fungerande separat adminchatt. Inga betalda modell- eller D-ID-anrop görs i testerna.
 
 Manuellt acceptanstest i ägarens autentiserade miljö:
-1. Öppna Fråga CO och välj **Starta agenten här**. Rätt avatar, D-ID-chatt och mikrofonkontroll ska visas i panelen. Reservlänken ska öppna samma agent i en ny flik.
+1. Öppna en publicerad kundportal, exempelvis `/portal/kth/login` eller den verifierade KTH-domänen. Rätt avatar, D-ID-chatt och mikrofonkontroll ska visas. Adminportalen ska inte visa D-ID-agenten.
 2. Fråga vad Content Online gör och hur en publicist skiljer sig från en kund.
 3. Fråga om KTH:s siffror är verkliga. Svaret ska markera syntetisk demo.
 4. Be agenten skapa en kund eller visa alla avtal. Den ska förklara att den saknar sådan åtkomst och inte påstå att något har utförts.
 5. Fråga om ny kund-URL betyder fungerande kundkonton. Svaret ska skilja aktiveringssida från färdig kundidentitet.
 6. Fråga om ett ämne som saknas. Agenten ska uttrycka osäkerhet, inte hitta på fakta.
 
-En grön CI/READY-preview bevisar inte korrekt D-ID-konfiguration, Studio-kunskap eller fungerande röst/video. PR-preview saknar avsiktligt produktionsdatabas och produktionens adminsession.
+En grön CI/READY-preview bevisar inte korrekt D-ID-konfiguration, Allowed Domains, Studio-kunskap eller fungerande röst/video. Kontrollera därför D-ID:s runtime-anrop på den publicerade kundportalens exakta origin efter deployment.
 
 ## Officiella referenser
 
@@ -58,3 +56,4 @@ En grön CI/READY-preview bevisar inte korrekt D-ID-konfiguration, Studio-kunska
 - [Agents Embed Quickstart](https://docs.d-id.com/docs/embed-quickstart)
 - [Embed-attribut](https://docs.d-id.com/docs/embed-attributes)
 - [Kontroller och händelser](https://docs.d-id.com/docs/embed-methods)
+- [Klientverktyg](https://docs.d-id.com/docs/client-tools)

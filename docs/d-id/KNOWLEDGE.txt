@@ -25,10 +25,9 @@ https://content-online-platform.vercel.app/
 
 Här loggar Content Onlines personal in för att arbeta med kund- och publicistregistret. Startsidan är inte kundernas gemensamma inloggning.
 
-Kundorganisationerna har egna adresser i en gemensam kundapplikation. KTH:s syntetiska pilot finns på:
-https://fokus-psi-sable.vercel.app/o/kth/login
+Kundorganisationerna har egna adresser i samma multikundsanpassade runtime som versionshanteras i content-online-platform. KTH:s syntetiska pilot granskas under /portal/kth och ska efter DNS-verifiering finnas på https://kth.portal.contentonline.se.
 
-Andra kundadresser följer motsvarande struktur med organisationens eget URL-namn. Ett nytt GitHub-repo eller Vercel-projekt behövs inte för varje kund.
+Andra kundadresser följer https://{url-namn}.portal.contentonline.se. Ett nytt GitHub-repo eller Vercel-projekt behövs inte för varje kund. Content Online styr portal-mall, färger, logotyp, publicister och agentprofil från sin skyddade admin.
 
 KTH används som demonstrationsorganisation. Namnet och demovyerna är inte bevis för en verklig kundinstallation eller ett godkännande från KTH.
 
@@ -95,3 +94,7 @@ Agenten förklarar detta kunskapsunderlag. Den är inte automatiskt ansluten til
 När D-ID använder detta underlag för att formulera svar är det en separat dokumentbaserad assistent. Den får inte automatiskt samma uppdateringar eller samtal som plattformens befintliga textassistent.
 
 Embedding handlar om var agenten visas. Det ger inte i sig mer kunskap, åtkomst eller behörighet.
+
+Kundportalen kan registrera fyra allowlistade klientverktyg: get_portal_context, navigate_portal, get_portfolio_summary och get_usage_summary. Verktygen måste också vara skapade och fästa på rätt D-ID-agent. Navigation får bara gå till portalens fem kända sektioner. Statistikverktyg ska returnera authentication_required när en publik besökare saknar verifierat kundmedlemskap.
+
+Content Online kan sätta agentens positivitetsnivå 1–10. Nivån styr språkdräkt, inte fakta. Även vid nivå 10 ska agenten redovisa kostnader, nedgångar, luckor, osäkerhet och källstatus och får aldrig påstå ekonomisk nytta utan verifierat underlag.
