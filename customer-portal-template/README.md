@@ -1,4 +1,4 @@
-# Content Online customer portal template
+# Content Online Fokus template
 
 This folder records the reusable product contract migrated from
 `content-online-kundplatform-frontend`. Runtime code lives in
@@ -24,15 +24,16 @@ ship from one repository and one versioned deployment.
 ## Publication model
 
 1. Content Online creates a customer in the protected admin.
-2. A clean desired domain such as `kth.portal.contentonline.se` is generated.
+2. A readable, collision-aware slug such as `norrvik-teknik` is proposed.
 3. Brand, publishers, portal preset and D-ID profile are saved on the tenant.
-4. Publishing exposes only the branded shell. Customer data remains protected.
-5. The Vercel integration attaches and verifies `*.portal.contentonline.se` once;
-   every published first-level subdomain then resolves to the same runtime.
+4. Publishing exposes the branded shell at `/portal/{slug}` on the existing
+   `content-online-platform` Vercel deployment. Customer data remains protected.
+5. A custom hostname may later be attached to that same Vercel project. It is
+   optional and never creates a repository or project for the customer.
 
-The path `/portal/{slug}` is a review fallback while DNS is pending. It is not
-the desired long-term customer URL.
+The path `/portal/{slug}` is the canonical customer URL until Content Online
+explicitly enables a custom hostname.
 
-The old frontend repository must remain untouched until this replacement has a
-merged production deployment, a verified KTH route, customer authentication and
-a tested rollback/archive decision.
+The old frontend repository is a read-only migration source. It remains
+untouched until Content Online accepts the verified production replacement and
+the recoverable archive decision is recorded.
