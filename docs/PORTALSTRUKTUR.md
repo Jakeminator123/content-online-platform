@@ -1,44 +1,98 @@
-# Portalstruktur och sparat register
+# Portalstruktur, kundsajter och sparat register
 
-## Två skilda åtkomstområden
+## En kontrollpanel, en runtime, många kundsajter
+
+`content-online-platform` äger både Content Onlines interna kontrollpanel och den
+delade kundportal-runtimen. En ny kund skapar inte ett repo, en kodkopia eller ett
+Vercel-projekt. Den skapar en tenant-konfiguration som samma deployment läser.
 
 | Område | Adress | Behörighet |
 | --- | --- | --- |
-| Content Online | https://content-online-platform.vercel.app/ | Intern Clerk-session och serverkontrollerad administratör |
-| KTH:s syntetiska demo | https://fokus-psi-sable.vercel.app/o/kth/login | Befintliga kunddemokonton, endast syntetiska KTH-data |
-| Publicerad ny kund | https://fokus-psi-sable.vercel.app/o/{url-namn} | Egen organisationsmärkt förhandsvisningsyta; `/login` är aktiveringssidan och riktiga kundkonton återstår |
+| Content Online-admin | `https://content-online-platform.vercel.app/admin` | Intern Clerk-session och serverkontrollerad administratör |
+| Förhandsvisning | `/portal/{url-namn}` | Publik, varumärkesmärkt struktur utan verklig kunddata |
+| Kunddomän | `https://{url-namn}.portal.contentonline.se` | Samma publicerade tenant via Vercel wildcard |
+| KTH | `kth` | Syntetisk pilot; alla exempel märks som demo |
 
-Plattformens startsida är endast intern inloggning. Ingen KTH-inloggning visas där. Personalen väljer kund inne i kundregistret. Den fristående frontendens samma kodversion används för alla kundadresser: inget nytt repo eller Vercel-projekt behövs för varje organisation.
+Kundens URL väljer tenant men bevisar aldrig medlemskap. Verklig portfölj,
+statistik, dokument och ärenden kräver senare ett serververifierat kundmedlemskap.
 
-## Sparade ändringar
+## Vad Content Online kan styra
 
-Det interna registret kan lägga till och redigera kunder, koppla publicister till kunder, publicera/avpublicera kundadresser samt arkivera och återställa kunder/publicister. Arkivering är återställbar och raderar inte relationer eller externa licenser. Återställning av kund ger utkast, inte automatisk återpublicering. URL-namn ändras eller återanvänds inte.
+Det skyddade registret sparar per kund:
 
-Ny kund börjar som utkast, utan KTH:s uppgifter eller demokonton. Publiceringsbekräftelsen anger att organisationsnamnet, kundytan och aktiveringssidan blir offentliga. Kundytan visar portalens framtida struktur med tydliga tomlägen men inga påhittade mätvärden, dokument eller produkter. En publicerad URL är inte en aktiverad identitet eller en dataintegration. Riktiga kundkonton, inbjudningar, tenant-medlemskap och två kundroller måste färdigställas innan verklig kunddata visas. Demoautentiseringen får aldrig återanvändas för dessa kunder.
+- namn, oföränderligt URL-namn, publiceringsstatus och publicister;
+- portal-mall (`insight`, `library` eller `minimal`);
+- primärfärg, accentfärg, rubrik, ingress och publik HTTPS-logotyp;
+- önskad kunddomän och Vercels verifieringsstatus;
+- D-ID agent-ID, frontendavsedd client key, hälsning, positivitet 1–10 och
+  exakt allowlistade klientverktyg.
 
-## Lagring
+Nya kunder börjar som utkast med en föreslagen domän
+`{url-namn}.portal.contentonline.se`, inga publicister, inga konton och inga
+kundvärden. KTH:s data, identiteter och konfiguration kopieras aldrig till dem.
 
-En separat Neon Free-databas i Frankfurt, content-online-registry, har anslutits till endast backendprojektets Production. Ingen kundfrontend eller preview ansluts till denna databas. DATABASE_URL (alternativt POSTGRES_URL) läses endast på servern och kopieras aldrig till Git.
+## Publicering och domäner
 
-Tabellen co_registry_v1 innehåller ett versionsmärkt JSONB-register. Första anslutningen skapar tabellen och startposter idempotent utan att skriva över befintligt register. Skrivningar görs med parametriserade frågor och villkorad versionsuppdatering. Två samtidiga uppdateringar ger 409 för den förlorande skrivningen; klienten måste läsa om innan nytt försök.
+Publicering gör det säkra portalskalet tillgängligt. Innan DNS är klar används
+förhandsvisningsvägen. Knappen **Koppla domän** använder Vercels projekt-domän-API
+för att lägga till eller verifiera `*.portal.contentonline.se`. En wildcard räcker
+för alla förstahands-subdomäner och kräver Vercels nameserver-metod.
 
-Registret börjar med uttryckligt syntetiska KTH och publicisterna IEEE, SAE och ASTM. Statistik, produkter, anslutningar och användare i den tidigare visningsdemon är fortfarande fristående fixtures, inte levande data. Assistenten får inte automatiskt denna databas som modellkontext.
+Domänautomationen läser bara servervariablerna:
 
-Ändringshistoriken innehåller de senaste 500 händelserna med tid, intern aktör och post-ID. Det är inte en fullständig permanent revisionslogg. Gränser: 1 000 kunder, 100 publicister. Normaliserade tabeller, längre revisionshistorik, backuprutin och dedikerad migrationshantering behöver införas vid större/skarp drift.
+- `CUSTOMER_PORTAL_ROOT_DOMAIN` (publik konfiguration),
+- `VERCEL_PROJECT_ID` och `VERCEL_TEAM_ID` (icke-hemliga identifierare),
+- `VERCEL_AUTOMATION_TOKEN` (server-only, känslig och snävt behörig).
 
-## Säkerhetsgränser
+Utan token fungerar register, publicering och förhandsvisning fortfarande;
+domänstatus stannar på **DNS väntar**. Ingen token eller Vercel-felpayload skickas
+till webbläsaren.
 
-- /admin/api/registry kräver verifierad intern administratör även för GET.
-- POST validerar kommandot och versionsnumret. Inga godtyckliga SQL-frågor eller hårda raderingar exponeras.
-- /portal-directory/{slug} lämnar endast explicit publicerade namn, slug och demo/aktiveringsstatus. Inga användare, relationer, interna ID:n eller revisionshändelser.
-- Okänd eller arkiverad kund får inte KTH-fallback. Databasfel ger otillgänglig status, aldrig påhittad tom framgång.
-- KTH:s login och serverkontroller kontrollerar publiceringen. Andra sluggar kan aldrig skrivas om till KTH-dashboarden.
-- Nya portaler visar en organisationsspecifik förhandsvisning med tomlägen; `/login` visar aktiveringsinformation, inte ett påhittat fungerande login.
-- Kundidentiteter ger aldrig Content Online-behörighet.
-- Preview saknar produktionsdatabasen och visar därför otillgängligt register. CI använder isolerade testdata; denna fallback spärras i alla Vercel-miljöer.
+## D-ID per kund
 
-## Leverans och verifiering
+D-ID laddas bara i en publicerad kundportal vars agent är aktiverad och har en
+giltig agent/client-key-konfiguration. KTH kan under migreringen använda de
+befintliga servervariablerna `DID_AGENT_ID` och `DID_CLIENT_KEY`; nya kunder sparar
+sin browser-konfiguration på sin tenant.
 
-Ändringar görs i GitHub och provas i GitHub Actions/Vercel, utan lokal utvecklingsserver. Tester omfattar entréseparering, URL-validering, tenant-avgränsning, publiceringslivscykel, arkivering, versionskonflikter, skyddade API:er och redigering utan att ändra demofixtures.
+Varje D-ID client key ska begränsas till kundens exakta origin, exempelvis
+`https://kth.portal.contentonline.se`. Under förhandsgranskning kan även
+`https://content-online-platform.vercel.app` läggas till som en andra origin.
+En path eller wildcardtext ska inte anges i D-ID Allowed Domains. En D-ID API key
+är en serverhemlighet och får aldrig lagras som client key.
 
-Den löpande publicerings- och liveverifieringsstatusen rapporteras separat från implementationen.
+Portalens klient registrerar bara dessa handler-namn:
+
+- `get_portal_context`,
+- `navigate_portal`,
+- `get_portfolio_summary`,
+- `get_usage_summary`.
+
+Navigation accepterar fem fasta sektioner och gör inga fria DOM-klick. De övriga
+verktygen returnerar syntetisk demo eller `authentication_required` tills verklig
+kundautentisering finns. D-ID-verktygen måste dessutom skapas och fästas på rätt
+agent i Studio/API; en browser client key kan inte administrera agenten.
+
+Positivitet styr språkdräkt, inte fakta. Även vid 10 måste agenten redovisa
+kostnader, nedgångar, luckor, osäkerhet och källstatus. Ekonomisk nytta får aldrig
+påstås utan ett verifierat underlag.
+
+## Lagring och säkerhetsgräns
+
+Neon-tabellen `co_registry_v1` fortsätter använda versionsmärkt JSONB och
+optimistisk samtidighetskontroll. Äldre poster migreras läsmässigt med säkra
+standardvärden för `site`; ingen separat destruktiv databas-migration krävs.
+
+- `/admin/api/registry` och domänautomationen kräver verifierad intern admin.
+- `/portal-directory/{slug}` lämnar endast publicerad presentationsmetadata.
+- Agent-context lämnar aldrig client key och aldrig verklig statistik utan
+  autentiserat tenantscope.
+- Okänd, avpublicerad eller arkiverad kund ger 404 och får ingen KTH-fallback.
+- Databas- och leverantörsfel ger otillgängligt läge, inte fabricerade tomdata.
+
+## Avveckling av gamla frontend-repot
+
+`content-online-kundplatform-frontend` är nu migrationskälla, inte målarkitektur.
+Det ska bevaras tills nya lösningen är mergad och produktionsverifierad, KTH och
+wildcard-domänen fungerar, kundautentiseringen är färdig och rollback är beslutad.
+Först därefter kan repot arkiveras och senare raderas separat.

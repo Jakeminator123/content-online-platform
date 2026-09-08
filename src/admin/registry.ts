@@ -1,12 +1,78 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { normalizeDidClientKey } from "../customer-portal/agent.js";
 
 const slug = z.string().min(2).max(63).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const name = z.string().trim().min(2).max(120);
 const id = z.string().min(1).max(80);
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/).transform((value) => value.toLowerCase());
+const hostname = z.string().trim().toLowerCase().max(253).refine((value) => {
+  if (!value) return true;
+  if (value === "localhost" || /^\d+(?:\.\d+){3}$/.test(value)) return false;
+  return value.split(".").length >= 2 && value.split(".").every((label) =>
+    /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label),
+  );
+}, "invalid_hostname");
+const httpsUrl = z.string().trim().max(500).refine((value) => {
+  if (!value) return true;
+  try { return new URL(value).protocol === "https:"; } catch { return false; }
+}, "invalid_https_url");
+
+export const customerPortalTools = ["portal_context", "portal_navigation", "portfolio_summary", "usage_summary"] as const;
+const customerPortalToolSchema = z.enum(customerPortalTools);
+const customerAgentSchema = z.object({
+  enabled: z.boolean(),
+  agentId: z.string().trim().max(128).regex(/^(?:[A-Za-z0-9_-]+)?$/),
+  clientKey: z.string().trim().max(2048).refine((value) => !value || normalizeDidClientKey(value) !== null, "invalid_did_client_key"),
+  greeting: z.string().trim().min(2).max(240),
+  positivity: z.number().int().min(1).max(10),
+  tools: z.array(customerPortalToolSchema).max(customerPortalTools.length)
+    .transform((tools) => [...new Set(tools)]),
+});
+const customerSiteSchema = z.object({
+  preset: z.enum(["insight", "library", "minimal"]),
+  domain: hostname,
+  domainStatus: z.enum(["not_configured", "pending", "ready"]),
+  logoUrl: httpsUrl,
+  primaryColor: hexColor,
+  accentColor: hexColor,
+  heading: z.string().trim().min(2).max(120),
+  tagline: z.string().trim().min(2).max(240),
+  agent: customerAgentSchema,
+});
+export const customerSiteInputSchema = customerSiteSchema.omit({ domainStatus: true });
+export type CustomerSite = z.infer<typeof customerSiteSchema>;
+
+export function defaultCustomerSite(overrides: Partial<CustomerSite> = {}): CustomerSite {
+  const base: CustomerSite = {
+    preset: "insight",
+    domain: "",
+    domainStatus: "not_configured",
+    logoUrl: "",
+    primaryColor: "#285b70",
+    accentColor: "#338578",
+    heading: "Välkommen till er kundportal",
+    tagline: "Informationsprodukter, användning och kundservice i en samlad yta.",
+    agent: {
+      enabled: false,
+      agentId: "",
+      clientKey: "",
+      greeting: "Hej! Hur kan jag hjälpa er i kundportalen?",
+      positivity: 5,
+      tools: ["portal_context", "portal_navigation", "portfolio_summary", "usage_summary"],
+    },
+  };
+  return customerSiteSchema.parse({ ...base, ...overrides, agent: { ...base.agent, ...overrides.agent } });
+}
+
 const customerSchema = z.object({
-  id, name, slug, status: z.enum(["draft", "published", "archived"]),
-  kind: z.enum(["demo", "customer"]), publisherIds: z.array(id).max(100),
+  id,
+  name,
+  slug,
+  status: z.enum(["draft", "published", "archived"]),
+  kind: z.enum(["demo", "customer"]),
+  publisherIds: z.array(id).max(100),
+  site: customerSiteSchema.default(() => defaultCustomerSite()),
 });
 const publisherSchema = z.object({ id, name, status: z.enum(["active", "archived"]) });
 const eventSchema = z.object({ at: z.string(), actor: id, action: z.string(), entityId: id });
@@ -16,10 +82,13 @@ export const registrySchema = z.object({
   events: z.array(eventSchema).max(500),
 });
 export type Registry = z.infer<typeof registrySchema>;
+export type RegistryCustomer = Registry["customers"][number];
 export type RegistrySnapshot = { version: number; data: Registry };
 export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("add_customer"), name, slug }),
   z.object({ action: z.literal("update_customer"), id, name, publisherIds: z.array(id).max(100) }),
+  z.object({ action: z.literal("configure_customer_site"), id, site: customerSiteInputSchema }),
+  z.object({ action: z.literal("set_customer_domain_status"), id, domainStatus: z.enum(["pending", "ready"]) }),
   z.object({ action: z.literal("publish_customer"), id }),
   z.object({ action: z.literal("unpublish_customer"), id }),
   z.object({ action: z.literal("archive_customer"), id }),
@@ -34,17 +103,59 @@ export class RegistryError extends Error {
   constructor(public code: string, public status: 404 | 409 | 422 | 503 = 422) { super(code); }
 }
 export function initialRegistry(): Registry {
-  return { customers: [{ id: "customer-kth-demo", name: "KTH", slug: "kth", status: "published", kind: "demo", publisherIds: ["ieee"] }],
-    publishers: [{ id: "ieee", name: "IEEE", status: "active" }, { id: "sae", name: "SAE", status: "active" }, { id: "astm", name: "ASTM", status: "active" }], events: [] };
+  return registrySchema.parse({
+    customers: [{
+      id: "customer-kth-demo",
+      name: "KTH",
+      slug: "kth",
+      status: "published",
+      kind: "demo",
+      publisherIds: ["ieee"],
+      site: defaultCustomerSite({
+        domain: "kth.portal.contentonline.se",
+        domainStatus: "pending",
+        primaryColor: "#1954a6",
+        accentColor: "#2f8f83",
+        heading: "Kunskap i användning",
+        tagline: "En syntetisk KTH-pilot för informationsresurser, statistik och kundservice.",
+        agent: {
+          enabled: true,
+          agentId: "",
+          clientKey: "",
+          greeting: "Hej! Jag hjälper er att hitta i KTH:s syntetiska kundportal.",
+          positivity: 7,
+          tools: ["portal_context", "portal_navigation", "portfolio_summary", "usage_summary"],
+        },
+      }),
+    }],
+    publishers: [
+      { id: "ieee", name: "IEEE", status: "active" },
+      { id: "sae", name: "SAE", status: "active" },
+      { id: "astm", name: "ASTM", status: "active" },
+    ],
+    events: [],
+  });
 }
+
 export function applyRegistryCommand(data: Registry, command: RegistryCommand, actor: string, now = new Date()): Registry {
-  const next = structuredClone(data);
+  const next = registrySchema.parse(structuredClone(data));
   let entityId: string = "registry";
   if (command.action === "add_customer") {
     if (next.customers.some(c => c.slug === command.slug)) throw new RegistryError("slug_reserved", 409);
     if (next.customers.length >= 1000) throw new RegistryError("customer_limit");
     entityId = randomUUID();
-    next.customers.push({ id: entityId, name: command.name, slug: command.slug, status: "draft", kind: "customer", publisherIds: [] });
+    next.customers.push({
+      id: entityId,
+      name: command.name,
+      slug: command.slug,
+      status: "draft",
+      kind: "customer",
+      publisherIds: [],
+      site: defaultCustomerSite({
+        domain: `${command.slug}.portal.contentonline.se`,
+        domainStatus: "pending",
+      }),
+    });
   } else if (command.action === "add_publisher") {
     if (next.publishers.some(p => p.name.toLocaleLowerCase() === command.name.toLocaleLowerCase())) throw new RegistryError("publisher_exists", 409);
     if (next.publishers.length >= 100) throw new RegistryError("publisher_limit");
@@ -65,7 +176,20 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
       if (command.action === "update_customer") {
         const unique = [...new Set(command.publisherIds)];
         if (unique.some(id => !next.publishers.some(p => p.id === id && (p.status === "active" || c.publisherIds.includes(id))))) throw new RegistryError("publisher_unavailable");
-        c.name = command.name; c.publisherIds = unique;
+        c.name = command.name;
+        c.publisherIds = unique;
+      } else if (command.action === "configure_customer_site") {
+        if (command.site.domain && next.customers.some(other => other.id !== c.id && other.site.domain === command.site.domain)) {
+          throw new RegistryError("domain_reserved", 409);
+        }
+        const domainChanged = c.site.domain !== command.site.domain;
+        c.site = customerSiteSchema.parse({
+          ...command.site,
+          domainStatus: !command.site.domain ? "not_configured" : domainChanged ? "pending" : c.site.domainStatus,
+        });
+      } else if (command.action === "set_customer_domain_status") {
+        if (!c.site.domain) throw new RegistryError("domain_unconfigured", 409);
+        c.site.domainStatus = command.domainStatus;
       } else if (command.action === "publish_customer") {
         if (c.status === "archived") throw new RegistryError("restore_before_publishing", 409);
         c.status = "published";
@@ -76,11 +200,28 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
   next.events = [...next.events, { at: now.toISOString(), actor, action: command.action, entityId }].slice(-500);
   return registrySchema.parse(next);
 }
+
 export function publicPortal(data: Registry, requestedSlug: string) {
   const c = data.customers.find(c => c.slug === requestedSlug && c.status === "published");
-  // Explicit publication discloses ONLY display name, slug and activation state.
-  return c ? { name: c.name, slug: c.slug, mode: c.kind === "demo" ? "demo" as const : "awaiting_accounts" as const } : null;
+  // Explicit publication discloses only presentation metadata, never users, assignments or agent credentials.
+  return c ? {
+    name: c.name,
+    slug: c.slug,
+    mode: c.kind === "demo" ? "demo" as const : "awaiting_accounts" as const,
+    brand: {
+      logoUrl: c.site.logoUrl,
+      primaryColor: c.site.primaryColor,
+      accentColor: c.site.accentColor,
+      heading: c.site.heading,
+      tagline: c.site.tagline,
+    },
+  } : null;
 }
+
+export function publishedCustomer(data: Registry, requestedSlug: string): RegistryCustomer | null {
+  return data.customers.find(c => c.slug === requestedSlug && c.status === "published") ?? null;
+}
+
 export interface RegistryStore {
   read(): Promise<RegistrySnapshot>;
   write(expectedVersion: number, data: Registry): Promise<RegistrySnapshot>;

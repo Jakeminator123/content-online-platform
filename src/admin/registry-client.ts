@@ -1,97 +1,109 @@
 export const registryClient = String.raw`
 (() => {
   'use strict';
-  let snapshot=null, busy=false, started=false;
+  let snapshot=null,busy=false,started=false;
   const panel=document.getElementById('registry-panel'),root=document.getElementById('registry-body');
   if(!panel||!root)return;
-  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const url=c=>'https://fokus-psi-sable.vercel.app/o/'+encodeURIComponent(c.slug);
-  const activationUrl=c=>url(c)+'/login';
+  const esc=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+  const fallbackUrl=customer=>'/portal/'+encodeURIComponent(customer.slug);
+  const url=customer=>customer.site?.domainStatus==='ready'&&customer.site.domain?'https://'+customer.site.domain:fallbackUrl(customer);
+  const activationUrl=customer=>url(customer)+(url(customer).endsWith('/')?'':'/')+'login';
+  const allowedDomain=customer=>customer.site?.domain?'https://'+customer.site.domain+' (och https://content-online-platform.vercel.app under förhandsgranskning)':'Sätt kunddomänen först';
   const slugify=value=>value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,63).replace(/-+$/g,'');
   const view=()=>location.hash.slice(1)||'overview';
-  const label={draft:'Utkast',published:'Publicerad',archived:'Arkiverad',active:'Aktiv'};
-  const button=(text,action,id)=>'<button class="button secondary" type="button" data-reg="'+action+'" data-id="'+esc(id||'')+'">'+esc(text)+'</button>';
-  const field=(name,title,value='',maxlength=120)=>'<label>'+title+'<input class="registry-input" name="'+name+'" value="'+esc(value)+'" maxlength="'+maxlength+'" required></label>';
+  const label={draft:'Utkast',published:'Publicerad',archived:'Arkiverad',active:'Aktiv',not_configured:'Inte konfigurerad',pending:'DNS väntar',ready:'Klar'};
+  const toolLabels={portal_context:'Portalkontext och tonalitet',portal_navigation:'Navigera mellan tillåtna sektioner',portfolio_summary:'Sammanfatta portfölj',usage_summary:'Sammanfatta verifierad användning'};
+  const button=(text,action,id,className='button secondary')=>'<button class="'+className+'" type="button" data-reg="'+action+'" data-id="'+esc(id||'')+'">'+esc(text)+'</button>';
+  const field=(name,title,value='',maxlength=120,type='text',hint='')=>'<label>'+esc(title)+'<input class="registry-input" type="'+type+'" name="'+name+'" value="'+esc(value)+'" maxlength="'+maxlength+'" '+(type==='password'?'autocomplete="off"':'')+' required>'+(hint?'<small class="registry-hint">'+esc(hint)+'</small>':'')+'</label>';
+  const optionalField=(name,title,value='',maxlength=240,type='text',hint='')=>'<label>'+esc(title)+'<input class="registry-input" type="'+type+'" name="'+name+'" value="'+esc(value)+'" maxlength="'+maxlength+'" '+(type==='password'?'autocomplete="off"':'')+'>'+(hint?'<small class="registry-hint">'+esc(hint)+'</small>':'')+'</label>';
+  const swatch=customer=>'<span class="registry-swatch" aria-label="Temafärger"><i style="background:'+esc(customer.site.primaryColor)+'"></i><i style="background:'+esc(customer.site.accentColor)+'"></i></span>';
+
   function render(){
     panel.hidden=!['overview','customers','publishers'].includes(view());
     if(panel.hidden)return;
     if(!snapshot){root.innerHTML='<h2>Sparat register</h2><p role="status">Registret kunde inte laddas. Kontrollera databasanslutningen och försök igen. Inga ändringar har sparats.</p>'+button('Försök igen','reload');return;}
     const {customers,publishers}=snapshot.data;
-    let html='<div class="card-head"><div><div class="eyebrow">SPARAT REGISTER · NEON</div><h2>'+ (view()==='publishers'?'Content Onlines publicister':view()==='customers'?'Content Onlines kunder':'Kunder & publicister')+'</h2><p>Version '+snapshot.version+' · Ändringar sparas mellan inloggningar.</p></div>'+button('Uppdatera','reload')+'</div>';
-    if(view()==='overview') html+='<p>'+customers.filter(c=>c.status!=='archived').length+' kunder · '+publishers.filter(p=>p.status==='active').length+' aktiva publicister</p><p><a class="button teal" href="#customers">Hantera kunder</a> <a class="button secondary" href="#publishers">Hantera publicister</a></p><p class="footnote">Statistikvyerna nedan är separat syntetisk demo, inte hämtade från detta register.</p>';
+    let html='<div class="card-head"><div><div class="eyebrow">SPARAT REGISTER · NEON</div><h2>'+(view()==='publishers'?'Content Onlines publicister':view()==='customers'?'Kundsajter & styrning':'Kunder, sajter & publicister')+'</h2><p>Version '+snapshot.version+' · En gemensam runtime, separat konfiguration per kund.</p></div>'+button('Uppdatera','reload')+'</div>';
+    if(view()==='overview')html+='<div class="registry-overview"><div><strong>'+customers.filter(customer=>customer.status!=='archived').length+'</strong><span>Kunder</span></div><div><strong>'+customers.filter(customer=>customer.site.domainStatus==='ready').length+'</strong><span>Klara domäner</span></div><div><strong>'+customers.filter(customer=>customer.site.agent.enabled).length+'</strong><span>Aktiverade agentprofiler</span></div><div><strong>'+publishers.filter(publisher=>publisher.status==='active').length+'</strong><span>Publicister</span></div></div><p><a class="button teal" href="#customers">Skapa och styra kundsajter</a> <a class="button secondary" href="#publishers">Hantera publicister</a></p><p class="footnote">Statistikvyerna nedan är separat syntetisk demo. Kundagentens tonalitet får aldrig ändra fakta.</p>';
     if(view()==='customers'){
-      html+='<p>En egen kundyta per organisation i den gemensamma portalen. Publicering delar namn, kundyta och aktiveringssida – aldrig användare eller intern data. Inget nytt repo eller Vercel-projekt behövs.</p><form data-reg-form="add_customer" class="registry-form">'+field('name','Organisationsnamn')+field('slug','URL-namn (föreslås automatiskt)', '', 63)+'<button class="button teal" type="submit">Lägg till kund</button></form>';
-      html+=customers.map(c=>'<div class="list-item"><div class="body"><strong>'+esc(c.name)+'</strong><small>'+esc(label[c.status])+' · '+(c.kind==='demo'?'Syntetisk demo':'Kundkonton inväntar aktivering')+'</small><small>Kundyta: '+esc(url(c))+'</small><small>Aktivering: '+esc(activationUrl(c))+'</small><small>'+c.publisherIds.map(id=>esc(publishers.find(p=>p.id===id)?.name||id)).join(', ')+'</small></div><div class="registry-actions">'+button('Styr kund','edit_customer',c.id)+(c.status==='published'?'<a class="button secondary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+url(c)+'">Granska kundyta</a><a class="button secondary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+activationUrl(c)+'">Aktiveringssida</a>'+button('Avpublicera','unpublish_customer',c.id):c.status==='draft'?button('Publicera','publish_customer',c.id):button('Återställ till utkast','restore_customer',c.id))+(c.status!=='archived'?button('Arkivera','archive_customer',c.id):'')+'</div></div>').join('');
-      html+='<div id="registry-editor"></div><p class="footnote">Publicera för att granska kundytan live. URL-namn återanvänds inte efter arkivering. KTH-konton gäller bara KTH:s syntetiska demo. Nya kunder får ingen KTH-data eller kundåtkomst förrän riktig medlemsinloggning har kopplats in.</p>';
+      html+='<p>Skapa en kund en gång. Samma versionsstyrda portal-mall använder sedan kundens egen domän, färger, logotyp, publicister och D-ID-konfiguration – utan ett nytt repo eller Vercel-projekt.</p><form data-reg-form="add_customer" class="registry-form registry-create">'+field('name','Organisationsnamn')+field('slug','URL-namn (föreslås automatiskt)','',63,'text','Domänen föreslås som url-namn.portal.contentonline.se')+'<button class="button teal" type="submit">Lägg till kund</button></form>';
+      html+=customers.map(customer=>{
+        const agentState=customer.site.agent.enabled?(customer.site.agent.agentId&&customer.site.agent.clientKey?'D-ID konfigurerad':'D-ID väntar på uppgifter'):'Agent avstängd';
+        const preview=url(customer),activation=activationUrl(customer);
+        return '<article class="registry-customer"><div class="registry-customer-main">'+swatch(customer)+'<div class="body"><strong>'+esc(customer.name)+'</strong><small>'+esc(label[customer.status])+' · '+esc(customer.site.preset)+'-mall · '+esc(agentState)+'</small><small><b>Domän:</b> '+esc(customer.site.domain||'Ej vald')+' · '+esc(label[customer.site.domainStatus])+'</small><small><b>Förhandsvisning:</b> '+esc(preview)+'</small><small><b>Publicister:</b> '+esc(customer.publisherIds.map(id=>publishers.find(p=>p.id===id)?.name||id).join(', ')||'Inga valda')+'</small></div></div><div class="registry-actions">'+button('Styr kundsajt','edit_customer',customer.id,'button teal')+(customer.site.domain?button(customer.site.domainStatus==='ready'?'Kontrollera domän':'Koppla domän','ensure_domain',customer.id):'')+(customer.status==='published'?'<a class="button secondary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(preview)+'">Granska kundsajt</a><a class="button secondary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" href="'+esc(activation)+'">Aktiveringssida</a>'+button('Avpublicera','unpublish_customer',customer.id):customer.status==='draft'?button('Publicera','publish_customer',customer.id):button('Återställ till utkast','restore_customer',customer.id))+(customer.status!=='archived'?button('Arkivera','archive_customer',customer.id):'')+'</div></article>';
+      }).join('');
+      html+='<div id="registry-editor"></div><p class="footnote">Den interna förhandsvisningsadressen fungerar innan DNS är klar. En riktig kunddomän kräver wildcard-DNS på Vercel. D-ID Allowed Domains ska vara exakt kundens origin, exempelvis https://kth.portal.contentonline.se – aldrig en URL med sökväg.</p>';
     }
     if(view()==='publishers'){
       html+='<p>Hantera partnerregistret. Att lägga till en publicist ansluter inte automatiskt dess API eller informationsprodukter.</p><form data-reg-form="add_publisher" class="registry-form">'+field('name','Publicistens namn')+'<button class="button teal" type="submit">Lägg till publicist</button></form>';
-      html+=publishers.map(p=>'<div class="list-item"><div class="body"><strong>'+esc(p.name)+'</strong><small>'+label[p.status]+' · '+customers.filter(c=>c.publisherIds.includes(p.id)).length+' kundkopplingar</small></div><div class="registry-actions">'+button('Byt namn','edit_publisher',p.id)+button(p.status==='active'?'Arkivera':'Återställ',p.status==='active'?'archive_publisher':'restore_publisher',p.id)+'</div></div>').join('');
+      html+=publishers.map(publisher=>'<div class="list-item"><div class="body"><strong>'+esc(publisher.name)+'</strong><small>'+esc(label[publisher.status])+' · '+customers.filter(customer=>customer.publisherIds.includes(publisher.id)).length+' kundkopplingar</small></div><div class="registry-actions">'+button('Byt namn','edit_publisher',publisher.id)+button(publisher.status==='active'?'Arkivera':'Återställ',publisher.status==='active'?'archive_publisher':'restore_publisher',publisher.id)+'</div></div>').join('');
       html+='<div id="registry-editor"></div><p class="footnote">Arkivering stoppar nya tilldelningar men bevarar befintliga kopplingar. Ingen historik eller extern licens raderas.</p>';
     }
     root.innerHTML=html+'<p id="registry-status" role="status"></p>';
   }
+
+  function customerEditor(customer){
+    const site=customer.site,agent=site.agent;
+    const publishers=snapshot.data.publishers.filter(publisher=>publisher.status==='active'||customer.publisherIds.includes(publisher.id));
+    const preset='<label>Portal-mall<select class="registry-input" name="preset"><option value="insight" '+(site.preset==='insight'?'selected':'')+'>Insight · komplett</option><option value="library" '+(site.preset==='library'?'selected':'')+'>Library · kunskapsfokus</option><option value="minimal" '+(site.preset==='minimal'?'selected':'')+'>Minimal · avskalad</option></select></label>';
+    const colors='<div class="registry-color-row"><label>Primärfärg<input class="registry-input registry-color" type="color" name="primaryColor" value="'+esc(site.primaryColor)+'"></label><label>Accentfärg<input class="registry-input registry-color" type="color" name="accentColor" value="'+esc(site.accentColor)+'"></label></div>';
+    const tools=Object.keys(toolLabels).map(tool=>'<label class="registry-check"><input type="checkbox" name="agentTools" value="'+tool+'" '+(agent.tools.includes(tool)?'checked':'')+'>'+esc(toolLabels[tool])+'</label>').join('');
+    return '<section class="registry-editor-card"><div class="registry-editor-head"><div><div class="eyebrow">STYR KUNDSAJT</div><h3>'+esc(customer.name)+'</h3><p>'+esc(url(customer))+'</p></div>'+button('Stäng','close_editor')+'</div><form class="registry-form registry-editor-form" data-reg-form="update_customer" data-id="'+esc(customer.id)+'"><h4>Organisation & publicister</h4>'+field('name','Organisationsnamn',customer.name)+'<fieldset><legend>Publicister i kundens portal</legend>'+publishers.map(publisher=>'<label class="registry-check"><input type="checkbox" name="publisherIds" value="'+esc(publisher.id)+'" '+(customer.publisherIds.includes(publisher.id)?'checked':'')+'>'+esc(publisher.name)+(publisher.status==='archived'?' (arkiverad)':'')+'</label>').join('')+'</fieldset><button class="button teal" type="submit">Spara organisation</button></form><form class="registry-form registry-editor-form" data-reg-form="configure_customer_site" data-id="'+esc(customer.id)+'"><h4>Varumärke & portal</h4>'+preset+optionalField('domain','Kunddomän',site.domain,253,'text','Endast hostname, utan https:// eller sökväg')+optionalField('logoUrl','Logotyp (publik HTTPS-adress)',site.logoUrl,500,'url','Tomt fält använder kundens initialer')+colors+field('heading','Portalrubrik',site.heading,120)+field('tagline','Ingress',site.tagline,240)+'<fieldset class="registry-agent"><legend>D-ID-agent för '+esc(customer.name)+'</legend><label class="registry-switch"><input type="checkbox" name="agentEnabled" '+(agent.enabled?'checked':'')+'> Visa agenten på kundens portal</label>'+optionalField('agentId','Agent ID',agent.agentId,128,'text','Exempel: v2_agt_...')+optionalField('clientKey','Client key från D-ID Embed',agent.clientKey,2048,'password','Browser key – inte D-ID API-nyckeln')+field('greeting','Agentens hälsning',agent.greeting,240)+'<label>Positivitet: <output data-positivity-output>'+agent.positivity+'</output>/10<input class="registry-input registry-range" type="range" name="positivity" min="1" max="10" step="1" value="'+agent.positivity+'"></label><p class="registry-hint">Nivån styr ton, aldrig fakta. Agenten får inte dölja kostnader, nedgångar eller osäkerhet.</p><div class="registry-tools"><strong>Tillåtna klientverktyg</strong>'+tools+'</div><p class="registry-domain-note"><strong>D-ID Allowed Domains:</strong> '+esc(allowedDomain(customer))+'</p></fieldset><button class="button teal" type="submit">Spara kundsajt</button></form></section>';
+  }
+
   async function request(body){
     const token=await window.Clerk?.session?.getToken();
     if(!token)throw new Error('Du behöver logga in igen.');
     const response=await fetch('/admin/api/registry',{method:body?'POST':'GET',credentials:'omit',cache:'no-store',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
     if(!response.ok){
-      if(response.status===409)throw new Error('Registret har ändrats eller URL/namnet är upptaget. Uppdatera listan innan du försöker igen.');
-      if(response.status===422)throw new Error('Kontrollera fälten. URL-namn får innehålla små bokstäver, siffror och bindestreck (2–63 tecken).');
+      if(response.status===409)throw new Error('Registret har ändrats eller URL/domän/namn är upptaget. Uppdatera listan innan du försöker igen.');
+      if(response.status===422)throw new Error('Kontrollera fälten. URL-namn, domän, färger eller agentinställningar är ogiltiga.');
       throw new Error('Ändringen kunde inte bekräftas. Uppdatera registret för att kontrollera status. Ingen lyckad sparning antas.');
     }
     return response.json();
   }
-  async function load(){
-    busy=true;
-    try{snapshot=await request();render();}catch{snapshot=null;render();}finally{busy=false;}
-  }
-  function state(text){let p=document.getElementById('registry-status');if(p)p.textContent=text;}
+  async function load(){busy=true;try{snapshot=await request();render();}catch{snapshot=null;render();}finally{busy=false;}}
+  function state(text){const node=document.getElementById('registry-status');if(node)node.textContent=text;}
   async function mutate(command){
-    if(busy||!snapshot)return;
-    busy=true;root.querySelectorAll('button').forEach(b=>b.disabled=true);state('Sparar…');
-    try{snapshot=await request({version:snapshot.version,command});render();state('Ändringen är sparad.');}
-    catch(error){state(error.message);}
-    finally{busy=false;root.querySelectorAll('button').forEach(b=>b.disabled=false);}
+    if(busy||!snapshot)return;busy=true;root.querySelectorAll('button').forEach(node=>node.disabled=true);state('Sparar…');
+    try{snapshot=await request({version:snapshot.version,command});render();state('Ändringen är sparad.');}catch(error){state(error.message);}finally{busy=false;root.querySelectorAll('button').forEach(node=>node.disabled=false);}
   }
+  async function ensureDomain(id){
+    if(busy||!snapshot)return;busy=true;root.querySelectorAll('button').forEach(node=>node.disabled=true);state('Kontrollerar Vercel och DNS…');
+    try{
+      const token=await window.Clerk?.session?.getToken();if(!token)throw new Error('Du behöver logga in igen.');
+      const response=await fetch('/admin/api/customers/'+encodeURIComponent(id)+'/domain/ensure',{method:'POST',credentials:'omit',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({version:snapshot.version})});
+      if(!response.ok){if(response.status===503)throw new Error('Domänautomationen saknar Vercel-token eller kunde inte nå Vercel. Förhandsvisningen fungerar fortfarande.');throw new Error('Domänen kunde inte verifieras. Uppdatera registret och försök igen.');}
+      const result=await response.json();await load();state(result.status==='ready'?'Domänen är verifierad och klar.':'Wildcard-domänen är tillagd. Konfigurera DNS/nameservers i Vercel och kontrollera igen.');
+    }catch(error){state(error.message);}finally{busy=false;root.querySelectorAll('button').forEach(node=>node.disabled=false);}
+  }
+
   root.addEventListener('click',event=>{
-    const b=event.target.closest('[data-reg]');if(!b||busy)return;
-    const action=b.dataset.reg,id=b.dataset.id;
-    if(action==='reload'){load();return;}
-    if(!snapshot)return;
-    if(action==='edit_customer'){
-      const c=snapshot.data.customers.find(c=>c.id===id);if(!c)return;
-      document.getElementById('registry-editor').innerHTML='<form class="registry-form" data-reg-form="update_customer" data-id="'+esc(id)+'"><div><h3>Styr '+esc(c.name)+'</h3><p class="footnote">'+esc(label[c.status])+' · '+esc(url(c))+'</p></div>'+field('name','Organisationsnamn',c.name)+'<fieldset><legend>Publicister för kunden (inte produktspecifika licenser)</legend>'+snapshot.data.publishers.filter(p=>p.status==='active'||c.publisherIds.includes(p.id)).map(p=>'<label class="registry-check"><input type="checkbox" name="publisherIds" value="'+esc(p.id)+'" '+(c.publisherIds.includes(p.id)?'checked':'')+'>'+esc(p.name)+(p.status==='archived'?' (arkiverad)':'')+'</label>').join('')+'</fieldset><button class="button teal" type="submit">Spara kund</button></form>';
-      document.getElementById('registry-editor').scrollIntoView({block:'nearest'});
-      return;
-    }
-    if(action==='edit_publisher'){
-      const p=snapshot.data.publishers.find(p=>p.id===id);if(!p)return;
-      document.getElementById('registry-editor').innerHTML='<form class="registry-form" data-reg-form="rename_publisher" data-id="'+esc(id)+'">'+field('name','Publicistens namn',p.name)+'<button class="button teal" type="submit">Spara namn</button></form>';return;
-    }
-    const item=snapshot.data.customers.find(c=>c.id===id)||snapshot.data.publishers.find(p=>p.id===id);
-    if(action==='publish_customer'&&!confirm('Publicera '+item.name+' med egen kundyta och aktiveringssida? Namnet blir offentligt. Kunddata och konton publiceras inte.'))return;
+    const node=event.target instanceof Element?event.target.closest('[data-reg]'):null;if(!node||busy)return;
+    const action=node.dataset.reg,id=node.dataset.id;
+    if(action==='reload'){load();return;}if(action==='close_editor'){document.getElementById('registry-editor')?.replaceChildren();return;}if(!snapshot)return;
+    if(action==='ensure_domain'){ensureDomain(id);return;}
+    if(action==='edit_customer'){const customer=snapshot.data.customers.find(item=>item.id===id);if(!customer)return;document.getElementById('registry-editor').innerHTML=customerEditor(customer);document.getElementById('registry-editor').scrollIntoView({block:'start',behavior:'smooth'});return;}
+    if(action==='edit_publisher'){const publisher=snapshot.data.publishers.find(item=>item.id===id);if(!publisher)return;document.getElementById('registry-editor').innerHTML='<form class="registry-form" data-reg-form="rename_publisher" data-id="'+esc(id)+'">'+field('name','Publicistens namn',publisher.name)+'<button class="button teal" type="submit">Spara namn</button></form>';return;}
+    const item=snapshot.data.customers.find(customer=>customer.id===id)||snapshot.data.publishers.find(publisher=>publisher.id===id);
+    if(action==='publish_customer'&&!confirm('Publicera '+item.name+' med kundsajt och aktiveringssida? Varumärkesuppgifterna blir offentliga; kunddata och konton publiceras inte.'))return;
     if(action.startsWith('archive_')&&!confirm('Arkivera '+item.name+'? Kundportalen blir otillgänglig om detta är en kund. Posten kan återställas.'))return;
     mutate({action,id});
   });
   root.addEventListener('input',event=>{
-    const form=event.target.closest('[data-reg-form="add_customer"]');if(!form)return;
-    const name=form.querySelector('[name="name"]'),slug=form.querySelector('[name="slug"]');if(!name||!slug)return;
-    if(event.target===slug){form.dataset.slugManual=slug.value.trim()?'true':'false';return;}
-    if(event.target===name&&form.dataset.slugManual!=='true')slug.value=slugify(name.value);
+    const addForm=event.target instanceof Element?event.target.closest('[data-reg-form="add_customer"]'):null;
+    if(addForm){const name=addForm.querySelector('[name="name"]'),slug=addForm.querySelector('[name="slug"]');if(name&&slug){if(event.target===slug)addForm.dataset.slugManual=slug.value.trim()?'true':'false';else if(event.target===name&&addForm.dataset.slugManual!=='true')slug.value=slugify(name.value);}}
+    if(event.target instanceof HTMLInputElement&&event.target.name==='positivity'){const output=event.target.closest('form')?.querySelector('[data-positivity-output]');if(output)output.textContent=event.target.value;}
   });
   root.addEventListener('submit',event=>{
-    const form=event.target.closest('[data-reg-form]');if(!form)return;event.preventDefault();
+    const form=event.target instanceof Element?event.target.closest('[data-reg-form]'):null;if(!form)return;event.preventDefault();
     const data=new FormData(form),action=form.dataset.regForm;
-    const command={action,name:String(data.get('name')||'').trim()};
-    if(form.dataset.id)command.id=form.dataset.id;
-    if(action==='add_customer')command.slug=String(data.get('slug')||'').trim();
-    if(action==='update_customer')command.publisherIds=data.getAll('publisherIds');
-    mutate(command);
+    if(action==='configure_customer_site'){
+      mutate({action,id:form.dataset.id,site:{preset:String(data.get('preset')||'insight'),domain:String(data.get('domain')||'').trim().toLowerCase(),logoUrl:String(data.get('logoUrl')||'').trim(),primaryColor:String(data.get('primaryColor')||''),accentColor:String(data.get('accentColor')||''),heading:String(data.get('heading')||'').trim(),tagline:String(data.get('tagline')||'').trim(),agent:{enabled:data.get('agentEnabled')==='on',agentId:String(data.get('agentId')||'').trim(),clientKey:String(data.get('clientKey')||'').trim(),greeting:String(data.get('greeting')||'').trim(),positivity:Number(data.get('positivity')||5),tools:data.getAll('agentTools')}}});return;
+    }
+    const command={action,name:String(data.get('name')||'').trim()};if(form.dataset.id)command.id=form.dataset.id;if(action==='add_customer')command.slug=String(data.get('slug')||'').trim();if(action==='update_customer')command.publisherIds=data.getAll('publisherIds');mutate(command);
   });
   function navigate(){if(started)render();}
-  window.addEventListener('hashchange',navigate);
-  document.addEventListener('click',event=>{if(event.target.closest('[data-action="navigate"]'))queueMicrotask(navigate);});
-  document.addEventListener('content-online:workspace-ready',()=>{if(!started){started=true;load();}});
+  window.addEventListener('hashchange',navigate);document.addEventListener('click',event=>{if(event.target instanceof Element&&event.target.closest('[data-action="navigate"]'))queueMicrotask(navigate);});document.addEventListener('content-online:workspace-ready',()=>{if(!started){started=true;load();}});
 })();
 `;

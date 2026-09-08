@@ -3,7 +3,7 @@ import { Script } from 'node:vm';
 
 // Read-only HTTP smoke checks. No real user credentials or local dev server required.
 const platform = 'https://content-online-platform.vercel.app';
-const customer = 'https://fokus-psi-sable.vercel.app';
+const customerOrigin = 'https://kth.portal.contentonline.se';
 async function check(url, status, options = {}) {
   const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(15000), ...options });
   const body = await response.text();
@@ -23,6 +23,7 @@ for (const path of ['/admin/login', '/admin/registrera', '/admin']) {
   assert(body.includes('clerk.browser.js'));
   assert(!body.includes('sk_test_') && !body.includes('sk_live_'));
   assert(!body.includes('127.0.0.1'));
+  assert(!body.includes('agent.d-id.com/v2/index.js'));
   for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) new Script(script);
 }
 const portal = await check(`${platform}/kundportal`, 302);
@@ -37,7 +38,7 @@ await check(`${platform}/admin/api/workspace?demo=true`, 401, {
 await check(`${platform}/admin/api/publishers`, 401, { method: 'POST' });
 await check(`${platform}/admin/api/session`, 401, { headers: { cookie: 'session=customer-admin; co_operator_session=demo-operator' } });
 await check(`${platform}/admin/api/session`, 401, { headers: { authorization: 'Bearer invalid-token' } });
-await check(`${platform}/admin/api/session`, 403, { headers: { authorization: 'Bearer invalid-token', origin: customer } });
+await check(`${platform}/admin/api/session`, 403, { headers: { authorization: 'Bearer invalid-token', origin: customerOrigin } });
 await check(`${platform}/v1/me`, 503);
 const demo = await check(`${platform}/demo`, 200);
 assert(demo.body.includes('data-mode="demo"'));
@@ -54,10 +55,11 @@ for (const organization of workspace.customers) {
 await check(`${platform}/demo/workspace`, 404, { method: 'POST' });
 const client = await check(`${platform}/admin/assets/workspace.js`, 200);
 new Script(client.body);
-const oldCustomerLogin = await check(`${customer}/login`, 307);
-assert.equal(new URL(oldCustomerLogin.response.headers.get('location'), customer).pathname, '/o/kth/login');
-await check(`${customer}/o/kth/login`, 200);
-await check(`${customer}/o/unknown/login`, 404);
-const staff = await check(`${customer}/content-online/login`, 307);
-assert.equal(staff.response.headers.get('location'), `${platform}/admin/login`);
-console.log('Hosted portal HTTP checks passed. First-user email verification still requires the administrator.');
+const customerPortal = await check(`${platform}/portal/kth`, 200);
+assert(customerPortal.body.includes('DEMO · SYNTETISKA EXEMPEL'));
+assert(customerPortal.body.includes('Kunskap i användning'));
+await check(`${platform}/portal/kth/login`, 200);
+const agentContext = await check(`${platform}/portal/kth/api/agent-context`, 200);
+assert.equal(JSON.parse(agentContext.body).usage.status, 'synthetic_demo');
+await check(`${platform}/portal/unknown`, 404);
+console.log('Hosted admin and shared customer-portal checks passed. Clean wildcard DNS and real customer identity remain separately verified gates.');

@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { Buffer } from "node:buffer";
 import { timingSafeEqual } from "node:crypto";
 import { html } from "hono/html";
@@ -11,21 +11,32 @@ import { PLATFORM_ORIGIN } from "./identity.js";
 import type { AdminAuthenticator, AdminConfig, AdminIdentity } from "./identity.js";
 import { adminJobs, runAdminJob } from "./jobs.js";
 import { z } from "zod";
-import { applyRegistryCommand, commandSchema, publicPortal, RegistryError, type RegistryStore } from "./registry.js";
+import { applyRegistryCommand, commandSchema, publicPortal, publishedCustomer, RegistryError, type Registry, type RegistryStore } from "./registry.js";
 import { registryStoreFromEnvironment } from "./registry-store.js";
 import { registryClient } from "./registry-client.js";
 import { workspaceClient } from "./workspace-client.js";
 import { workspaceCss } from "./workspace-style.js";
+import { resolveCustomerAgent } from "../customer-portal/agent.js";
+import { customerPortalClient } from "../customer-portal/client.js";
+import { CustomerDomainError, customerDomainServiceFromEnvironment, type CustomerDomainService } from "../customer-portal/domains.js";
+import { customerSlugFromHostname, isCustomerSlug } from "../customer-portal/routing.js";
+import { customerPortalCss } from "../customer-portal/style.js";
+import { customerPortalContext, renderCustomerPortal, type CustomerPortalPage } from "../customer-portal/template.js";
 
 type AdminPortalOptions = {
   registryStore?: RegistryStore;
   assistantApiKey?: string;
   assistantModel?: string;
+  didAgentId?: string;
+  didClientKey?: string;
+  portalRootDomain?: string;
+  domainService?: CustomerDomainService;
   cronSecret?: string;
   fetchImpl?: typeof fetch;
   now?: () => Date;
   askAssistant?: (question: string, adminId: string) => Promise<AssistantAnswer>;
 };
+type AdminPortalEnvironment = { Variables: { adminIdentity: AdminIdentity } };
 export function clerkFrontendHost(key: string): string | null {
   if (!/^pk_(test|live)_[A-Za-z0-9+/=]+$/.test(key)) return null;
   const decoded = Buffer.from(key.slice(8), "base64").toString("utf8");
@@ -38,9 +49,14 @@ export function createAdminPortal(
   config: AdminConfig,
   options: AdminPortalOptions = {},
 ) {
-  const app = new Hono<{ Variables: { adminIdentity: AdminIdentity } }>();
+  const app = new Hono<AdminPortalEnvironment>();
   const host = clerkFrontendHost(config.publishableKey);
   const configured = !!(host && config.secretKey && config.allowedEmail);
+  const portalRootDomain = options.portalRootDomain ?? process.env.CUSTOMER_PORTAL_ROOT_DOMAIN ?? "portal.contentonline.se";
+  const fallbackDidAgent = {
+    agentId: options.didAgentId ?? process.env.DID_AGENT_ID ?? "",
+    clientKey: options.didClientKey ?? process.env.DID_CLIENT_KEY ?? "",
+  };
   const askAssistant =
     options.askAssistant ??
     ((question: string, adminId: string) => {
@@ -63,6 +79,47 @@ export function createAdminPortal(
   });
 
   const registry = () => options.registryStore ?? registryStoreFromEnvironment();
+  const domainService = () => options.domainService ?? customerDomainServiceFromEnvironment(options.fetchImpl);
+  const loadPortal = async (slug: string): Promise<{ registry: Registry; customer: NonNullable<ReturnType<typeof publishedCustomer>> } | null> => {
+    if (!isCustomerSlug(slug)) return null;
+    const data = (await registry().read()).data;
+    const customer = publishedCustomer(data, slug);
+    return customer ? { registry: data, customer } : null;
+  };
+  const portalPageResponse = async (c: Context<AdminPortalEnvironment>, slug: string, page: CustomerPortalPage, basePath: string) => {
+    try {
+      const portal = await loadPortal(slug);
+      if (!portal) return c.text("Kundportalen finns inte eller är inte publicerad.", 404);
+      const didAgent = resolveCustomerAgent(portal.customer, fallbackDidAgent);
+      const contextUrl = basePath ? `${basePath}/api/agent-context` : "/api/agent-context";
+      return c.html(renderCustomerPortal(portal.customer, portal.registry, { basePath, contextUrl, page, didAgent }));
+    } catch { return c.text("Kundportalen är tillfälligt otillgänglig.", 503); }
+  };
+
+  app.get("/customer-portal/assets/style.css", (c) => c.body(customerPortalCss, 200, { "content-type": "text/css; charset=utf-8" }));
+  app.get("/customer-portal/assets/client.js", (c) => c.body(customerPortalClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
+  // A verified wildcard domain maps the first host label to one published tenant.
+  app.use("*", async (c, next) => {
+    const slug = customerSlugFromHostname(new URL(c.req.url).hostname, portalRootDomain);
+    if (!slug) return next();
+    if (c.req.path === "/") return portalPageResponse(c, slug, "portal", "");
+    if (c.req.path === "/login") return portalPageResponse(c, slug, "login", "");
+    if (c.req.path === "/api/agent-context") {
+      try {
+        const portal = await loadPortal(slug);
+        return portal ? c.json(customerPortalContext(portal.customer, portal.registry)) : c.json({ error: "not_found" }, 404);
+      } catch { return c.json({ error: "portal_unavailable" }, 503); }
+    }
+    return c.text("Sidan finns inte i kundportalen.", 404);
+  });
+  app.get("/portal/:slug", (c) => portalPageResponse(c, c.req.param("slug"), "portal", `/portal/${c.req.param("slug")}`));
+  app.get("/portal/:slug/login", (c) => portalPageResponse(c, c.req.param("slug"), "login", `/portal/${c.req.param("slug")}`));
+  app.get("/portal/:slug/api/agent-context", async (c) => {
+    try {
+      const portal = await loadPortal(c.req.param("slug"));
+      return portal ? c.json(customerPortalContext(portal.customer, portal.registry)) : c.json({ error: "not_found" }, 404);
+    } catch { return c.json({ error: "portal_unavailable" }, 503); }
+  });
   app.get("/admin/assets/registry.js", (c) => c.body(registryClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   app.get("/portal-directory/:slug", async (c) => {
     try {
@@ -129,7 +186,10 @@ export function createAdminPortal(
         users: "read_only_demo",
         publishers: "persistent_registry",
         customers: "persistent_registry",
-        customerAssignments: "read_only_demo",
+        customerAssignments: "persistent_publisher_links",
+        customerSites: "shared_multitenant_runtime",
+        customerDomains: "vercel_wildcard_or_custom",
+        customerAgents: "per_customer_configuration",
         assistant: "documentation_grounded",
         jobs: "allowlisted_controls",
       },
@@ -156,6 +216,44 @@ export function createAdminPortal(
       return c.json(await store.write(current.version, next));
     } catch (error) {
       if (error instanceof SyntaxError) return c.json({ error: "invalid_json" }, 422);
+      if (error instanceof RegistryError) return c.json({ error: error.code }, error.status);
+      return c.json({ error: "storage_unavailable" }, 503);
+    }
+  });
+
+  app.post("/admin/api/customers/:id/domain/ensure", async (c) => {
+    const origin = c.req.header("origin");
+    if (origin && origin !== PLATFORM_ORIGIN && origin !== new URL(c.req.url).origin) return c.json({ error: "forbidden" }, 403);
+    try {
+      const raw = await c.req.text();
+      if (raw.length > 1_000) return c.json({ error: "body_too_large" }, 413);
+      const body = z.object({ version: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).safeParse(JSON.parse(raw));
+      if (!body.success) return c.json({ error: "invalid_command" }, 422);
+      const store = registry();
+      const current = await store.read();
+      if (current.version !== body.data.version) return c.json({ error: "version_conflict" }, 409);
+      const customer = current.data.customers.find((item) => item.id === c.req.param("id"));
+      if (!customer) return c.json({ error: "not_found" }, 404);
+      if (!customer.site.domain) return c.json({ error: "domain_unconfigured" }, 409);
+      const result = await domainService().ensure(customer.site.domain);
+      const next = applyRegistryCommand(current.data, {
+        action: "set_customer_domain_status",
+        id: customer.id,
+        domainStatus: result.status,
+      }, c.get("adminIdentity").id, options.now?.() ?? new Date());
+      const saved = await store.write(current.version, next);
+      return c.json({
+        version: saved.version,
+        domain: customer.site.domain,
+        managedDomain: result.managedDomain,
+        status: result.status,
+        nextStep: result.status === "ready" ? "ready" : "configure_wildcard_dns",
+      });
+    } catch (error) {
+      if (error instanceof SyntaxError) return c.json({ error: "invalid_json" }, 422);
+      if (error instanceof CustomerDomainError) {
+        return c.json({ error: error.code === "unconfigured" ? "domain_automation_unconfigured" : "domain_automation_unavailable" }, 503);
+      }
       if (error instanceof RegistryError) return c.json({ error: error.code }, error.status);
       return c.json({ error: "storage_unavailable" }, 503);
     }
