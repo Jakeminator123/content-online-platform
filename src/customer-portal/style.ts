@@ -161,6 +161,7 @@ svg { width: 1.1em; height: 1.1em; flex: none; }
   box-shadow: 0 0 0 4px #87b8ae16;
 }
 .mobile-scrim { display: none; }
+.portal-nav-open .didagent_target { visibility: hidden !important; pointer-events: none !important; }
 
 .portal-main { min-height: 100svh; margin-left: 272px; }
 .portal-topbar {
@@ -617,6 +618,7 @@ button:focus-visible, a:focus-visible, [tabindex="-1"]:focus-visible {
   .portal-topbar { min-height: 62px; padding: 10px 15px; }
   .topbar-title > span:first-of-type, .period-label { display: none; }
   .portal-content { padding: 34px 15px 170px; }
+  body[data-agent-enabled="true"] .portal-content { padding-right: 76px; }
   .section-intro { margin-bottom: 20px; padding-bottom: 22px; }
   .surface { padding: 20px; }
   .surface-head { align-items: flex-start; flex-direction: column; }
