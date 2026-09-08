@@ -52,6 +52,15 @@ jobs:
           npx tsx scripts/serve-admin-demo.ts > /tmp/admin-demo.log 2>&1 &
           trap 'cat /tmp/admin-demo.log' ERR
           node scripts/check-statistics-ui.mjs
+      - name: Check registry UI against isolated PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: |
+          npx tsx scripts/serve-registry-ci.ts > /tmp/registry-ci.log 2>&1 &
+          trap 'cat /tmp/registry-ci.log' ERR
+          node scripts/check-registry-ui.mjs
       - name: Save browser evidence
         if: always()
         uses: actions/upload-artifact@v4
