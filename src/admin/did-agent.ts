@@ -7,7 +7,7 @@ const ENCODED_CLIENT_KEY = /^[A-Za-z0-9+/_-]+={0,2}$/;
 
 export function normalizeDidClientKey(clientKey: string): string | null {
   const value = clientKey.trim();
-  if (RAW_CLIENT_KEY.test(value)) return value;
+  if (RAW_CLIENT_KEY.test(value)) return Buffer.from(value, "utf8").toString("base64");
   if (!value || value.length > 2048 || !ENCODED_CLIENT_KEY.test(value)) return null;
 
   const standard = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -17,7 +17,7 @@ export function normalizeDidClientKey(clientKey: string): string | null {
     const bytes = Buffer.from(standard.padEnd(Math.ceil(standard.length / 4) * 4, "="), "base64");
     if (bytes.toString("base64").replace(/=+$/, "") !== unpadded) return null;
     const decoded = bytes.toString("utf8");
-    return RAW_CLIENT_KEY.test(decoded) ? decoded : null;
+    return RAW_CLIENT_KEY.test(decoded) ? bytes.toString("base64") : null;
   } catch {
     return null;
   }
@@ -35,6 +35,6 @@ export function buildDidAgentShareUrl(agentId: string, clientKey: string): strin
   if (!config) return null;
   const url = new URL("https://studio.d-id.com/agents/share");
   url.searchParams.set("id", config.agentId);
-  url.searchParams.set("key", Buffer.from(config.clientKey, "utf8").toString("base64"));
+  url.searchParams.set("key", config.clientKey);
   return url.href;
 }
