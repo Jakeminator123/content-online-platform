@@ -89,9 +89,9 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(body.storage.status).toBe("blocked_by_decision");
   });
 
-  it("returns D-ID speech-only presenter configuration only after admin authorization", async () => {
+  it("returns a normalized D-ID interactive embed configuration only after admin authorization", async () => {
     const didAgentId = "v2_agt_test-presenter";
-    const didClientKey = "domain-scoped-browser-client-key";
+    const didClientKey = "ck_domain_scoped_browser_client_key";
     const app = appFor(
       { status: "authenticated", identity: { id: "admin", email, role: "content_admin" } },
       { didAgentId, didClientKey },
@@ -101,7 +101,7 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(await response.json()).toEqual({
       configured: true,
       provider: "d-id",
-      mode: "speech_only",
+      mode: "interactive",
       agentId: didAgentId,
       clientKey: didClientKey,
     });
@@ -116,13 +116,15 @@ describe("Hosted portal entry and guarded admin API", () => {
       { status: "authenticated", identity: { id: "admin", email, role: "content_admin" } },
       { didAgentId, didClientKey: "" },
     ).request("/admin/api/assistant/presenter");
-    expect(await unconfigured.json()).toEqual({ configured: false, provider: "d-id", mode: "speech_only" });
+    expect(await unconfigured.json()).toEqual({ configured: false, provider: "d-id", mode: "interactive" });
   });
 
   it("provides a no-store documentation-agent link only through the guarded API", async () => {
+    const rawClientKey = "ck_browser_config_with_encoding";
+    const encodedClientKey = Buffer.from(rawClientKey).toString("base64");
     const app = appFor(
       { status: "authenticated", identity: { id: "admin", email, role: "content_admin" } },
-      { didAgentId: "v2_agt_test-agent", didClientKey: "browser-config+with/encoding==" },
+      { didAgentId: "v2_agt_test-agent", didClientKey: encodedClientKey },
     );
     const response = await app.request("/admin/api/assistant/agent?redirect=https://evil.example");
     expect(response.status).toBe(200);
@@ -131,23 +133,30 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(body).toMatchObject({ configured: true, provider: "d-id", mode: "documentation_agent" });
     const url = new URL(body.url);
     expect(url.origin + url.pathname).toBe("https://studio.d-id.com/agents/share");
-    expect(Object.fromEntries(url.searchParams)).toEqual({ id: "v2_agt_test-agent", key: "browser-config+with/encoding==" });
+    expect(Object.fromEntries(url.searchParams)).toEqual({ id: "v2_agt_test-agent", key: encodedClientKey });
     expect(body.url).not.toContain(email);
+    expect(await (await app.request("/admin/api/assistant/presenter")).json()).toMatchObject({
+      configured: true,
+      mode: "interactive",
+      clientKey: rawClientKey,
+    });
     for (const path of ["/", "/admin", "/demo", "/admin/assets/assistant.js"]) {
       const html = await (await app.request(path)).text();
       expect(html).not.toContain("v2_agt_test-agent");
-      expect(html).not.toContain("browser-config+with/encoding==");
+      expect(html).not.toContain(rawClientKey);
+      expect(html).not.toContain(encodedClientKey);
     }
     const html = await (await app.request("/admin")).text();
     expect(html).toContain('id="assistant-agent-open" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden');
-    expect(html).toContain("kundregistret och den här chatten följer inte med");
+    expect(html).toContain("Starta agenten här");
+    expect(html).toContain("Video · röst · chatt");
     expect(await (await app.request("/demo")).text()).not.toContain('id="assistant-agent-open"');
   });
 
   it.each([
-    { didAgentId: "", didClientKey: "browser-config" },
+    { didAgentId: "", didClientKey: "ck_browser_config" },
     { didAgentId: "test-agent", didClientKey: "" },
-    { didAgentId: "https://evil.example", didClientKey: "browser-config" },
+    { didAgentId: "https://evil.example", didClientKey: "ck_browser_config" },
     { didAgentId: "test-agent", didClientKey: "invalid key" },
   ])("does not publish a handoff link for missing or invalid configuration", async (options) => {
     const app = appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }, options);
@@ -317,7 +326,9 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(() => new Script(assistantClient)).not.toThrow();
     expect(assistantClient).not.toContain(config.secretKey);
     expect(assistantClient).not.toContain(config.allowedEmail);
-    expect(assistantClient).toContain("didApi.functions.speak");
+    expect(assistantClient).not.toContain("didApi.functions.speak");
+    expect(assistantClient).toContain("showChatToggle:true");
+    expect(assistantClient).toContain("showMicToggle:true");
     expect(assistantClient).not.toContain("didApi.chat(");
     const response = await appFor({ status: "unauthenticated" }).request("/admin/assets/assistant.js");
     expect(response.status).toBe(200);

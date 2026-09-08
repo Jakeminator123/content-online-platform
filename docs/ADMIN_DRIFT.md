@@ -23,7 +23,7 @@ Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planera
 - Kundfrontendens meny och rollnamn säger nu `KTH:s användare`, `Kundadministratör` och `Läsare`. Icke fungerande knappar för inbjudan/ändring har ersatts med en tydlig länk till kundserviceförhandsvisning och påståendet om automatisk COUNTER/SUSHI-hämtning har ersatts med korrekt demostatus.
 - Content Onlines admininloggning har en modern assistentbubbla. Efter verifierad admininloggning kan den svara från projektets dokumenterade kontext, visa den syntetiska kund-/rollbilden och starta allowlistade skrivskyddade kontrolljobb.
 - OpenAI-anrop görs server-side med minimerad kontext och `store: false`; personnamn, e-post, identitets-ID och kundnamn från arbetsytan skickas inte till modellen. Vid providerfel används ett begränsat lokalt faktasvar.
-- Den interna assistenten kan valfritt aktivera D-ID-agenten `v2_agt_4xrfqG8W` som röstavatar. D-ID får bara det färdiga svaret för uppläsning via `speak()`; Knowledge/RAG, verktyg, intern D-ID-chatt och mikrofon används inte.
+- Den interna assistenten kan efter ett uttryckligt klick bädda in D-ID-agenten `v2_agt_4xrfqG8W` med video, D-ID:s egen chatt och valfri mikrofon. Content Onlines skyddade textchatt är separat; frågor och svar kopieras inte mellan samtalen.
 - Ett dagligt `platform-readiness`-jobb är konfigurerat för Vercel Cron. Endpointen kräver `CRON_SECRET`, och manuella körningar kräver samma adminbehörighet som arbetsytan. Jobbresultat sparas inte ännu.
 
 ## Första kontot
@@ -84,3 +84,5 @@ Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projekt
 ## Uppdatering 2026-09-08: separata entréer och register
 
 Plattformens rot är nu intern inloggning. Aktuell lagring, kundadresser, arkivering och återstående kundidentitet beskrivs i [PORTALSTRUKTUR.md](PORTALSTRUKTUR.md). Detta ersätter äldre uppgifter ovan om pausad Neon eller att alla kund-/publicistlistor saknar sparning. Statistik och demofixtures är fortfarande separata.
+
+Adminregistret skiljer nu på **Styr kund**, **Granska kundyta** och **Aktiveringssida**. Publicerade icke-KTH-kunder får en organisationsmärkt förhandsvisningsyta i den gemensamma kundfrontenden. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.
