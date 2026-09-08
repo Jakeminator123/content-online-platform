@@ -13,7 +13,7 @@ Detta paket versionshanterar de två texter som ägaren godkände i dialogen 202
 
 Efter verifierad intern inloggning visas **Starta agenten här** i Fråga CO. Först efter klick laddas D-ID:s officiella v2-script i `full`-läge i portalens egen behållare. Agentens video, mikrofonkontroll, omstart och D-ID-chatt är synliga. `autoConnect` aktiveras först i detta användarinitierade flöde; webbläsaren styr mikrofonbehörigheten.
 
-Den skyddade GET-rutten `/admin/api/assistant/presenter` lämnar ut endast validerat Agent ID och rå, frontendavsedd client key. D-ID:s Studio-delningslänk innehåller client key Base64-kodad; servern accepterar både denna form och den råa `ck_…`-formen men skickar endast normaliserad rå nyckel till embed-scriptet. En provider-API-nyckel matchar inte formatet och accepteras inte.
+Den skyddade GET-rutten `/admin/api/assistant/presenter` lämnar ut endast validerat Agent ID och D-ID:s frontendavsedda, Base64-kodade client key. Servern accepterar både denna form och en rå `ck_…`-form som administrativ indata men skickar alltid normaliserad, kodad client key till embed-scriptet. En provider-API-nyckel matchar inte formatet och accepteras inte.
 
 `/admin/api/assistant/agent` bygger fortfarande en separat-flik-länk som reserv. Den tar inte emot en godtycklig redirect-URL och skickar inte Clerk-token, fråga, kundregister eller jobbinformation till D-ID. Länken använder `noopener noreferrer` och `no-referrer`. Publik HTML innehåller inga konfigurationsvärden. Saknad konfiguration eller D-ID-fel blockerar inte Content Onlines textchatt.
 
