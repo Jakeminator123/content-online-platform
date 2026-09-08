@@ -79,3 +79,10 @@ Inför verkliga kunddata ska en separat embed client key användas och dess allo
 D-ID:s MCP-server är ett hjälpmedel för lokala utvecklarverktyg och dokumentations/API-arbete. Den är inte en runtime-del av Content Online, exponeras inte för slutanvändaren och får inte användas för att kringgå admin-API:ts behörighetskontroll.
 
 Dokumentationen beskriver en syntetisk, skrivskyddad pilot. Beständig administration och externa integrationer ingår inte i denna leverans.
+
+
+## D-ID-start: regression och felsökning (2026-09-08)
+
+Embed-scriptet måste ha `data-name="did-agent"` före infogning; D-ID:s bootstrap söker exakt den selektorn. HTTP 200 för scriptet betyder inte att avataren har initierats. Klienten väntar även på de asynkront registrerade API-metoderna och har tidsgränser. Vid fel loggas endast steget `config`, `script` eller `initialization`, aldrig nycklar eller chattinnehåll. Om ett laddat modulscript inte startar behövs omladdning; återförsök får inte lägga till fler cachade instanser.
+
+Regressionstester kör det faktiska klientprogrammet mot en simulerad DOM och fördröjd D-ID-bootstrap. De gör inga betalda leverantörsanrop och ersätter inte ett autentiserat live-test av video/ljud.
