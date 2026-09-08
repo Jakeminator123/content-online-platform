@@ -92,7 +92,6 @@ describe("Hosted portal entry and guarded admin API", () => {
   it("returns a normalized D-ID interactive embed configuration only after admin authorization", async () => {
     const didAgentId = "v2_agt_test-presenter";
     const didClientKey = "ck_domain_scoped_browser_client_key";
-    const encodedDidClientKey = Buffer.from(didClientKey).toString("base64");
     const app = appFor(
       { status: "authenticated", identity: { id: "admin", email, role: "content_admin" } },
       { didAgentId, didClientKey },
@@ -104,7 +103,7 @@ describe("Hosted portal entry and guarded admin API", () => {
       provider: "d-id",
       mode: "interactive",
       agentId: didAgentId,
-      clientKey: encodedDidClientKey,
+      clientKey: didClientKey,
     });
 
     for (const path of ["/", "/admin", "/admin/assets/assistant.js"]) {
@@ -139,7 +138,7 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(await (await app.request("/admin/api/assistant/presenter")).json()).toMatchObject({
       configured: true,
       mode: "interactive",
-      clientKey: encodedClientKey,
+      clientKey: rawClientKey,
     });
     for (const path of ["/", "/admin", "/demo", "/admin/assets/assistant.js"]) {
       const html = await (await app.request(path)).text();

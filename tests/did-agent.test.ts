@@ -5,12 +5,12 @@ import { buildDidAgentShareUrl, didEmbedConfiguration, normalizeDidClientKey } f
 describe("D-ID browser configuration", () => {
   const rawKey = "ck_synthetic_domain_scoped_key";
 
-  it("accepts raw or encoded input and always returns D-ID's encoded client key", () => {
+  it("accepts raw or encoded input and always returns D-ID's raw embed client key", () => {
     const encoded = Buffer.from(rawKey, "utf8").toString("base64");
-    expect(normalizeDidClientKey(rawKey)).toBe(encoded);
-    expect(normalizeDidClientKey(encoded)).toBe(encoded);
-    expect(normalizeDidClientKey(encoded.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""))).toBe(encoded);
-    expect(didEmbedConfiguration("v2_agt_fixture", encoded)).toEqual({ agentId: "v2_agt_fixture", clientKey: encoded });
+    expect(normalizeDidClientKey(rawKey)).toBe(rawKey);
+    expect(normalizeDidClientKey(encoded)).toBe(rawKey);
+    expect(normalizeDidClientKey(encoded.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""))).toBe(rawKey);
+    expect(didEmbedConfiguration("v2_agt_fixture", encoded)).toEqual({ agentId: "v2_agt_fixture", clientKey: rawKey });
   });
 
   it("builds only a canonical Studio fallback URL and never accepts arbitrary credentials", () => {
