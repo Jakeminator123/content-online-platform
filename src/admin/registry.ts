@@ -173,10 +173,9 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
       status: "draft",
       kind: "customer",
       publisherIds: [],
-      site: defaultCustomerSite({
-        domain: `${command.slug}.portal.contentonline.se`,
-        domainStatus: "pending",
-      }),
+      // The shared Vercel runtime publishes this tenant at /portal/{slug}.
+      // A dedicated hostname is optional and must be configured explicitly.
+      site: defaultCustomerSite(),
       salesforceAccountId: null,
       salesforceAccountName: null,
     });

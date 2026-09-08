@@ -125,7 +125,7 @@ Vilka krav finns på GDPR, EU-datalagring, loggning, retention, incidenthanterin
 
 ### Q-016 Leveransmål
 
-Är nästa mål en körbar backend/API-demo, en teknisk integrationsverifiering eller en produktionspilot? Vilket datum, vilken budgetram och vilka godkännare gäller? Klickbar frontenddemo hör till det separata frontendspåret.
+Är nästa mål en körbar backend/API-demo, en teknisk integrationsverifiering eller en produktionspilot? Vilket datum, vilken budgetram och vilka godkännare gäller? Den klickbara kundmallen deployas nu tillsammans med plattformen men riktig kundidentitet och data är separata produktionsgrindar.
 
 **Svar:**
 **Beslutsägare och datum:**

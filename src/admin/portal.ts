@@ -101,10 +101,13 @@ export function createAdminPortal(
   const adminRegistrySnapshot = (snapshot: RegistrySnapshot) => ({
     ...snapshot,
     runtime: {
+      customerSites: {
+        canonicalOrigin: PLATFORM_ORIGIN,
+        pathPrefix: "/portal",
+      },
       customerDomains: {
         rootDomain: portalRootDomain,
         wildcardReady: portalWildcardReady,
-        previewOrigin: "https://fokus-psi-sable.vercel.app",
       },
       agentModeByCustomer: Object.fromEntries(snapshot.data.customers.map((customer) => {
         if (!customer.site.agent.enabled) return [customer.id, "disabled"];

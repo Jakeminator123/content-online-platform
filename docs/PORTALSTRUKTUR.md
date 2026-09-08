@@ -1,20 +1,19 @@
 # Portalstruktur, kundsajter och sparat register
 
-## En kontrollpanel, en delad frontend, många kundsajter
+## En kontrollpanel, en Vercel-runtime, många kundsajter
 
 `content-online-platform` äger Content Onlines interna kontrollpanel, de skyddade
-API:erna och det beständiga registret. `content-online-kundplatform-frontend` är
-den gemensamma kundportal-appen i Vercel-projektet `fokus`. En ny kund skapar inte
-ett repo, en kodkopia eller ett Vercel-projekt. Den skapar en tenant-konfiguration
-som den delade frontend-deploymenten läser via det publika, begränsade
-portalkatalog-API:t.
+API:erna, det beständiga registret och den gemensamma kundportal-runtime som
+deployas i Vercel-projektet `content-online-platform`. **Fokus** är en portal-mall
+i detta repository, inte ett separat kundrepo eller Vercel-projekt. En ny kund
+skapar bara en tenant-konfiguration som samma deployment läser från registret.
 
 | Område | Adress | Behörighet |
 | --- | --- | --- |
 | Content Online-admin | `https://content-online-platform.vercel.app/admin` | Intern Clerk-session och serverkontrollerad administratör |
 | Designgranskning | `/demo/customer/kth` | Oföränderlig och tydligt märkt syntetisk fixture, utan databasberoende |
-| Förhandsvisning | `https://fokus-psi-sable.vercel.app/o/{url-namn}` | Publik, varumärkesmärkt struktur utan verklig kunddata |
-| Kunddomän | `https://{url-namn}.portal.contentonline.se` | Samma publicerade tenant via Vercel wildcard |
+| Kundsida | `https://content-online-platform.vercel.app/portal/{url-namn}` | Publik, varumärkesmärkt struktur utan verklig kunddata |
+| Valfri kunddomän | `https://{url-namn}.portal.contentonline.se` | Kan senare peka på samma publicerade tenant |
 | KTH | `kth` | Syntetisk pilot; alla exempel märks som demo |
 
 Kundens URL väljer tenant men bevisar aldrig medlemskap. Verklig portfölj,
@@ -25,24 +24,27 @@ statistik, dokument och ärenden kräver senare ett serververifierat kundmedlems
 Det skyddade registret sparar per kund:
 
 - namn, oföränderligt URL-namn, publiceringsstatus och publicister;
-- portal-mall (`insight`, `library` eller `minimal`);
+- portal-mall (`Fokus` är den kompletta standardmallen; `library` och `minimal` är varianter);
 - primärfärg, accentfärg, rubrik, ingress och publik HTTPS-logotyp;
 - önskad kunddomän och Vercels verifieringsstatus;
 - D-ID agent-ID, frontendavsedd client key, hälsning, positivitet 1–10 och
   exakt allowlistade klientverktyg.
 
-Nya kunder börjar som utkast med en föreslagen domän
-`{url-namn}.portal.contentonline.se`, inga publicister, inga konton och inga
-kundvärden. KTH:s data, identiteter och konfiguration kopieras aldrig till dem.
+Nya kunder börjar som utkast med en föreslagen slug, inga publicister, ingen egen
+domän, inga konton och inga kundvärden. Efter publicering blir sidan tillgänglig
+på `/portal/{url-namn}`. KTH:s data, identiteter och konfiguration kopieras aldrig
+till dem.
 
 ## Publicering och domäner
 
-Publicering gör det säkra portalskalet tillgängligt i den delade frontend-appen.
-Innan DNS är klar används förhandsvisningsvägen på `fokus`. Wildcard-domänen
-`*.portal.contentonline.se` kopplas en gång till Vercel-projektet `fokus`; därefter
-fungerar varje ny förstahands-subdomän utan ett API-anrop eller projekt per kund.
-Arkivering tar bort den publika sajten vid nästa serverförfrågan men bevarar
+Publicering gör det säkra portalskalet tillgängligt direkt i den redan deployade
+plattformen. Ingen ny build, Git-branch, deployment eller DNS-post behövs per
+kund. Arkivering tar bort den publika sajten vid nästa serverförfrågan men bevarar
 kundposten och inställningarna för återställning.
+
+En egen domän är valfri. Om `*.portal.contentonline.se` senare kopplas till
+Vercel-projektet `content-online-platform` fungerar varje ny
+förstahands-subdomän mot samma runtime utan ett projekt per kund.
 
 Domänstatusen läser servervariablerna:
 
@@ -51,10 +53,10 @@ Domänstatusen läser servervariablerna:
 
 Individuella anpassade domäner kan vid behov använda de särskilda
 `CUSTOMER_PORTAL_VERCEL_PROJECT_ID`, `CUSTOMER_PORTAL_VERCEL_TEAM_ID` och en
-server-only `VERCEL_AUTOMATION_TOKEN`. Projekt-ID:t måste då peka på `fokus`,
-aldrig adminprojektet. Den normala wildcard-vägen behöver ingen långlivad token.
-Innan flaggan är verifierad fungerar register, publicering och den delade
-förhandsvisningen fortfarande; domänstatus visas som **DNS väntar**.
+server-only `VERCEL_AUTOMATION_TOKEN`. Projekt-ID:t måste då peka på
+`content-online-platform`. Den vanliga `/portal/{url-namn}`-adressen och en
+verifierad wildcard-väg behöver ingen långlivad token. Innan DNS är verifierad
+fungerar register, publicering och plattformens kundadress fortfarande.
 
 ## D-ID per kund
 
@@ -63,11 +65,11 @@ giltig agent/client-key-konfiguration. KTH kan under migreringen använda de
 befintliga servervariablerna `DID_AGENT_ID` och `DID_CLIENT_KEY`; nya kunder sparar
 sin browser-konfiguration på sin tenant.
 
-Varje D-ID client key ska begränsas till kundens exakta origin, exempelvis
-`https://kth.portal.contentonline.se`. Under förhandsgranskning kan även
-`https://fokus-psi-sable.vercel.app` läggas till som en andra origin.
-En path eller wildcardtext ska inte anges i D-ID Allowed Domains. En D-ID API key
-är en serverhemlighet och får aldrig lagras som client key.
+Varje D-ID client key ska begränsas till den exakta origin som används. För den
+delade kundadressen är det `https://content-online-platform.vercel.app`; en path
+som `/portal/kth` eller wildcardtext ska inte anges i D-ID Allowed Domains. Om en
+egen kunddomän aktiveras läggs även den origin till. En D-ID API key är en
+serverhemlighet och får aldrig lagras som client key.
 
 Portalens klient registrerar bara dessa handler-namn:
 
@@ -98,9 +100,10 @@ standardvärden för `site`; ingen separat destruktiv databas-migration krävs.
 - Okänd, avpublicerad eller arkiverad kund ger 404 och får ingen KTH-fallback.
 - Databas- och leverantörsfel ger otillgängligt läge, inte fabricerade tomdata.
 
-## Separata driftsgränser
+## Driftsgräns och migration
 
-Adminprojektet och kundfrontendens `fokus`-projekt har varsin deployment och varsin
-ansvarsgräns. De delar inte autentisering eller runtime-hemligheter. Kundfrontend
-läser enbart explicit publicerad presentationsmetadata; registret och Neon stannar
-i backendprojektet.
+Admin och kundsidor delar Vercel-projekt men inte behörighetsmodell. Kundroutes
+läser endast publicerade tenantposter; admin-API:er kräver fortsatt verifierad
+Content Online-identitet. Det äldre `content-online-kundplatform-frontend`/`fokus`
+är endast en bevarad migrationskälla tills den inbyggda Fokus-mallen har godkänts
+i produktion och kan arkiveras återställningsbart.

@@ -12,18 +12,18 @@ Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planera
 
 ## Levererat
 
-- Hono-plattformen har portalval och länkar till den befintliga kundfrontenden utan att kopiera eller blanda sessioner.
+- Hono-plattformen innehåller både portalval och den delade Fokus-mallen utan att blanda kund- och adminbehörighet.
 - `/admin/login` och `/admin/registrera` använder Clerk JS/UI. Den nya rollen heter `content_admin`.
 - HTML-skalet på `/admin` är publikt men innehåller inga identitets- eller kunduppgifter. Personlig information hämtas från serverns skyddade `/admin/api/session` efter verifiering.
 - API accepterar endast Clerk-bearertoken med plattformens uttryckliga `azp`/origin. Signatur och livslängd kontrolleras av SDK:n; servern kontrollerar även aktiv session, spärrstatus samt verifierad primär e-post mot serverns allowlist.
 - En separat registreringsallowlist finns i Clerk. Testverifiering är avstängd. Ingen automatisk e-postinbjudan har skickats.
-- Kundfrontendens `/content-online`-vägar leder till plattformens administration. KTH-demons cookies skickas inte vidare som behörighetsbevis.
+- Äldre frontendvägar var migrationsbryggor till plattformens administration. KTH-demons cookies används aldrig som behörighetsbevis.
 - Den skyddade, interna arbetsytan visar nu ett serverlevererat och skrivskyddat pilotregister för kunder, publicister, produkt-/kundtilldelningar samt anslutningar/importstatus. `/admin/api/workspace` har samma Clerk- och allowlistkontroll som övriga admin-API:er.
 - Pilotregistret är uttryckligen syntetiskt. Alla skrivåtgärder är avstängda eftersom beständig lagring ännu saknas; inget sparas i serverminne, webbläsarlagring eller Git.
-- Kundfrontendens meny och rollnamn säger nu `KTH:s användare`, `Kundadministratör` och `Läsare`. Icke fungerande knappar för inbjudan/ändring har ersatts med en tydlig länk till kundserviceförhandsvisning och påståendet om automatisk COUNTER/SUSHI-hämtning har ersatts med korrekt demostatus.
+- Den tidigare kundfrontendens mer omfattande KTH-demo är migrationsunderlag. Den inbyggda Fokus-mallen är nu den kanoniska publiceringsytan och återanvänder aldrig KTH-data för en annan kund.
 - Content Onlines admininloggning har en modern assistentbubbla. Efter verifierad admininloggning kan den svara från projektets dokumenterade kontext, visa den syntetiska kund-/rollbilden och starta allowlistade skrivskyddade kontrolljobb.
 - OpenAI-anrop görs server-side med minimerad kontext och `store: false`; personnamn, e-post, identitets-ID och kundnamn från arbetsytan skickas inte till modellen. Vid providerfel används ett begränsat lokalt faktasvar.
-- Den interna assistenten innehåller bara Content Onlines skyddade textchatt och adminverktyg. D-ID-agenten med video, egen chatt och valfri mikrofon ligger i den separata kundfrontenden på publicerade kundadresser; ingen kund- eller admindata kopieras dit automatiskt.
+- Den interna assistenten innehåller bara Content Onlines skyddade textchatt och adminverktyg. D-ID-agenten med video, egen chatt och valfri mikrofon ligger i den inbyggda Fokus-mallen på publicerade kundadresser; ingen kund- eller admindata kopieras dit automatiskt.
 - Ett dagligt `platform-readiness`-jobb är konfigurerat för Vercel Cron. Endpointen kräver `CRON_SECRET`, och manuella körningar kräver samma adminbehörighet som arbetsytan. Jobbresultat sparas inte ännu.
 
 ## Första kontot
@@ -34,7 +34,7 @@ Ingen e-postadress, lösenord eller hemlig nyckel hör hemma i detta publika rep
 
 - `CLERK_SECRET_KEY` och `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: tillförs av Vercel Marketplace.
 - `CONTENT_ONLINE_ADMIN_EMAIL`: server-only, satt som sensitive enbart i Vercels production-miljö.
-- `DID_AGENT_ID` och `DID_CLIENT_KEY`: webbläsarkonfiguration i **All Environments** för kundfrontendens Vercel-projekt `fokus`, inte adminprojektet. Client key ska ha kundportalens exakta origin i D-ID Allowed Domains. D-ID API key används inte av applikationen och får aldrig behandlas som frontendkonfiguration.
+- `DID_AGENT_ID` och `DID_CLIENT_KEY`: webbläsarkonfiguration i **All Environments** för Vercel-projektet `content-online-platform`. Client key ska ha kundportalens exakta origin i D-ID Allowed Domains. D-ID API key används inte av applikationen och får aldrig behandlas som frontendkonfiguration.
 - `.env.example`: konfigurationsnamn och icke-hemliga standardvärden, aldrig credentials.
 - `scripts/configure-admin-auth.mjs`: explicit körd, idempotent registreringsallowlist för den konfigurerade adressen. Skickar inte e-post och skapar inte ett verifierat användarkonto.
 
@@ -77,7 +77,7 @@ Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projekt
 - Sex vyer: överblick, kundorganisationer, användare, publicister, produkter/tilldelningar och anslutningar. Sökning, detaljdialoger och förhandsvisning av kundens produkturval fungerar i demon.
 - KTH är pilotexemplet. Akademi Nord och Norrvik Teknik är uttryckligen fiktiva organisationer. Kundportföljerna härleds från produkt-ID:n; räknare och tilldelningar beräknas ur samma underlag.
 - Inga skrivningar, importer, externa licensåtgärder eller beständiga ärenden utförs. Källor, perioder och syntetisk status framgår.
-- Kundfrontenden har produktfilter, CSV-export av det filtrerade demounderlaget, dokumentinformation i förhandsvisning och ett ej skickat ärendeutkast. Det finns inga dokumentoriginal att ladda ned ännu.
+- Den äldre frontendens produktfilter, CSV-export och KTH-specifika vyer är migrationsunderlag, inte den kanoniska kundruntime. Det finns inga dokumentoriginal att ladda ned ännu.
 - Auth, allowlist, databasbeslut och `/v1/*`-spärren är oförändrade.
 
 
@@ -85,4 +85,4 @@ Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projekt
 
 Plattformens rot är nu intern inloggning. Aktuell lagring, kundadresser, arkivering och återstående kundidentitet beskrivs i [PORTALSTRUKTUR.md](PORTALSTRUKTUR.md). Detta ersätter äldre uppgifter ovan om pausad Neon eller att alla kund-/publicistlistor saknar sparning. Statistik och demofixtures är fortfarande separata.
 
-Adminregistret skiljer nu på **Styr kund**, **Granska kundyta** och **Aktiveringssida**. Publicerade icke-KTH-kunder får en organisationsmärkt förhandsvisningsyta i den gemensamma kundfrontenden. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.
+Adminregistret skiljer nu på **Styr kund**, **Granska kundyta** och **Aktiveringssida**. Publicerade icke-KTH-kunder får en organisationsmärkt sida under `/portal/{slug}` i plattformens gemensamma Fokus-mall. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.

@@ -2,7 +2,6 @@ import { createClerkClient } from "@clerk/backend";
 import { env } from "node:process";
 
 export const PLATFORM_ORIGIN = "https://content-online-platform.vercel.app";
-export const CUSTOMER_PORTAL = "https://fokus-psi-sable.vercel.app";
 
 export type AdminIdentity = { id: string; email: string; role: "content_admin" };
 export type AdminAuthentication =

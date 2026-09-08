@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { authorizeAdmin, ClerkAdminAuthenticator, CUSTOMER_PORTAL, PLATFORM_ORIGIN } from "../src/admin/identity.js";
+import { authorizeAdmin, ClerkAdminAuthenticator, PLATFORM_ORIGIN } from "../src/admin/identity.js";
 import type { AdminAuthentication, AdminAuthenticator } from "../src/admin/identity.js";
 import { clerkFrontendHost, createAdminPortal } from "../src/admin/portal.js";
 import { assistantClient } from "../src/admin/assistant-client.js";
@@ -51,7 +51,7 @@ describe("Content Online admin identity boundary", () => {
   it("rejects foreign origins before token validation and fails closed when unconfigured", async () => {
     const auth = new ClerkAdminAuthenticator(config);
     expect(await auth.authenticate(new Request(`${PLATFORM_ORIGIN}/admin/api/session`, {
-      headers: { origin: CUSTOMER_PORTAL, authorization: "Bearer fabricated" },
+      headers: { origin: "https://customer.example.test", authorization: "Bearer fabricated" },
     }))).toEqual({ status: "forbidden" });
     expect(await new ClerkAdminAuthenticator({ ...config, allowedEmail: "" }).authenticate(new Request(PLATFORM_ORIGIN)))
       .toEqual({ status: "unconfigured" });
