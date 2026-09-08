@@ -96,6 +96,25 @@ describe("Persistent registry domain", () => {
       site: { ...next.customers[1]!.site, agent: { ...next.customers[1]!.site.agent, clientKey: "not-a-browser-client-key" } },
     }).success).toBe(false);
   });
+  it("links one Salesforce Account to at most one Content Online customer", () => {
+    let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
+    const accountId = "001000000000001AAA";
+    next = applyRegistryCommand(next, {
+      action: "link_salesforce_account",
+      id: "customer-kth-demo",
+      accountId,
+      accountName: "Max Tegmark AB",
+    }, actor);
+    expect(next.customers[0]).toMatchObject({ salesforceAccountId: accountId, salesforceAccountName: "Max Tegmark AB" });
+    expect(() => applyRegistryCommand(next, {
+      action: "link_salesforce_account",
+      id: next.customers[1]!.id,
+      accountId,
+      accountName: "Duplicate",
+    }, actor)).toThrow("salesforce_account_already_linked");
+    next = applyRegistryCommand(next, { action: "unlink_salesforce_account", id: "customer-kth-demo" }, actor);
+    expect(next.customers[0]).toMatchObject({ salesforceAccountId: null, salesforceAccountName: null });
+  });
   it("archives publishers without deleting existing assignments and rejects new archived assignments", () => {
     let next = applyRegistryCommand(initialRegistry(), { action: "archive_publisher", id: "ieee" }, actor);
     expect(next.customers[0]!.publisherIds).toEqual(["ieee"]);
