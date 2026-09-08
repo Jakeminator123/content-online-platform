@@ -71,11 +71,17 @@ describe("shared multi-tenant customer portal", () => {
       expect(response.status).toBe(200);
       const body = await response.text();
       expect(body).toContain("Kunskap i användning");
-      expect(body).toContain("DEMO · SYNTETISKA EXEMPEL");
+      expect(body).toContain("SYNTETISK KUNDBILD");
       expect(body).toContain('/admin/assets/co-logo.png');
       expect(body).toContain('src="https://agent.d-id.com/v2/index.js"');
       expect(body).toContain(`data-agent-id="${didAgentId}"`);
       expect(body).toContain(`data-client-key="${didClientKey}"`);
+      expect(body).toContain("Analys");
+      expect(body).toContain("Rapporter");
+      expect(body).toContain("Support");
+      expect(body).toContain("ScienceDirect Freedom Collection");
+      expect(body).not.toContain("Syntetiskt presentationsunderlag");
+      expect(body).not.toContain('class="notice"');
     }
     const internal = await (await app.request("/admin")).text();
     expect(internal).not.toContain(didAgentId);
@@ -93,11 +99,13 @@ describe("shared multi-tenant customer portal", () => {
     expect(portal.status).toBe(200);
     const body = await portal.text();
     expect(body).toContain("Kunskap i användning");
-    expect(body).toContain("DEMO · SYNTETISKA EXEMPEL");
+    expect(body).toContain("SYNTETISK KUNDBILD");
     expect(body).toContain('data-agent-id="v2_agt_preview"');
     expect((await app.request("/demo/customer/kth/login")).status).toBe(200);
     const context = await (await app.request("/demo/customer/kth/api/agent-context")).json();
     expect(context).toMatchObject({ portal: { customer: "KTH", dataMode: "synthetic_demo" } });
+    expect(context.portfolio.items).toHaveLength(8);
+    expect(context.portfolio.items.map((item: { name: string }) => item.name)).toContain("ScienceDirect Freedom Collection");
   });
 
   it("renders a new customer's own brand and keeps protected data behind authentication", async () => {
@@ -123,6 +131,11 @@ describe("shared multi-tenant customer portal", () => {
       usage: { status: "authentication_required" },
     });
     expect(JSON.stringify(context)).not.toContain("ck_north_domain_key");
+
+    const loginHtml = await (await app.request("/portal/north/login")).text();
+    expect(loginHtml).toContain("https://content-online-customer-login.vercel.app/");
+    expect(loginHtml).not.toContain("returnUrl");
+    expect(loginHtml).not.toContain("session_token");
   });
 
   it("fails closed for unknown or unpublished subdomains and never falls back to KTH", async () => {
@@ -191,7 +204,10 @@ describe("shared multi-tenant customer portal", () => {
     for (const name of ["get_portal_context", "navigate_portal", "get_portfolio_summary", "get_usage_summary"]) {
       expect(customerPortalClient).toContain(name);
     }
-    expect(customerPortalClient).toContain("const sections=new Set");
+    expect(customerPortalClient).toContain("const sections = new Map");
+    expect(customerPortalClient).toContain("configuredSections");
+    expect(customerPortalClient).toContain("panel.hidden = !active");
+    expect(customerPortalClient).toContain("registeredTools");
     expect(customerPortalClient).not.toContain("eval(");
     const customer = publishedCustomer().customers[1]!;
     const policy = customerAgentPolicy(customer);
@@ -207,3 +223,4 @@ describe("shared multi-tenant customer portal", () => {
     }
   });
 });
+

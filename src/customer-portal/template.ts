@@ -1,7 +1,6 @@
 import type { Registry, RegistryCustomer } from "../admin/registry.js";
 import { demoWorkspace } from "../admin/demo-data.js";
 import { customerAgentPolicy, type DidAgentConfiguration } from "./agent.js";
-
 export type CustomerPortalPage = "portal" | "login";
 export type CustomerPortalRenderOptions = {
   basePath: string;
@@ -9,6 +8,15 @@ export type CustomerPortalRenderOptions = {
   page: CustomerPortalPage;
   didAgent: DidAgentConfiguration | null;
 };
+
+const CUSTOMER_LOGIN_URL = "https://content-online-customer-login.vercel.app/";
+const PORTAL_SECTIONS = [
+  { id: "overview", label: "Överblick" },
+  { id: "products", label: "Produkter" },
+  { id: "usage", label: "Analys" },
+  { id: "documents", label: "Rapporter" },
+  { id: "service", label: "Support" },
+] as const;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -25,10 +33,34 @@ function initials(name: string): string {
   return (parts.length > 1 ? parts.slice(0, 2).map((part) => part[0]).join("") : parts[0]?.slice(0, 3) || "CO").toUpperCase();
 }
 
+function contrastText(hex: string): string {
+  const channels = [hex.slice(1, 3), hex.slice(3, 5), hex.slice(5, 7)].map((value) => Number.parseInt(value, 16) / 255);
+  const [red, green, blue] = channels.map((value) => value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+  const luminance = (red ?? 0) * 0.2126 + (green ?? 0) * 0.7152 + (blue ?? 0) * 0.0722;
+  return luminance > 0.42 ? "#132a39" : "#ffffff";
+}
+
+function formatNumber(value: number): string {
+  return value.toLocaleString("sv-SE");
+}
+
 function customerMark(customer: RegistryCustomer): string {
   return customer.site.logoUrl
     ? `<span class="customer-mark"><img src="${escapeHtml(customer.site.logoUrl)}" alt="${escapeHtml(customer.name)} logotyp" referrerpolicy="no-referrer"></span>`
     : `<span class="customer-mark" aria-hidden="true">${escapeHtml(initials(customer.name))}</span>`;
+}
+
+function icon(name: "overview" | "products" | "usage" | "documents" | "service" | "arrow" | "check"): string {
+  const path = {
+    overview: '<path d="M4 5h16M4 12h10M4 19h7"/><circle cx="18" cy="12" r="2"/><circle cx="15" cy="19" r="2"/>',
+    products: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Z"/><path d="M8 4v13a3 3 0 0 0 3 3M9 9h6"/>',
+    usage: '<path d="M4 19V9m5 10V5m5 14v-7m5 7V3"/>',
+    documents: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6m-6 4h6"/>',
+    service: '<path d="M4 12a8 8 0 0 1 16 0v5a2 2 0 0 1-2 2h-2v-6h4M4 13h4v6H6a2 2 0 0 1-2-2z"/><path d="M14 21h2"/>',
+    arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
+    check: '<path d="m5 12 4 4L19 6"/>',
+  }[name];
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 }
 
 function didEmbed(agent: DidAgentConfiguration | null): string {
@@ -38,14 +70,20 @@ function didEmbed(agent: DidAgentConfiguration | null): string {
 
 function demoPortfolio(customer: RegistryCustomer, registry: Registry) {
   if (customer.kind !== "demo") return [];
-  const publishers = new Set(customer.publisherIds);
-  return demoWorkspace.products.filter((product) => publishers.has(product.publisherId)).slice(0, 4).map((product) => ({
-    id: product.id,
-    name: product.name,
-    type: product.type,
-    publisher: registry.publishers.find((publisher) => publisher.id === product.publisherId)?.name ?? product.publisherId,
-    usage: product.usage,
-  }));
+  const configuredCustomer = demoWorkspace.customers.find((item) => item.id === customer.id);
+  const productIds = new Set(configuredCustomer?.productIds ?? []);
+  const registryPublishers = new Set(customer.publisherIds);
+  return demoWorkspace.products
+    .filter((product) => productIds.size > 0 ? productIds.has(product.id) : registryPublishers.has(product.publisherId))
+    .map((product) => ({
+      id: product.id,
+      name: product.name,
+      type: product.type,
+      publisher: registry.publishers.find((publisher) => publisher.id === product.publisherId)?.name
+        ?? demoWorkspace.publishers.find((publisher) => publisher.id === product.publisherId)?.name
+        ?? product.publisherId,
+      usage: product.usage,
+    }));
 }
 
 export function customerPortalContext(customer: RegistryCustomer, registry: Registry) {
@@ -56,7 +94,7 @@ export function customerPortalContext(customer: RegistryCustomer, registry: Regi
     portal: {
       customer: customer.name,
       slug: customer.slug,
-      sections: ["overview", "products", "usage", "documents", "service"],
+      sections: PORTAL_SECTIONS.map(({ id }) => id),
       dataMode: customer.kind === "demo" ? "synthetic_demo" : "authentication_required",
     },
     assistant: policy,
@@ -75,69 +113,85 @@ export function customerPortalContext(customer: RegistryCustomer, registry: Regi
   };
 }
 
-function portalMetrics(customer: RegistryCustomer, registry: Registry): string {
+function metricCards(customer: RegistryCustomer, registry: Registry): string {
   const products = demoPortfolio(customer, registry);
-  const publishers = new Set(products.map((product) => product.publisher));
-  const totalUsage = products.reduce((sum, product) => sum + product.usage, 0);
-  const values = customer.kind === "demo"
-    ? [
-        [totalUsage.toLocaleString("sv-SE"), "Användning i år · demo", "Syntetiskt produktmått, inte live-data"],
-        [String(products.length), "Informationsprodukter", "Tilldelade i pilotens exempeldata"],
-        [String(publishers.size), "Publicister", "Kopplade till demokonfigurationen"],
-        ["Ej verifierat", "Ekonomisk nytta", "Ingen effekt eller besparing antas"],
-      ]
-    : [
-        ["Väntar", "Användningsdata", "Kräver kundkonto och verifierad källa"],
-        ["0", "Publicerade produkter", "Content Online styr tilldelningen"],
-        ["Inte aktiv", "Dokumentyta", "Öppnas efter behörighetskoppling"],
-        ["Skyddad", "Kundstatistik", "Visas aldrig på publik portaladress"],
-      ];
-  return values.map(([value, label, description]) => `<article class="metric"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><p>${escapeHtml(description)}</p></article>`).join("");
+  if (customer.kind !== "demo") return "";
+  const publisherCount = new Set(products.map((product) => product.publisher)).size;
+  const values = [
+    [formatNumber(products.reduce((sum, product) => sum + product.usage, 0)), "Användning", "Jan–aug 2026"],
+    [String(products.length), "Produkter", "Tilldelade i demon"],
+    [String(publisherCount), "Publicister", "I portföljen"],
+  ];
+  return `<div class="metric-grid">${values.map(([value, label, description]) => `<article class="metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(description)}</small></article>`).join("")}</div>`;
 }
 
-function resources(customer: RegistryCustomer, registry: Registry): string {
-  const products = demoPortfolio(customer, registry);
-  if (!products.length) return `<div class="empty"><div><strong>Inga informationsprodukter är publicerade ännu.</strong><p>Content Online lägger till kundens egna tilldelningar efter verifierad kund- och licenskoppling.</p></div></div>`;
-  return `<div class="resource-list">${products.map((product) => `<div class="resource-row"><span class="resource-mark">${escapeHtml(initials(product.publisher))}</span><span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.publisher)} · ${escapeHtml(product.type)}</small></span><span class="pill">Syntetisk demo</span></div>`).join("")}</div>`;
+function rankedUsage(customer: RegistryCustomer, registry: Registry, limit = 5): string {
+  const products = [...demoPortfolio(customer, registry)].sort((left, right) => right.usage - left.usage).slice(0, limit);
+  if (!products.length) return lockedState("Analys öppnas när medlemskap och datakällor är aktiverade.");
+  const max = Math.max(...products.map((product) => product.usage), 1);
+  return `<div class="ranked-chart" role="list" aria-label="Syntetisk användning per produkt">${products.map((product) => `<div class="ranked-row" role="listitem"><div class="ranked-label"><span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.publisher)}</small></span><b>${escapeHtml(formatNumber(product.usage))}</b></div><div class="ranked-track"><span style="--bar-size:${Math.max(4, Math.round(product.usage / max * 100))}%"></span></div></div>`).join("")}</div>`;
 }
 
-function usage(customer: RegistryCustomer, registry: Registry): string {
+function productRows(customer: RegistryCustomer, registry: Registry): string {
   const products = demoPortfolio(customer, registry);
-  if (!products.length) return `<div class="empty"><div><strong>Ingen användningsdata är tillgänglig.</strong><p>Diagram och slutsatser visas först när en autentiserad användare har tillgång till verifierade, tenant-avgränsade data.</p></div></div>`;
-  const values = [32, 48, 61, 56, 68, 44, 27, 53];
-  return `<div class="chart" aria-label="Syntetiskt stapeldiagram">${values.map((value) => `<span class="bar" style="height:${value}%"></span>`).join("")}</div><p class="source">Källa: syntetiskt presentationsunderlag · ${escapeHtml(demoWorkspace.provenance.period)}. Diagrammet är inte live-statistik.</p>`;
+  if (!products.length) return lockedState("Produkter visas efter verifierad tilldelning.");
+  return `<div class="product-list">${products.map((product) => `<article class="product-row"><span class="resource-mark">${escapeHtml(initials(product.publisher))}</span><div><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.publisher)} · ${escapeHtml(product.type)}</small></div><span class="row-value">${escapeHtml(formatNumber(product.usage))}<small>demo</small></span></article>`).join("")}</div>`;
+}
+
+function lockedState(message: string): string {
+  return `<div class="locked-state"><span class="lock-mark">${icon("check")}</span><div><strong>Skyddad kundyta</strong><p>${escapeHtml(message)}</p></div></div>`;
+}
+
+function activationOverview(): string {
+  return `<section class="activation-card" aria-label="Aktiveringsstatus"><div><span class="section-kicker">PORTALEN ÄR PUBLICERAD</span><h2>Inga kunduppgifter visas utan ett verifierat medlemskap.</h2><p>Fortsätt via Content Onlines kundinloggning när organisationens identitet är aktiverad.</p></div><a class="button primary" href="${CUSTOMER_LOGIN_URL}">Till kundinloggningen ${icon("arrow")}</a></section>`;
+}
+
+function reports(customer: RegistryCustomer, registry: Registry): string {
+  if (customer.kind !== "demo") return lockedState("Rapporter blir synliga först efter inloggning och verifierad källa.");
+  const products = demoPortfolio(customer, registry);
+  const rows = [
+    ["Användningsöversikt", "Jan–aug 2026", "Demo"],
+    ["Produktportfölj", `${products.length} tilldelade produkter`, "Förhandsvisning"],
+    ["Källstatus", "Ingen verifierad import", "Ej ansluten"],
+  ];
+  return `<div class="report-list">${rows.map(([name, detail, status]) => `<article class="report-row"><span class="report-icon">${icon("documents")}</span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div><span class="status-label">${escapeHtml(status)}</span></article>`).join("")}</div><p class="source-line">Exempelvy · inga rapportfiler har genererats.</p>`;
 }
 
 function portalPage(customer: RegistryCustomer, registry: Registry, options: CustomerPortalRenderOptions): string {
   const agentPolicy = customerAgentPolicy(customer);
+  const products = demoPortfolio(customer, registry);
+  const base = options.basePath || "/";
+  const login = options.basePath ? `${options.basePath}/login` : "/login";
+  const isDemo = customer.kind === "demo";
   const config = {
     contextUrl: options.contextUrl,
+    sections: PORTAL_SECTIONS,
     tools: options.didAgent ? customer.site.agent.tools : [],
     agentEnabled: Boolean(options.didAgent),
   };
-  const base = options.basePath || "/";
-  const login = options.basePath ? `${options.basePath}/login` : "/login";
-  const previewLabel = customer.kind === "demo" ? "Syntetisk pilot" : "Kundportal · aktivering pågår";
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(customer.name)} · Content Online</title><meta name="description" content="${escapeHtml(customer.site.tagline)}"><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/customer-portal/assets/style.css"></head><body data-preset="${escapeHtml(customer.site.preset)}" style="--portal-primary:${escapeHtml(customer.site.primaryColor)};--portal-accent:${escapeHtml(customer.site.accentColor)}">
-  <div class="portal-shell"><aside class="portal-sidebar" id="portal-sidebar"><a class="co-brand" href="${escapeHtml(base)}"><span class="co-mark"><img src="/admin/assets/co-logo.png" alt=""></span><span><strong>Content Online</strong><small>KNOWLEDGE. CONNECTED.</small></span></a><div class="customer-card">${customerMark(customer)}<span><strong>${escapeHtml(customer.name)}</strong><small>Egen kundyta</small></span></div><span class="nav-label">ER ARBETSYTA</span><nav class="portal-nav" aria-label="${escapeHtml(customer.name)} kundportal">${[["overview","Överblick"],["products","Informationsprodukter"],["usage","Användning"],["documents","Dokument"],["service","Kundservice"]].map(([id,label], index) => `<button type="button" data-portal-nav="${id}" aria-current="${index === 0 ? "page" : "false"}"><span class="nav-dot"></span>${label}</button>`).join("")}</nav><div class="sidebar-note"><strong>Content Online AI</strong><p>${options.didAgent ? "D-ID-agenten är kopplad till just denna kundportal. Den får bara använda förberedda, tillåtna verktyg." : "Kundens agent aktiveras när agent-ID, domänbegränsad client key och D-ID-verktyg är klara."}</p></div><span class="sidebar-foot">/portal/${escapeHtml(customer.slug)} · levererad av Content Online</span></aside><button class="mobile-scrim" id="portal-scrim" aria-label="Stäng navigering"></button>
-  <div class="portal-main"><header class="portal-topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="portal-menu" type="button" aria-label="Öppna navigering" aria-expanded="false">☰</button><span class="breadcrumbs">Kundportal / <strong>${escapeHtml(customer.name)}</strong></span></div><span class="status-chip">${escapeHtml(previewLabel)}</span></header><main class="portal-content"><div class="notice"><strong>${customer.kind === "demo" ? "DEMO · SYNTETISKA EXEMPEL" : "SÄKER AKTIVERING"}</strong> ${customer.kind === "demo" ? "Inga siffror på denna sida är verklig KTH-statistik eller ett verifierat ekonomiskt utfall." : "Den publika adressen visar varumärke och struktur. Kunddata kräver ett aktiverat medlemskap."}</div>
-  <section class="hero" data-portal-section="overview" data-portal-label="Överblick"><div><p class="eyebrow">${escapeHtml(customer.name.toUpperCase())} / ER ÖVERBLICK</p><h1>${escapeHtml(customer.site.heading)}</h1><p>${escapeHtml(customer.site.tagline)}</p></div><a class="hero-action" href="${escapeHtml(login)}">${customer.kind === "demo" ? "Om pilotinloggningen" : "Se aktiveringsstatus"} →</a></section><section class="metrics">${portalMetrics(customer, registry)}</section>
-  <div class="portal-grid"><section class="panel" data-portal-section="products" data-portal-label="Informationsprodukter"><div class="panel-head"><div><p class="eyebrow">PORTFÖLJ</p><h2>Era informationsprodukter</h2></div><span class="pill">${customer.kind === "demo" ? "Pilotdata" : "Tenant-avgränsad"}</span></div><p>Content Online styr vilka publicister och produkter som syns för organisationen. Tilldelning i portalen ändrar aldrig ett externt avtal automatiskt.</p>${resources(customer, registry)}</section>
-  <section class="panel" data-portal-section="usage" data-portal-label="Användning"><div class="panel-head"><div><p class="eyebrow">ANVÄNDNING</p><h2>Insikter utan låtsassiffror</h2></div><span class="pill">Källa & period krävs</span></div><p>Agenten och portalen ska alltid ange källa, period, täckning och om värdet är demo eller verifierat.</p>${usage(customer, registry)}</section>
-  <section class="panel" data-portal-section="documents" data-portal-label="Dokument"><div class="panel-head"><div><p class="eyebrow">DOKUMENT</p><h2>Organisationens underlag</h2></div><span class="pill">Inte aktiverat</span></div><div class="resource-list">${["Avtal och licenser","Rapporter och beslutsunderlag","Publicerad kundinformation"].map((label) => `<div class="resource-row"><span class="resource-mark">↗</span><span><strong>${label}</strong><small>Synlighet styrs av kundroll och tenant</small></span></div>`).join("")}</div></section>
-  <section class="panel" data-portal-section="service" data-portal-label="Kundservice"><div class="panel-head"><div><p class="eyebrow">KUNDSERVICE</p><h2>Från fråga till uppföljning</h2></div><span class="pill">Content Online</span></div><p>Här samlas ärenden, förnyelser och kontaktvägar när kundkontona har aktiverats. Inga fria agentkommandon eller godtyckliga DOM-klick tillåts.</p><div class="empty"><div><strong>Ärendeflödet väntar på kundinloggning.</strong><p>En portalmedlem får bara läsa och skapa ärenden inom sin egen organisation.</p></div></div></section>
-  <section class="panel agent-card"><div><p class="eyebrow" style="color:#8dd5c5">D-ID · KUNDENS AGENT</p><h2>${escapeHtml(customer.site.agent.greeting)}</h2><p>Tonalitet: ${escapeHtml(agentPolicy.tone)}. Positivitetsnivån påverkar formuleringen, aldrig vilka siffror, kostnader, nedgångar eller osäkerheter som redovisas.</p></div><div class="agent-badge" aria-hidden="true">AI</div></section></div></main></div></div>
+  const styles = `--portal-primary:${escapeHtml(customer.site.primaryColor)};--portal-accent:${escapeHtml(customer.site.accentColor)};--portal-on-primary:${contrastText(customer.site.primaryColor)}`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(customer.name)} · Content Online</title><meta name="description" content="${escapeHtml(customer.site.tagline)}"><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/customer-portal/assets/style.css"></head><body data-preset="${escapeHtml(customer.site.preset)}" data-data-mode="${isDemo ? "demo" : "locked"}" style="${styles}">
+  <div class="portal-shell"><aside class="portal-sidebar" id="portal-sidebar"><a class="co-brand" href="${escapeHtml(base)}"><span class="co-mark"><img src="/admin/assets/co-logo.png" alt=""></span><span><strong>Content Online</strong><small>KNOWLEDGE. CONNECTED.</small></span></a><div class="customer-identity">${customerMark(customer)}<span><strong>${escapeHtml(customer.name)}</strong><small>Kundportal</small></span></div><nav class="portal-nav" aria-label="${escapeHtml(customer.name)} kundportal">${PORTAL_SECTIONS.map(({ id, label }, index) => `<button type="button" data-portal-nav="${id}" aria-current="${index === 0 ? "page" : "false"}">${icon(id)}<span>${label}</span></button>`).join("")}</nav><div class="sidebar-footer"><span class="data-dot"></span><span>${isDemo ? "Syntetisk demo" : "Inloggning krävs"}</span></div></aside><button class="mobile-scrim" id="portal-scrim" aria-label="Stäng navigering"></button>
+  <div class="portal-main"><header class="portal-topbar"><div class="topbar-title"><button class="mobile-menu" id="portal-menu" type="button" aria-label="Öppna navigering" aria-expanded="false">☰</button><span>${escapeHtml(customer.name)}</span><span>/</span><strong id="portal-breadcrumb">Överblick</strong></div><div class="topbar-meta">${isDemo ? `<span class="period-label">Jan–aug 2026</span><span class="status-chip">Demo</span>` : `<a class="text-link" href="${escapeHtml(login)}">Logga in ${icon("arrow")}</a>`}</div></header>
+  <main class="portal-content"><section class="portal-section is-active" data-portal-section="overview" data-portal-label="Överblick"><header class="section-intro"><div><span class="section-kicker">${isDemo ? "SYNTETISK KUNDBILD" : "KUNDPORTAL"}</span><h1>${escapeHtml(customer.site.heading)}</h1><p>${escapeHtml(customer.site.tagline)}</p></div>${isDemo ? `<a class="button secondary" href="${escapeHtml(login)}">Om demon ${icon("arrow")}</a>` : ""}</header>${isDemo ? `${metricCards(customer, registry)}<div class="briefing-grid"><section class="surface wide"><div class="surface-head"><div><span class="section-kicker">PORTFÖLJENS ANVÄNDNING</span><h2>Produkter i fokus</h2></div><button class="text-button" type="button" data-open-section="usage">Öppna analys ${icon("arrow")}</button></div>${rankedUsage(customer, registry)}</section><aside class="surface evidence-card"><span class="section-kicker">DATASTATUS</span><strong>${products.length} av ${products.length}</strong><p>tilldelade demoprodukter visas</p><dl><div><dt>Källa</dt><dd>Syntetiskt underlag</dd></div><div><dt>Period</dt><dd>Jan–aug 2026</dd></div><div><dt>Liveimport</dt><dd>Inte ansluten</dd></div></dl></aside></div>` : activationOverview()}</section>
+  <section class="portal-section" data-portal-section="products" data-portal-label="Produkter" hidden><header class="section-intro compact"><div><span class="section-kicker">PORTFÖLJ</span><h1>Era produkter</h1><p>${isDemo ? `${products.length} tilldelningar i den syntetiska KTH-demon.` : "Tilldelningar visas efter säker inloggning."}</p></div></header><section class="surface"><div class="surface-head"><h2>Informationsprodukter</h2>${isDemo ? `<span class="status-chip">${products.length} produkter</span>` : ""}</div>${productRows(customer, registry)}</section></section>
+  <section class="portal-section" data-portal-section="usage" data-portal-label="Analys" hidden><header class="section-intro compact"><div><span class="section-kicker">ANALYS</span><h1>Användning per produkt</h1><p>${isDemo ? "Jämför den syntetiska användningen utan att blanda ihop demo och live-data." : "Analysen kräver verifierade, tenant-avgränsade källor."}</p></div></header><div class="analysis-grid"><section class="surface wide"><div class="surface-head"><div><h2>Rangordnad användning</h2><p>Produktmått · Jan–aug 2026</p></div>${isDemo ? '<span class="status-chip">Demo</span>' : ""}</div>${rankedUsage(customer, registry, 8)}</section><aside class="surface evidence-card"><span class="section-kicker">TOLKNING</span><h2>Jämför med försiktighet</h2><p>${isDemo ? "Måtten är presentationsdata. De är inte verifierade COUNTER-rapporter och beskriver inte unika användare." : "Källa, definition, period och täckning måste finnas innan ett värde kan jämföras."}</p></aside></div></section>
+  <section class="portal-section" data-portal-section="documents" data-portal-label="Rapporter" hidden><header class="section-intro compact"><div><span class="section-kicker">RAPPORTFLÖDE</span><h1>Rapporter</h1><p>${isDemo ? "En avskalad förhandsvisning av kommande rapportvyer." : "Rapporter publiceras här när källa och åtkomst är verifierade."}</p></div></header><section class="surface"><div class="surface-head"><h2>Rapportöversikt</h2></div>${reports(customer, registry)}</section></section>
+  <section class="portal-section" data-portal-section="service" data-portal-label="Support" hidden><header class="section-intro compact"><div><span class="section-kicker">SUPPORT</span><h1>Hjälp i kundportalen</h1><p>Frågor om produkter, användning och rapporter samlas på ett ställe.</p></div></header><div class="support-grid"><section class="surface assistant-brief"><div class="assistant-mark" aria-hidden="true">CO</div><div><span class="section-kicker">CONTENT ONLINE AI</span><h2>${escapeHtml(customer.site.agent.greeting)}</h2><p>${options.didAgent ? "Öppna videochatten nere till höger. Agenten får bara läsa portalens tillåtna kundkontext." : "AI-assistenten aktiveras när kundens domän och agentkonfiguration är klara."}</p><span class="connection-state" id="assistant-status"><span></span>${options.didAgent ? "Redo att ansluta" : "Inte aktiverad"}</span></div></section><section class="surface support-note"><span class="section-kicker">SVARSPOLICY</span><h2>Saklig även när tonen är positiv</h2><p>${escapeHtml(agentPolicy.tone)}. Agenten får aldrig dölja kostnader, nedgångar eller osäkerhet.</p></section></div></section><div id="portal-live-status" class="sr-only" aria-live="polite"></div></main></div></div>
   <script type="application/json" id="portal-config">${safeJson(config)}</script><script defer src="/customer-portal/assets/client.js"></script>${didEmbed(options.didAgent)}</body></html>`;
 }
 
 function loginPage(customer: RegistryCustomer, options: CustomerPortalRenderOptions): string {
   const base = options.basePath || "/";
-  const status = customer.kind === "demo" ? "Syntetisk visningsmiljö" : "Kundkonton inväntar aktivering";
-  const description = customer.kind === "demo"
-    ? "Den här piloten använder endast syntetiska KTH-exempel. Den är inte ansluten till verkliga konton, avtal eller användningsdata."
-    : "Portaladressen är skapad. Content Online behöver koppla identitet, medlemskap och datakällor innan riktiga kunduppgifter kan visas.";
-  const config = { contextUrl: options.contextUrl, tools: options.didAgent ? customer.site.agent.tools : [], agentEnabled: Boolean(options.didAgent) };
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aktivering · ${escapeHtml(customer.name)}</title><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/customer-portal/assets/style.css"></head><body data-preset="${escapeHtml(customer.site.preset)}" style="--portal-primary:${escapeHtml(customer.site.primaryColor)};--portal-accent:${escapeHtml(customer.site.accentColor)}"><div class="login-shell"><section class="login-brand"><a class="co-brand" href="${escapeHtml(base)}"><span class="co-mark"><img src="/admin/assets/co-logo.png" alt=""></span><span><strong>Content Online</strong><small>KNOWLEDGE. CONNECTED.</small></span></a><div>${customerMark(customer)}<h1>${escapeHtml(customer.site.heading)}</h1><p>${escapeHtml(customer.site.tagline)}</p></div><small>${escapeHtml(customer.name)} · egen kundportal</small></section><main class="login-panel"><section class="login-card"><p class="eyebrow">CONTENT ONLINE · KUNDPORTAL</p><h2>${escapeHtml(status)}</h2><p>${escapeHtml(description)}</p><div class="login-facts"><span><strong>Separat kundyta:</strong> ${escapeHtml(customer.name)}</span><span><strong>Statistik:</strong> ${customer.kind === "demo" ? "endast uttryckligt märkt demo" : "kräver autentiserad tenant"}</span><span><strong>Content Online-admin:</strong> ger aldrig kundbehörighet</span></div><a class="hero-action" href="${escapeHtml(base)}">${customer.kind === "demo" ? "Öppna syntetisk pilot" : "Förhandsvisa portalens struktur"} →</a><p>Riktig inloggning aktiveras först när kundens identitetsleverantör och medlemskap är serververifierade.</p></section></main></div><script type="application/json" id="portal-config">${safeJson(config)}</script><script defer src="/customer-portal/assets/client.js"></script>${didEmbed(options.didAgent)}</body></html>`;
+  const isDemo = customer.kind === "demo";
+  const config = {
+    contextUrl: options.contextUrl,
+    sections: PORTAL_SECTIONS,
+    tools: options.didAgent ? customer.site.agent.tools : [],
+    agentEnabled: Boolean(options.didAgent),
+  };
+  const styles = `--portal-primary:${escapeHtml(customer.site.primaryColor)};--portal-accent:${escapeHtml(customer.site.accentColor)};--portal-on-primary:${contrastText(customer.site.primaryColor)}`;
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Inloggning · ${escapeHtml(customer.name)}</title><meta name="description" content="Kundinloggning för ${escapeHtml(customer.name)}"><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/customer-portal/assets/style.css"></head><body data-preset="${escapeHtml(customer.site.preset)}" data-data-mode="${isDemo ? "demo" : "locked"}" style="${styles}"><div class="login-shell"><section class="login-brand"><a class="co-brand" href="${escapeHtml(base)}"><span class="co-mark"><img src="/admin/assets/co-logo.png" alt=""></span><span><strong>Content Online</strong><small>KNOWLEDGE. CONNECTED.</small></span></a><div class="login-identity">${customerMark(customer)}<span class="section-kicker">${escapeHtml(customer.name)}</span><h1>${escapeHtml(customer.site.heading)}</h1><p>${escapeHtml(customer.site.tagline)}</p></div><small>Kundportal · ${escapeHtml(customer.name)}</small></section><main class="login-panel"><section class="login-card"><span class="section-kicker">${isDemo ? "SYNTETISK PILOT" : "KUNDINLOGGNING"}</span><h2>${isDemo ? "Utforska demon" : `Fortsätt till ${escapeHtml(customer.name)}`}</h2><p>${isDemo ? "KTH-vyn innehåller enbart tydligt märkt presentationsdata." : "Kunduppgifter blir tillgängliga först när identitet och medlemskap har verifierats på servern."}</p><div class="login-actions">${isDemo ? `<a class="button primary" href="${escapeHtml(base)}">Öppna demon ${icon("arrow")}</a>` : `<a class="button primary" href="${CUSTOMER_LOGIN_URL}">Till kundinloggningen ${icon("arrow")}</a><a class="button secondary" href="${escapeHtml(base)}">Tillbaka till portalen</a>`}</div><div class="trust-line"><span>${icon("check")}</span><p>Content Online-admin ger aldrig kundbehörighet.</p></div></section></main></div><script type="application/json" id="portal-config">${safeJson(config)}</script><script defer src="/customer-portal/assets/client.js"></script>${didEmbed(options.didAgent)}</body></html>`;
 }
 
 export function renderCustomerPortal(customer: RegistryCustomer, registry: Registry, options: CustomerPortalRenderOptions): string {
