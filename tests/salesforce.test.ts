@@ -66,6 +66,7 @@ describe("Salesforce presentation boundary", () => {
     expect(workspaceClient).toContain("Så ansluter vi testkontot");
     expect(workspaceClient).toContain("Granska Salesforce-koppling");
     expect(workspaceClient).toContain("External Client App");
+    expect(workspaceClient).toContain("credentials:'same-origin'");
     expect(workspaceClient).not.toContain("client_secret");
     expect(workspaceClient).not.toContain("access_token");
   });
