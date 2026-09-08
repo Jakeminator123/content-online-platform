@@ -77,3 +77,8 @@ Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projekt
 - Inga skrivningar, importer, externa licensåtgärder eller beständiga ärenden utförs. Källor, perioder och syntetisk status framgår.
 - Kundfrontenden har produktfilter, CSV-export av det filtrerade demounderlaget, dokumentinformation i förhandsvisning och ett ej skickat ärendeutkast. Det finns inga dokumentoriginal att ladda ned ännu.
 - Auth, allowlist, databasbeslut och `/v1/*`-spärren är oförändrade.
+
+
+## Uppdatering 2026-09-08: separata entréer och register
+
+Plattformens rot är nu intern inloggning. Aktuell lagring, kundadresser, arkivering och återstående kundidentitet beskrivs i [PORTALSTRUKTUR.md](PORTALSTRUKTUR.md). Detta ersätter äldre uppgifter ovan om pausad Neon eller att alla kund-/publicistlistor saknar sparning. Statistik och demofixtures är fortfarande separata.

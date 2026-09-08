@@ -14,7 +14,9 @@ async function check(url, status, options = {}) {
 
 await check(`${platform}/health`, 200);
 const start = await check(platform, 200);
-assert(start.body.includes('href="/kundportal"'));
+assert(!start.body.includes('href="/kundportal"'));
+assert(start.body.includes('data-mode="login"'));
+assert(start.body.includes('id="auth-widget"'));
 assert(start.body.includes('href="/admin/login"'));
 for (const path of ['/admin/login', '/admin/registrera', '/admin']) {
   const { body } = await check(`${platform}${path}`, 200);
@@ -24,7 +26,7 @@ for (const path of ['/admin/login', '/admin/registrera', '/admin']) {
   for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) new Script(script);
 }
 const portal = await check(`${platform}/kundportal`, 302);
-assert.equal(portal.response.headers.get('location'), `${customer}/login`);
+assert.equal(portal.response.headers.get('location'), '/admin#customers');
 assert.equal(portal.response.headers.get('set-cookie'), null);
 await check(`${platform}/admin/api/session`, 401);
 await check(`${platform}/admin/api/users`, 401);
@@ -52,7 +54,10 @@ for (const organization of workspace.customers) {
 await check(`${platform}/demo/workspace`, 404, { method: 'POST' });
 const client = await check(`${platform}/admin/assets/workspace.js`, 200);
 new Script(client.body);
-await check(`${customer}/login`, 200);
+const oldCustomerLogin = await check(`${customer}/login`, 307);
+assert.equal(new URL(oldCustomerLogin.response.headers.get('location'), customer).pathname, '/o/kth/login');
+await check(`${customer}/o/kth/login`, 200);
+await check(`${customer}/o/unknown/login`, 404);
 const staff = await check(`${customer}/content-online/login`, 307);
 assert.equal(staff.response.headers.get('location'), `${platform}/admin/login`);
 console.log('Hosted portal HTTP checks passed. First-user email verification still requires the administrator.');
