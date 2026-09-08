@@ -1,0 +1,97 @@
+CONTENT ONLINE – KUNSKAPSUNDERLAG
+Version: 2026-09-08
+Detta är ett statiskt underlag. Senare förändringar måste kontrolleras och läggas till separat.
+
+1. FÖRETAGET OCH UPPDRAGET
+
+Content Online är uppdragsgivaren och ägaren av kundplattformen. Företaget arbetar B2B som återförsäljare och kommersiell mellanhand för forskningsinformation och tekniska standarder på utvalda europeiska marknader.
+
+Kunderna kan vara universitet, högskolor, myndigheter och forskningsintensiva företag. Vanliga kontaktpersoner är bibliotekarier, inköpare och forsknings- eller utvecklingsansvariga.
+
+Publicisterna tillhandahåller innehållet. IEEE är den viktigaste publicisten i projektets prioritering. SAE och ASTM är andra namngivna exempel. En komplett, verifierad lista över Content Onlines verkliga publicister ingår inte i detta underlag.
+
+Content Online äger kundrelationen men inte automatiskt publicisternas immateriella rättigheter. Artiklar, standarder och annat licensierat innehåll finns normalt kvar på respektive publicists plattform.
+
+2. PLATTFORMENS SYFTE
+
+Plattformen ska ge kunderna en samlad bild av inköpta resurser, användning, kostnader, dokument och förnyelser. Den ska också hjälpa Content Online att administrera kundrelationer och publicister.
+
+Plattformen ersätter inte automatiskt publicisternas egna tjänster. Att en resurs visas eller tilldelas i portalen innebär inte att ett externt avtal eller en licens har skapats eller ändrats.
+
+3. TVÅ SEPARATA PORTALOMRÅDEN
+
+Content Onlines interna portal:
+https://content-online-platform.vercel.app/
+
+Här loggar Content Onlines personal in för att arbeta med kund- och publicistregistret. Startsidan är inte kundernas gemensamma inloggning.
+
+Kundorganisationerna har egna adresser i en gemensam kundapplikation. KTH:s syntetiska pilot finns på:
+https://fokus-psi-sable.vercel.app/o/kth/login
+
+Andra kundadresser följer motsvarande struktur med organisationens eget URL-namn. Ett nytt GitHub-repo eller Vercel-projekt behövs inte för varje kund.
+
+KTH används som demonstrationsorganisation. Namnet och demovyerna är inte bevis för en verklig kundinstallation eller ett godkännande från KTH.
+
+4. ANVÄNDARE OCH BEHÖRIGHETER
+
+Content Online-administratören arbetar i företagets interna administration. Rollen är skild från kundorganisationernas roller.
+
+Kundportalen har två kundroller:
+– Kundadministratör: organisationens bredare, behörighetsstyrda överblick.
+– Läsare: begränsad tillgång till den egna organisationens tillåtna information.
+
+Den föreslagna säkerhetsstandarden begränsar priser, kostnad per nedladdning, avtal och andra användares ärenden för Läsare. Exakta produktionsrättigheter behöver vara uttryckligen fastställda.
+
+Kundernas uppgifter ska hållas åtskilda genom serverkontroller. En kundadress är inte ett behörighetsbevis. Verkliga kundkonton, inbjudningar och medlemskap för nya organisationer återstår att färdigställa.
+
+5. IMPLEMENTERAT KUND- OCH PUBLICISTREGISTER
+
+Den interna administrationen har beständig lagring för kund- och publicistregistret.
+
+Behörig personal kan hantera kunder och publicister, koppla publicister till kunder, publicera eller avpublicera kundadresser samt arkivera och återställa poster.
+
+Arkivering är återställbar. Den raderar inte externa licenser. En återställd kund blir ett utkast och publiceras inte automatiskt igen.
+
+En ny kund börjar som utkast utan KTH:s demodata eller demokonton. Publicering gör organisationsnamnet och aktiveringssidan offentliga. Den skapar ännu inte en fullt fungerande kundinloggning, statistikimport eller färdig kundinstallation.
+
+6. ANVÄNDNING OCH INTEGRATIONER
+
+Publicisterna kan ha olika statistikverktyg, API:er, filformat eller manuella exporter. Någon gemensam extern standard får inte förutsättas för samtliga.
+
+I detta projekt är MPS, även benämnt MPS Insight, kopplat till IEEE-spåret för användningsstatistik. Exakta åtkomstvägar och dataformat behöver verifieras.
+
+Ett delmål är ett gemensamt konverteringslager ovanpå dessa olika källor, med separata anpassningar för respektive publicist. Lagret ska bevara källans definitioner, perioder och begränsningar.
+
+COUNTER och SUSHI kan vara relevanta där de faktiskt stöds. Salesforce är ett CRM-system och Fortnox ett ekonomisystem; de är separata integrationsspår.
+
+Detta underlag bekräftar inga driftsatta liveimporter från dessa externa system.
+
+7. STATISTIK OCH KOSTNAD PER NEDLADDNING
+
+Användning kan betyda nedladdningar, förfrågningar eller andra mätvärden. Olika definitioner får inte jämföras som om de vore identiska.
+
+CPD betyder kostnad per nedladdning. Beräkningen kräver en relevant kostnad och ett relevant antal nedladdningar för samma period och omfattning.
+
+En årsbudget dividerad med endast några månaders användning är inte automatiskt faktisk periodiserad CPD. Saknade uppgifter är okända, inte noll. Vid noll nedladdningar kan vanlig division inte användas.
+
+Vyer ska tydliggöra period, källa, valuta, urval och datakvalitet. Förinställningar får lyfta verkligt kundvärde, men inte dölja negativa resultat eller vilseleda.
+
+8. DEMO OCH ÅTERSTÅENDE ARBETE
+
+Kunddemonstrationen innehåller bland annat produktöversikt, diagram, filtrering, CSV-export, dokumentförhandsvisning och kundserviceutkast.
+
+Statistik och exempeluppgifter är syntetiska. Dokumentförhandsvisningar är inte ett färdigt arkiv med verkliga kundavtal. Kundserviceutkast är inte skickade ärenden.
+
+Beständigt kundregister innebär inte att all annan data lagras eller hämtas från verkliga källor.
+
+Före skarp kunddrift återstår bland annat färdig kundidentitet, verifierade integrationer och datarättigheter samt fullständiga flöden för dokument och kundservice. Säkerhet, drift och återställning måste också verifieras.
+
+Utvecklingen ska ske bottom-up: datamodeller, beräkningar och behörighetsgränser testas tillsammans med regressionstester. Godkända tester eller en lyckad publicering innebär inte ensamt att hela produkten är produktionsklar.
+
+9. DENNA D-ID-AGENT
+
+Agenten förklarar detta kunskapsunderlag. Den är inte automatiskt ansluten till plattformens databas, inloggning eller interna kontrolljobb.
+
+När D-ID använder detta underlag för att formulera svar är det en separat dokumentbaserad assistent. Den får inte automatiskt samma uppdateringar eller samtal som plattformens befintliga textassistent.
+
+Embedding handlar om var agenten visas. Det ger inte i sig mer kunskap, åtkomst eller behörighet.

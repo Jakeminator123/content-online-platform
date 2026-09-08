@@ -61,7 +61,7 @@ describe("Content Online admin identity boundary", () => {
 describe("Hosted portal entry and guarded admin API", () => {
   it.each(["unauthenticated", "forbidden", "unconfigured"] as const)("denies %s on every admin API path", async (status) => {
     const app = appFor({ status });
-    for (const path of ["/admin/api/session", "/admin/api/workspace", "/admin/api/assistant/presenter", "/admin/api/assistant/message", "/admin/api/jobs", "/admin/api/jobs/platform-readiness/run", "/admin/api/publishers", "/admin/api/users"]) {
+    for (const path of ["/admin/api/session", "/admin/api/workspace", "/admin/api/assistant/presenter", "/admin/api/assistant/agent", "/admin/api/assistant/message", "/admin/api/jobs", "/admin/api/jobs/platform-readiness/run", "/admin/api/publishers", "/admin/api/users"]) {
       for (const method of ["GET", "POST"]) {
         const response = await app.request(path, { method });
         expect(response.status).toBe(status === "unauthenticated" ? 401 : status === "forbidden" ? 403 : 503);
@@ -117,6 +117,42 @@ describe("Hosted portal entry and guarded admin API", () => {
       { didAgentId, didClientKey: "" },
     ).request("/admin/api/assistant/presenter");
     expect(await unconfigured.json()).toEqual({ configured: false, provider: "d-id", mode: "speech_only" });
+  });
+
+  it("provides a no-store documentation-agent link only through the guarded API", async () => {
+    const app = appFor(
+      { status: "authenticated", identity: { id: "admin", email, role: "content_admin" } },
+      { didAgentId: "v2_agt_test-agent", didClientKey: "browser-config+with/encoding==" },
+    );
+    const response = await app.request("/admin/api/assistant/agent?redirect=https://evil.example");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = await response.json();
+    expect(body).toMatchObject({ configured: true, provider: "d-id", mode: "documentation_agent" });
+    const url = new URL(body.url);
+    expect(url.origin + url.pathname).toBe("https://studio.d-id.com/agents/share");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ id: "v2_agt_test-agent", key: "browser-config+with/encoding==" });
+    expect(body.url).not.toContain(email);
+    for (const path of ["/", "/admin", "/demo", "/admin/assets/assistant.js"]) {
+      const html = await (await app.request(path)).text();
+      expect(html).not.toContain("v2_agt_test-agent");
+      expect(html).not.toContain("browser-config+with/encoding==");
+    }
+    const html = await (await app.request("/admin")).text();
+    expect(html).toContain('id="assistant-agent-open" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden');
+    expect(html).toContain("kundregistret och den här chatten följer inte med");
+    expect(await (await app.request("/demo")).text()).not.toContain('id="assistant-agent-open"');
+  });
+
+  it.each([
+    { didAgentId: "", didClientKey: "browser-config" },
+    { didAgentId: "test-agent", didClientKey: "" },
+    { didAgentId: "https://evil.example", didClientKey: "browser-config" },
+    { didAgentId: "test-agent", didClientKey: "invalid key" },
+  ])("does not publish a handoff link for missing or invalid configuration", async (options) => {
+    const app = appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }, options);
+    const body = await (await app.request("/admin/api/assistant/agent")).json();
+    expect(body).toEqual({ configured: false, provider: "d-id", mode: "documentation_agent" });
   });
 
   it("answers through the protected assistant API and validates input", async () => {

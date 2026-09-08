@@ -15,7 +15,7 @@ Projektet är en publicerad pilot med separat kundfrontend och intern admininlog
 
 Admin kräver en giltig Clerk-session från plattformens origin, en aktiv session och ett icke spärrat konto med verifierad primär e-post som matchar serverns `CONTENT_ONLINE_ADMIN_EMAIL`. Adressen ligger endast i Vercel och Clerk, aldrig i Git. Kundcookies, kundadminroller och klientredigerbar metadata ger inte intern adminbehörighet. Se [driftsinstruktionerna](docs/ADMIN_DRIFT.md).
 
-Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Kundregister, publicister, produkter, kundförhandsvisningar och källstatus använder syntetiska fixtures. Ett separat internt kund- och publicistregister sparas nu i Neon Free i Frankfurt. Registret kan hantera, publicera och arkivera kunder och publicister. Ny kundportal får en egen adress och aktiveringssida; riktiga kundkonton återstår. Statistikdemon är fortsatt fristående. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). En portalanknytning är inte samma sak som en färdig dataintegration. Den skyddade assistenten kan använda D-ID som valfri röstavatar; Content Onlines prompt och kunskapskontext ligger fortsatt i backend.
+Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Kundregister, publicister, produkter, kundförhandsvisningar och källstatus använder syntetiska fixtures. Ett separat internt kund- och publicistregister sparas nu i Neon Free i Frankfurt. Registret kan hantera, publicera och arkivera kunder och publicister. Ny kundportal får en egen adress och aktiveringssida; riktiga kundkonton återstår. Statistikdemon är fortsatt fristående. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). En portalanknytning är inte samma sak som en färdig dataintegration. Fråga CO har en separat ingång till den dokumentbaserade D-ID-agenten efter intern inloggning. [Prompt, Knowledge och verifieringsinstruktioner](docs/d-id/README.md) är versionshanterade; Studio synkroniseras inte automatiskt. Den befintliga textchatten och dess valfria uppläsning finns kvar, med prompt och kunskapskontext i backend.
 
 ## Produktmål
 
@@ -35,6 +35,7 @@ Kundplattformen ska ge behöriga personer hos Content Onlines kunder en samlad o
 - [Källregister och auktoritet](docs/KALLREGISTER.md)
 - [Bottom-up teststrategi](docs/TESTSTRATEGI.md)
 - [Content Online AI-assistent och kontrolljobb](docs/AI_ASSISTENT.md)
+- [D-ID-agentens Prompt, Knowledge och portalanslutning](docs/d-id/README.md)
 
 ## Kör backend lokalt
 

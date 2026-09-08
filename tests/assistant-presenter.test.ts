@@ -11,6 +11,8 @@ class Element {
   value = "";
   type = "";
   src = "";
+  href = "";
+  removeAttribute(name: string) { if (name === "href") this.href = ""; }
   childButton: Element | undefined;
   classList = { toggle: () => {} };
   constructor(readonly tag = "div") {}
@@ -24,7 +26,7 @@ class Element {
   querySelector() { return this.childButton ??= new Element("button"); }
 }
 
-function harness(mode: "delayed" | "no-api" | "script-error" = "delayed", configStatus = 200) {
+function harness(mode: "delayed" | "no-api" | "script-error" = "delayed", configStatus = 200, agentUrl: string | null = "https://studio.d-id.com/agents/share?id=test-agent&key=test-browser-config") {
   const nodes = new Map<string, Element>();
   const get = (id: string) => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id)!; };
   const scripts: Element[] = [];
@@ -49,8 +51,10 @@ function harness(mode: "delayed" | "no-api" | "script-error" = "delayed", config
     }, 0);
   };
   const fetch = vi.fn(async (url: string) => ({
-    ok: url.endsWith("/presenter") ? configStatus === 200 : true,
-    json: async () => url.endsWith("/presenter")
+    ok: url.endsWith("/presenter") || url.endsWith("/agent") ? configStatus === 200 : true,
+    json: async () => url.endsWith("/agent")
+      ? (agentUrl ? { configured: true, url: agentUrl } : { configured: false })
+      : url.endsWith("/presenter")
       ? { configured: true, agentId: "test-agent", clientKey: "test-browser-config" }
       : url.endsWith("/message")
         ? { answer: "Ett syntetiskt svar.\nKällor: Pilot", sources: [], mode: "openai" }
@@ -66,7 +70,7 @@ function harness(mode: "delayed" | "no-api" | "script-error" = "delayed", config
     },
     window: browser,
     Clerk: { session: { getToken: async () => "synthetic-test-session" } },
-    fetch, setTimeout, clearTimeout, Date, AbortSignal,
+    fetch, setTimeout, clearTimeout, Date, AbortSignal, URL,
     console: { warn },
   });
   doc.emit("content-online:workspace-ready", { detail: { workspace: { customers: [], users: [] } } });
@@ -149,5 +153,64 @@ describe("D-ID presenter browser lifecycle", () => {
     expect(app.scripts).toHaveLength(0);
     expect(app.warn).toHaveBeenCalledWith("content_online_presenter_start_failed", { stage: "config" });
     expect(app.get("assistant-presenter-enable").disabled).toBe(false);
+  });
+});
+
+describe("D-ID documentation agent handoff", () => {
+  it("prepares only a user-clicked link without loading D-ID or forwarding chat/session data", async () => {
+    vi.useFakeTimers();
+    const app = harness();
+    await vi.advanceTimersByTimeAsync(200);
+    expect(app.get("assistant-agent-open").hidden).toBe(false);
+    expect(app.get("assistant-agent-open").href).toBe("https://studio.d-id.com/agents/share?id=test-agent&key=test-browser-config");
+    expect(app.fetch.mock.calls.some(([url]) => url.endsWith("/agent"))).toBe(true);
+    expect(app.fetch.mock.calls.every(([url]) => url.startsWith("/admin/api/"))).toBe(true);
+    expect(app.scripts).toHaveLength(0);
+    expect(app.speak).not.toHaveBeenCalled();
+    expect(app.get("assistant-agent-open").href).not.toContain("synthetic-test-session");
+    expect(app.warn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "https://evil.example/agents/share?id=x&key=y",
+    "https://studio.d-id.com.evil.example/agents/share?id=x&key=y",
+    "https://studio.d-id.com/other?id=x&key=y",
+    "https://attacker@studio.d-id.com/agents/share?id=x&key=y",
+    "javascript:alert(1)",
+    "https://studio.d-id.com/agents/share?id=x",
+  ])("rejects an unexpected handoff destination", async (url) => {
+    vi.useFakeTimers();
+    const app = harness("delayed", 200, url);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(app.get("assistant-agent-open").hidden).toBe(true);
+    expect(app.get("assistant-agent-open").href).toBe("");
+    expect(app.get("assistant-agent-retry").hidden).toBe(false);
+    expect(app.scripts).toHaveLength(0);
+    expect(app.warn).not.toHaveBeenCalled();
+  });
+
+  it("keeps the text chat available when the agent link is missing", async () => {
+    vi.useFakeTimers();
+    const app = harness("delayed", 200, null);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(app.get("assistant-agent-open").hidden).toBe(true);
+    expect(app.get("assistant-agent-status").textContent).toContain("inte konfigurerad");
+    app.get("assistant-input").value = "Vanlig dokumentfråga";
+    app.get("assistant-form").emit("submit", { preventDefault() {} });
+    await vi.advanceTimersByTimeAsync(10);
+    expect(app.fetch.mock.calls.some(([url]) => url.endsWith("/message"))).toBe(true);
+  });
+
+  it("allows retry after an authentication/configuration failure without exposing a link", async () => {
+    vi.useFakeTimers();
+    const app = harness("delayed", 401);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(app.get("assistant-agent-open").hidden).toBe(true);
+    expect(app.get("assistant-agent-retry").disabled).toBe(false);
+    app.get("assistant-agent-retry").emit("click");
+    await vi.advanceTimersByTimeAsync(200);
+    expect(app.fetch.mock.calls.filter(([url]) => url.endsWith("/agent"))).toHaveLength(2);
+    expect(app.get("assistant-agent-open").href).toBe("");
+    expect(app.scripts).toHaveLength(0);
   });
 });
