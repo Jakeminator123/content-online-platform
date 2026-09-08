@@ -30,4 +30,39 @@ export const workspaceCss = foundationCss + '\n' + statisticsCss + '\n' + loginC
 table code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#315f7c;background:#edf5fa;padding:4px 6px;border-radius:4px}
 @media(max-width:1050px){.salesforce-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.salesforce-hero{align-items:flex-start}.salesforce-actions{flex-direction:column;align-items:flex-start}}
 @media(max-width:650px){.salesforce-hero{flex-direction:column}.salesforce-brand{align-items:flex-start}.salesforce-actions{width:100%}.salesforce-actions .button{width:100%}.salesforce-metrics,.review-summary,.setup-flow{grid-template-columns:1fr}.salesforce-inline{align-items:flex-start;flex-direction:column}}
+
+/* Restrained admin hierarchy: literal headings, grouped navigation and local data labels. */
+.sidebar{padding-top:25px}
+.nav{gap:4px}
+.nav-section{display:grid;gap:2px}
+.nav-section.has-active>button{color:#fff}
+.nav-sub{display:grid;gap:1px;margin:0 0 7px 26px;padding-left:11px;border-left:1px solid #ffffff18}
+.nav .nav-sub button{min-height:30px;padding:6px 9px;border-radius:6px;color:#9fb1bc;font-size:12px;font-weight:500;gap:7px}
+.nav .nav-sub button:hover{background:#ffffff08;color:#fff}
+.nav .nav-sub button[aria-current=page]{background:#ffffff0d;color:#fff;box-shadow:none}
+.nav .nav-sub button:disabled{cursor:not-allowed;color:#718793;opacity:1}
+.nav .nav-sub button small{margin-left:auto;color:#718793;font-size:9px;font-weight:500}
+.topbar{height:64px;padding-inline:32px}
+.breadcrumbs{font-size:13px}
+.breadcrumbs strong{font-weight:600}
+.page{padding:27px 32px 46px}
+.page-heading{align-items:start;margin-bottom:22px}
+.page-heading h1{margin:0 0 7px;font-size:clamp(27px,2.4vw,34px);line-height:1.2;letter-spacing:-.035em;font-weight:750}
+.lead{font-size:14px;line-height:1.55}
+.toolbar{justify-content:flex-start;margin-bottom:17px}
+.search{max-width:400px;padding:10px 12px}
+.search input{font-size:14px}
+.demo-context{display:flex;align-items:center;gap:9px;margin:0 0 17px;color:#617481;font-size:12px;line-height:1.45}
+.button{font-size:13px}
+.card{border-color:#e1e7eb;border-radius:12px}
+.card-head p{font-size:12px}
+th{font-size:11px}
+td{font-size:13px}
+.entity strong,.list-item strong{font-size:13px}
+.entity small,.list-item small{font-size:11px}
+.text-link{font-size:12px}
+#registry-panel{margin-bottom:22px}
+#registry-panel>.card-body{padding-bottom:20px}
+.registry-overview div{background:#fafbfc}
+@media(max-width:800px){.topbar{height:60px;padding-inline:18px}.page{padding:22px 18px 38px}.nav-sub{margin-left:24px}.page-heading{margin-bottom:18px}}
 `;
