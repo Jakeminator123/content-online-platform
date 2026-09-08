@@ -120,6 +120,7 @@ export const workspaceClient = statisticsClient + String.raw`
       active=pageMeta[location.hash.slice(1)]?location.hash.slice(1):'overview';document.getElementById('access-message').hidden=true;document.getElementById('workspace').hidden=false;render();
     }catch{data=null;root.replaceChildren();document.getElementById('workspace').hidden=true;message.textContent='Arbetsytan kunde inte laddas. Ladda om sidan för att försöka igen.';document.getElementById('access-message').hidden=false;}
   }
+  window.addEventListener('hashchange',()=>{if(!data)return;active=pageMeta[location.hash.slice(1)]?location.hash.slice(1):'overview';query='';document.getElementById('search').value='';render();});
   window.addEventListener('load',start);
 })();
 `;
