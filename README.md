@@ -8,14 +8,14 @@ Projektet är en publicerad pilot med separat kundfrontend och intern admininlog
 
 ## Publicerade ingångar och aktuell gräns
 
-- [Plattformen](https://content-online-platform.vercel.app): ingång till båda portalerna.
-- [Kundportalen](https://fokus-psi-sable.vercel.app/login): befintlig separat Next.js-frontend, KTH-demokonton.
+- [Plattformen](https://content-online-platform.vercel.app): enbart Content Onlines interna inloggning.
+- [Kundportalen](https://fokus-psi-sable.vercel.app/o/kth/login): befintlig separat Next.js-frontend, KTH-demokonton.
 - [Content Online-admin](https://content-online-platform.vercel.app/admin/login): Clerk-inloggning, separat från kundkonton.
 - [Första aktiveringen](https://content-online-platform.vercel.app/admin/registrera): endast tillåten e-postadress; användaren måste själv verifiera den.
 
 Admin kräver en giltig Clerk-session från plattformens origin, en aktiv session och ett icke spärrat konto med verifierad primär e-post som matchar serverns `CONTENT_ONLINE_ADMIN_EMAIL`. Adressen ligger endast i Vercel och Clerk, aldrig i Git. Kundcookies, kundadminroller och klientredigerbar metadata ger inte intern adminbehörighet. Se [driftsinstruktionerna](docs/ADMIN_DRIFT.md).
 
-Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Kundregister, publicister, produkter, kundförhandsvisningar och källstatus använder syntetiska fixtures. Skrivande administration och beständig lagring är inte implementerade. Neon-provisionering är pausad och ingen databas har skapats. En portalanknytning är inte samma sak som en färdig dataintegration.
+Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Kundregister, publicister, produkter, kundförhandsvisningar och källstatus använder syntetiska fixtures. Ett separat internt kund- och publicistregister sparas nu i Neon Free i Frankfurt. Registret kan hantera, publicera och arkivera kunder och publicister. Ny kundportal får en egen adress och aktiveringssida; riktiga kundkonton återstår. Statistikdemon är fortsatt fristående. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). En portalanknytning är inte samma sak som en färdig dataintegration.
 
 ## Produktmål
 

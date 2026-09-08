@@ -13,6 +13,18 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -25,6 +37,12 @@ jobs:
         run: npm ci
       - name: Typecheck and test
         run: npm run check
+      - name: Verify registry on isolated PostgreSQL
+        env:
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: npx tsx scripts/check-registry-postgres.ts
       - name: Install browser test runner
         run: |
           npm install --no-save --package-lock=false playwright
