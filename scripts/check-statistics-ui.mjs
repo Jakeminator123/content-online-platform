@@ -28,7 +28,7 @@ try {
   await page.locator('.stats-customer [data-id="customer-norrvik-demo"]').click();
   assert.ok((await page.locator('#detail-body').innerText()).includes('Saknad data är inte noll'));
   await page.locator('[data-action="close"]').click();
-  for (const id of ['customers','users','publishers','products','connections','overview']) {
+  for (const id of ['customers','publishers','products','connections','salesforce','overview']) {
     await page.locator(`.nav [data-id="${id}"]`).click();
     assert.ok((await page.locator('#view').innerText()).length > 100);
   }

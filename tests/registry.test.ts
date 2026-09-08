@@ -45,6 +45,47 @@ describe("Persistent registry domain", () => {
     next = applyRegistryCommand(next, { action: "restore_customer", id }, actor);
     expect(next.customers[1]!.status).toBe("draft");
   });
+  it("permanently deletes an archived customer after exact name confirmation and keeps only a minimal audit event", () => {
+    let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example University", slug: "example-university" }, actor);
+    const id = next.customers[1]!.id;
+    next = applyRegistryCommand(next, { action: "archive_customer", id }, actor);
+    next = applyRegistryCommand(next, { action: "delete_customer", id, confirmation: "Example University" }, actor, new Date("2026-09-09T10:00:00Z"));
+
+    expect(next.customers.find(customer => customer.id === id)).toBeUndefined();
+    expect(next.events.at(-1)).toEqual({
+      at: "2026-09-09T10:00:00.000Z",
+      actor,
+      action: "delete_customer",
+      entityId: id,
+    });
+  });
+  it("requires an archived non-demo customer and an exact confirmation", () => {
+    let draft = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
+    const id = draft.customers[1]!.id;
+    expect(() => applyRegistryCommand(draft, { action: "delete_customer", id, confirmation: "example" }, actor)).toThrow("delete_requires_archived");
+
+    const published = applyRegistryCommand(draft, { action: "publish_customer", id }, actor);
+    expect(() => applyRegistryCommand(published, { action: "delete_customer", id, confirmation: "example" }, actor)).toThrow("delete_requires_archived");
+
+    const archived = applyRegistryCommand(published, { action: "archive_customer", id }, actor);
+    expect(() => applyRegistryCommand(archived, { action: "delete_customer", id, confirmation: "EXAMPLE" }, actor)).toThrow("delete_confirmation_mismatch");
+    expect(archived.customers.some(customer => customer.id === id)).toBe(true);
+
+    const archivedDemo = applyRegistryCommand(initialRegistry(), { action: "archive_customer", id: "customer-kth-demo" }, actor);
+    expect(() => applyRegistryCommand(archivedDemo, { action: "delete_customer", id: "customer-kth-demo", confirmation: "kth" }, actor)).toThrow("demo_customer_protected");
+    expect(() => applyRegistryCommand(archived, { action: "delete_customer", id: "missing", confirmation: "missing" }, actor)).toThrow("not_found");
+  });
+  it("frees a permanently deleted slug for a new customer", () => {
+    let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Original", slug: "reusable-slug" }, actor);
+    const deletedId = next.customers[1]!.id;
+    next = applyRegistryCommand(next, { action: "archive_customer", id: deletedId }, actor);
+    next = applyRegistryCommand(next, { action: "delete_customer", id: deletedId, confirmation: "reusable-slug" }, actor);
+    next = applyRegistryCommand(next, { action: "add_customer", name: "Replacement", slug: "reusable-slug" }, actor);
+
+    const replacement = next.customers.find(customer => customer.slug === "reusable-slug");
+    expect(replacement).toMatchObject({ name: "Replacement", status: "draft", kind: "customer" });
+    expect(replacement!.id).not.toBe(deletedId);
+  });
   it("validates slugs and leaves tenant kind/URL immutable", () => {
     for (const slug of ["KTH", "../other", "with space", "a".repeat(64), "-bad", "bad-"]) {
       expect(commandSchema.safeParse({ action: "add_customer", name: "Example", slug }).success).toBe(false);
@@ -52,6 +93,8 @@ describe("Persistent registry domain", () => {
     const cmd = commandSchema.parse({ action: "update_customer", id: "customer-kth-demo", name: "KTH", publisherIds: [], slug: "other", kind: "customer" });
     const next = applyRegistryCommand(initialRegistry(), cmd, actor);
     expect(next.customers[0]).toMatchObject({ slug: "kth", kind: "demo" });
+    expect(commandSchema.safeParse({ action: "delete_customer", id: "customer", confirmation: "customer" }).success).toBe(true);
+    expect(commandSchema.safeParse({ action: "delete_customer", id: "customer" }).success).toBe(false);
   });
   it("persists brand, domain and constrained D-ID policy without weakening truthfulness", () => {
     let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
@@ -138,7 +181,10 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("Granska kundsajt");
     expect(registryClient).toContain("Aktiveringssida");
     expect(registryClient).toContain("Styr kundsajt");
-    expect(registryClient).toContain("Ta bort kundsajt");
+    expect(registryClient).toContain("Arkivera kundsajt");
+    expect(registryClient).toContain("Radera permanent");
+    expect(registryClient).toContain("delete_customer");
+    expect(registryClient).toContain("confirmation.trim()");
     expect(registryClient).toContain("'/portal'");
     expect(registryClient).toContain("slugify");
     expect(registryClient).toContain("availableSlug");

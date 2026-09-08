@@ -440,27 +440,21 @@ function authorizedCronRequest(authorization: string | undefined, cronSecret: st
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 function assistantWidget(mode: "login" | "register" | "admin" | "demo") {
-  const adminMode = mode === "admin";
+  if (mode !== "admin") return "";
   return html`
     <button class="assistant-launcher" id="assistant-launcher" type="button" aria-label="Öppna Content Online AI" aria-controls="assistant-panel" aria-expanded="false">
-      <span class="assistant-launcher-mark">CO</span><span class="assistant-launcher-copy"><strong>Fråga CO</strong><small>AI-assistent</small></span><span class="assistant-launcher-spark" aria-hidden="true">✦</span>
+      <span class="assistant-launcher-mark" aria-hidden="true">CO</span><span class="sr-only">Fråga CO</span>
     </button>
     <aside class="assistant-panel" id="assistant-panel" role="dialog" aria-labelledby="assistant-title" hidden>
-      <div class="assistant-topbar"><div class="assistant-avatar">CO</div><div><div class="assistant-presence"><span></span>Content Online AI</div><h2 id="assistant-title">Vad vill du få gjort?</h2></div><button class="assistant-close" id="assistant-close" type="button" aria-label="Stäng assistenten">×</button></div>
+      <div class="assistant-topbar"><div class="assistant-avatar" aria-hidden="true">CO</div><div><h2 id="assistant-title">Fråga CO</h2><p>Intern kunskapsassistent</p></div><button class="assistant-close" id="assistant-close" type="button" aria-label="Stäng assistenten">×</button></div>
       <div class="assistant-locked" id="assistant-locked">
-        <div class="assistant-lock-icon" aria-hidden="true">✦</div><h3>Din interna genväg</h3><p>Efter inloggning kan assistenten svara om plattformen, visa den behöriga kundbilden och starta säkra kontrolljobb.</p><div class="assistant-scope"><span>Dokumentbaserad</span><span>Behörighetsstyrd</span><span>Inga fria kommandon</span></div>
-        ${adminMode ? html`<p class="assistant-state">Kontrollerar din adminsession…</p>` : html`<p class="assistant-state">Logga in för att aktivera arbetsytan.</p><a class="button teal" href="/admin/login">Logga in – Content Online</a>`}
+        <p class="assistant-state">Kontrollerar din adminsession…</p>
       </div>
-      ${adminMode ? html`
-        <div class="assistant-app" id="assistant-app" hidden>
-          <div class="assistant-tabs" role="tablist" aria-label="Assistentens arbetsytor"><button class="active" type="button" role="tab" aria-selected="true" data-assistant-tab="chat">Fråga</button><button type="button" role="tab" aria-selected="false" data-assistant-tab="customers">Kundbild</button><button type="button" role="tab" aria-selected="false" data-assistant-tab="jobs">Jobb</button></div>
-          <section class="assistant-view active" id="assistant-view-chat" role="tabpanel">
-          <div class="assistant-chat-intro"><span>Intern kunskapsassistent</span><p>D-ID-agenten finns i kundportalen. Här stannar Content Onlines skyddade textchatt och adminverktyg.</p></div><div class="assistant-messages" id="assistant-messages" aria-live="polite"><div class="assistant-message bot"><div>Hej! Jag svarar utifrån projektets dokumentation och den skyddade pilotöversikten. Jag skiljer alltid på vad plattformen kan nu och vad som återstår.</div></div></div>
-          <div class="assistant-prompts"><button type="button" data-prompt="Vad kan plattformen göra nu och vad ska den kunna senare?">Nu kontra sedan</button><button type="button" data-prompt="Vilken data får respektive användarroll se?">Rollernas data</button><button type="button" data-prompt="Vilka integrationer är inte klara?">Öppna integrationer</button></div>
-          <form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-input">Skriv en fråga</label><textarea id="assistant-input" maxlength="1200" rows="1" placeholder="Fråga om plattformen…" required></textarea><button type="submit" aria-label="Skicka fråga">↑</button></form><p class="assistant-footnote">När AI är tillgänglig skickas din fråga till OpenAI. Skriv inga personuppgifter, avtal eller hemligheter. Faktasvar utan AI märks separat.</p></section>
-          <section class="assistant-view" id="assistant-view-customers" role="tabpanel" hidden><div class="assistant-section-intro"><span class="assistant-kicker">Skyddad pilotvy</span><h3>Kunder och dataåtkomst</h3><p>Visar bara vad den inloggade Content Online-administratören får läsa.</p></div><div id="assistant-customers"></div></section>
-          <section class="assistant-view" id="assistant-view-jobs" role="tabpanel" hidden><div class="assistant-section-intro"><span class="assistant-kicker">Säker automation</span><h3>Kontrolljobb</h3><p>Endast fördefinierade läsjobb. Inga fria kommandon eller externa skrivningar.</p></div><div id="assistant-jobs"></div><div class="assistant-job-result" id="assistant-job-result" role="status" hidden></div></section>
-        </div>` : ""}
+      <div class="assistant-app" id="assistant-app" hidden>
+        <div class="assistant-messages" id="assistant-messages" aria-live="polite"><div class="assistant-message bot"><div>Hej! Vad vill du veta om plattformen?</div></div></div>
+        <div class="assistant-prompts"><button type="button" data-prompt="Vad kan plattformen göra nu?">Vad fungerar nu?</button><button type="button" data-prompt="Vilka integrationer är inte klara?">Öppna integrationer</button></div>
+        <form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-input">Skriv en fråga</label><textarea id="assistant-input" maxlength="1200" rows="1" placeholder="Fråga om plattformen…" required></textarea><button type="submit" aria-label="Skicka fråga">↑</button></form><p class="assistant-footnote">Undvik personuppgifter och hemligheter. Frågan skickas till OpenAI när AI är tillgänglig.</p>
+      </div>
     </aside>`;
 }
 function icon(name: string) {
@@ -484,26 +478,26 @@ function brand() { return html`<a class="brand portal-brand" href="/" aria-label
 function page(mode: "login" | "register" | "admin" | "demo", host: string | null, key: string, configured: boolean) {
   const workspace = mode === "admin" || mode === "demo";
   const demo = mode === "demo";
-  const navigation = [["overview","Överblick","grid"],["customers","Kundorganisationer","customers"],["users","Användare","users"],["publishers","Publicister","book"],["products","Produkter & tilldelningar","link"],["connections","Anslutningar","grid"],["salesforce","Salesforce","cloud"]];
   return html`<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${workspace ? "Arbetsyta" : "Logga in"} · Content Online</title>
   <meta name="description" content="En samlad arbetsyta för forskningsinformation, standarder och kundrelationer.">
   <link rel="stylesheet" href="/admin/assets/style.css">
   ${configured && host ? html`<script defer crossorigin="anonymous" src="https://${host}/npm/@clerk/ui@1/dist/ui.browser.js"></script><script defer crossorigin="anonymous" data-clerk-publishable-key="${key}" src="https://${host}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script>` : ""}
   ${workspace ? html`<script defer src="/admin/assets/workspace.js"></script>${!demo ? html`<script defer src="/admin/assets/registry.js"></script>` : ""}` : ""}
-  <link rel="stylesheet" href="/admin/assets/assistant.css"><script defer src="/admin/assets/assistant.js"></script>
+  ${mode === "admin" ? html`<link rel="stylesheet" href="/admin/assets/assistant.css"><script defer src="/admin/assets/assistant.js"></script>` : ""}
   </head><body data-mode="${mode}" data-page="${mode}">
   ${workspace ? html`<div class="shell">
     <aside class="sidebar" id="sidebar">${brand()}<div class="nav-label">ARBETSYTA</div><nav class="nav" aria-label="Content Online">
-    ${navigation.map(([id,label,symbol])=>html`<button data-action="navigate" data-id="${id}" aria-current="${id === "overview" ? "page" : "false"}">${icon(symbol!)}${label}</button>`)}
-    </nav><div class="sidebar-foot"><a href="/admin#customers">${icon("customers")} Kundregister & kundportaler</a><p>${demo ? "Visningsdemo · inga ändringar sparas" : "Intern arbetsyta · pilotversion"}</p></div></aside>
+      <button data-action="navigate" data-id="overview" aria-current="page">${icon("grid")}Översikt</button>
+      <div class="nav-section" data-nav-group="customers"><button data-action="navigate" data-id="customers" aria-current="false">${icon("customers")}Kundorganisationer</button><div class="nav-sub" role="group" aria-label="Kundorganisationer"><button type="button" disabled title="Välj en kundorganisation först">Användare <small>Välj kund</small></button><button type="button" disabled title="Välj en kundorganisation först">Cronjobb <small>Välj kund</small></button><button type="button" disabled title="Välj en kundorganisation först">Rapportflöde <small>Välj kund</small></button></div></div>
+      <div class="nav-section" data-nav-group="connections"><button data-action="navigate" data-id="connections" aria-current="false">${icon("link")}Anslutningar</button><div class="nav-sub" role="group" aria-label="Anslutningar"><button data-action="navigate" data-id="salesforce" aria-current="false">Salesforce</button><button data-action="navigate" data-id="publishers" aria-current="false">Publicister</button><button data-action="navigate" data-id="products" aria-current="false">Produkter & tilldelningar</button></div></div>
+    </nav></aside>
     <button class="mobile-scrim" id="scrim" aria-label="Stäng navigering"></button>
-    <div class="main-column"><header class="topbar"><div class="breadcrumbs"><button class="mobile-menu" id="menu-toggle" aria-label="Öppna navigering" aria-expanded="false" aria-controls="sidebar">${icon("menu")}</button><span>Content Online</span><span>/</span><strong id="breadcrumb">Överblick</strong></div><div class="top-actions"><span class="pill dot ${demo ? "blue" : "green"}">${demo ? "VISNINGSDEMO" : "INTERN ADMIN"}</span><span id="account-email"></span>${demo ? html`<a class="avatar" href="/admin/login" aria-label="Till intern inloggning">CO</a>` : html`<button class="button quiet" id="sign-out">Logga ut</button>`}</div></header>
+    <div class="main-column"><header class="topbar"><div class="breadcrumbs"><button class="mobile-menu" id="menu-toggle" aria-label="Öppna navigering" aria-expanded="false" aria-controls="sidebar">${icon("menu")}</button><strong>Administration</strong></div><div class="top-actions">${demo ? html`<span class="pill blue">DEMO</span>` : ""}<span id="account-email"></span>${demo ? html`<a class="button quiet" href="/admin/login">Logga in</a>` : html`<button class="button quiet" id="sign-out">Logga ut</button>`}</div></header>
     <section id="access-message" class="access-message"><h1>Din arbetsyta</h1><p id="message" role="status">${demo ? "Laddar visningsdemon…" : "Kontrollerar din inloggning…"}</p><a class="button secondary" href="/admin/login">Till inloggningen</a></section>
-    <main class="page" id="workspace" hidden><div class="page-heading"><div><div class="eyebrow" id="view-eyebrow">CONTENT ONLINE / ÖVERBLICK</div><h1 id="view-title">En samlad bild. Bättre kunddialog.</h1><p class="lead" id="view-description"></p></div><span class="date-chip">${icon("calendar")} Pilot · september 2026</span></div>
-    <div class="banner">${icon("info")}<span><strong>${demo ? "Interaktiv visningsdemo." : "Intern administration & separat statistikdemo."}</strong> ${demo ? "Inga ändringar sparas och inga externa system är anslutna." : "Kund- och publicistregistret sparas i databasen. Statistik, produkter och portalanvändare nedan är fortsatt syntetiska exempel."}</span></div>
-    <div class="toolbar" id="toolbar" hidden><label class="search">${icon("search")}<input id="search" type="search" placeholder="Sök i den här vyn…" aria-label="Sök i aktuell vy"></label><small>Syntetiskt presentationsunderlag</small></div>
-    ${!demo ? html`<section id="registry-panel" class="card" hidden aria-label="Sparat register"><div class="card-body" id="registry-body"></div></section>` : ""}<div id="view" aria-live="polite"></div><p class="footnote">Content Online · Forskning, standarder och kunskap i samma arbetsyta.</p></main></div></div>
+    <main class="page" id="workspace" hidden><div class="page-heading"><div><h1 id="view-title">Översikt</h1><p class="lead" id="view-description"></p></div></div>
+    <div class="toolbar" id="toolbar" hidden><label class="search">${icon("search")}<input id="search" type="search" placeholder="Sök i den här vyn…" aria-label="Sök i aktuell vy"></label></div>
+    ${!demo ? html`<section id="registry-panel" class="card" hidden aria-label="Sparat register"><div class="card-body" id="registry-body"></div></section>` : ""}<div id="view" aria-live="polite"></div></main></div></div>
     <dialog class="dialog" id="detail-dialog" aria-labelledby="detail-title"><div class="dialog-head"><div><div class="eyebrow" id="detail-subtitle"></div><h2 id="detail-title"></h2></div><button class="close-button" data-action="close" aria-label="Stäng detaljer">${icon("close")}</button></div><div class="dialog-body" id="detail-body"></div></dialog>` : html`
     <div class="auth-shell"><section class="auth-showcase" aria-label="Content Online">
     <video class="auth-showcase-video" id="auth-background-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true"><source src="/admin/assets/home-video.webm" type="video/webm"></video>

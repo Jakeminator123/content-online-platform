@@ -28,6 +28,6 @@ export async function answerAdminQuestion(
   const sources = ['STATISTICS_VIEWS.md', 'USAGE_KONVERTERING.md', 'AI_ASSISTENT.md'];
   return {
     mode: 'local_fallback', model: null, sources,
-    answer: `KAN NU: Följande statistikvyer väljs med förklarbara regler, inte en AI-prognos.\n\n${details}\n\nVälj Användning i kundportalen eller kundens statistik i adminvyn. Det befintliga dagliga kontrolljobbet använder samma urval; under Jobb kan du köra det manuellt. Det här svaret har inte startat något jobb.\n\nINTE KLART: Underlaget är en demo utan liveimport. Urval och cronresultat sparas inte. Budgetvyn är endast för kundadministratörer och årsbudget/användning är inte periodiserad kostnad.\n\nKällor: ${sources.join(', ')}`,
+    answer: `KAN NU: Följande statistikvyer väljs med förklarbara regler, inte en AI-prognos.\n\n${details}\n\nVälj Användning i kundportalen eller kundens statistik i adminvyn. Det befintliga dagliga kontrolljobbet använder samma urval, men den här chatten kan inte starta det eller något annat jobb. Det här svaret har inte startat något jobb.\n\nINTE KLART: Underlaget är en demo utan liveimport. Urval och cronresultat sparas inte. Budgetvyn är endast för kundadministratörer och årsbudget/användning är inte periodiserad kostnad.\n\nKällor: ${sources.join(', ')}`,
   };
 }
