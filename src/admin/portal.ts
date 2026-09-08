@@ -43,6 +43,7 @@ type AdminPortalOptions = {
   didAgentId?: string;
   didClientKey?: string;
   portalRootDomain?: string;
+  portalWildcardReady?: boolean;
   domainService?: CustomerDomainService;
   cronSecret?: string;
   fetchImpl?: typeof fetch;
@@ -66,6 +67,7 @@ export function createAdminPortal(
   const host = clerkFrontendHost(config.publishableKey);
   const configured = !!(host && config.secretKey && config.allowedEmail);
   const portalRootDomain = options.portalRootDomain ?? process.env.CUSTOMER_PORTAL_ROOT_DOMAIN ?? "portal.contentonline.se";
+  const portalWildcardReady = options.portalWildcardReady ?? ["1", "true"].includes((process.env.CUSTOMER_PORTAL_WILDCARD_READY ?? "").toLowerCase());
   const fallbackDidAgent = {
     agentId: options.didAgentId ?? process.env.DID_AGENT_ID ?? "",
     clientKey: options.didClientKey ?? process.env.DID_CLIENT_KEY ?? "",
@@ -99,6 +101,11 @@ export function createAdminPortal(
   const adminRegistrySnapshot = (snapshot: RegistrySnapshot) => ({
     ...snapshot,
     runtime: {
+      customerDomains: {
+        rootDomain: portalRootDomain,
+        wildcardReady: portalWildcardReady,
+        previewOrigin: "https://fokus-psi-sable.vercel.app",
+      },
       agentModeByCustomer: Object.fromEntries(snapshot.data.customers.map((customer) => {
         if (!customer.site.agent.enabled) return [customer.id, "disabled"];
         if (didEmbedConfiguration(customer.site.agent.agentId, customer.site.agent.clientKey)) return [customer.id, "customer"];

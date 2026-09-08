@@ -16,18 +16,19 @@ function isHostname(value: string): boolean {
 
 export class VercelCustomerDomainService implements CustomerDomainService {
   constructor(
-    private readonly config: { token: string; projectId: string; teamId: string; portalRootDomain: string },
+    private readonly config: { token: string; projectId: string; teamId: string; portalRootDomain: string; managedWildcardReady?: boolean },
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
   async ensure(input: string): Promise<CustomerDomainResult> {
     const domain = input.trim().toLowerCase();
     const root = this.config.portalRootDomain.trim().toLowerCase();
-    if (!this.config.token || !this.config.projectId || !this.config.teamId || !isHostname(root)) {
-      throw new CustomerDomainError("unconfigured");
-    }
+    if (!isHostname(root)) throw new CustomerDomainError("unconfigured");
     if (!isHostname(domain)) throw new CustomerDomainError("unavailable");
-    const managedDomain = domain.endsWith(`.${root}`) ? `*.${root}` : domain;
+    const prefix = domain.endsWith(`.${root}`) ? domain.slice(0, -(root.length + 1)) : "";
+    const managedDomain = prefix && !prefix.includes(".") ? `*.${root}` : domain;
+    if (managedDomain === `*.${root}` && this.config.managedWildcardReady) return { status: "ready", managedDomain };
+    if (!this.config.token || !this.config.projectId || !this.config.teamId) throw new CustomerDomainError("unconfigured");
     const query = new URLSearchParams({ teamId: this.config.teamId });
     const project = encodeURIComponent(this.config.projectId);
     const headers = {
@@ -83,8 +84,9 @@ export class VercelCustomerDomainService implements CustomerDomainService {
 export function customerDomainServiceFromEnvironment(fetchImpl: typeof fetch = fetch): CustomerDomainService {
   return new VercelCustomerDomainService({
     token: process.env.VERCEL_AUTOMATION_TOKEN?.trim() ?? "",
-    projectId: process.env.VERCEL_PROJECT_ID?.trim() ?? "",
-    teamId: process.env.VERCEL_TEAM_ID?.trim() ?? "",
+    projectId: process.env.CUSTOMER_PORTAL_VERCEL_PROJECT_ID?.trim() ?? "",
+    teamId: process.env.CUSTOMER_PORTAL_VERCEL_TEAM_ID?.trim() ?? "",
     portalRootDomain: process.env.CUSTOMER_PORTAL_ROOT_DOMAIN?.trim() ?? "",
+    managedWildcardReady: ["1", "true"].includes((process.env.CUSTOMER_PORTAL_WILDCARD_READY ?? "").toLowerCase()),
   }, fetchImpl);
 }
