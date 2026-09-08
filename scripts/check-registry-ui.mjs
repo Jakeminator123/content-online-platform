@@ -19,10 +19,12 @@ try{
   await page.goto(base+'/admin#publishers',{waitUntil:'networkidle'});
   const panel=page.locator('#registry-panel');
   await panel.locator('form[data-reg-form="add_publisher"]').waitFor();
+  assert.equal(await page.locator('#view').innerText(), '', 'Real publisher management must not display fixture partners');
   await panel.getByLabel('Publicistens namn').fill('Browser Partner');
   await panel.getByRole('button',{name:'Lägg till publicist',exact:true}).click();
   await panel.locator('.list-item').filter({hasText:'Browser Partner'}).waitFor();
   await page.locator('.nav [data-id="customers"]').click();
+  assert.equal(await page.locator('#view').innerText(), '', 'Real customer management must not display fictional organizations');
   await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
   await panel.getByLabel('URL-namn').fill('browser-customer');
   await panel.getByRole('button',{name:'Lägg till kund',exact:true}).click();
