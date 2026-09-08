@@ -65,6 +65,25 @@ export function defaultCustomerSite(overrides: Partial<CustomerSite> = {}): Cust
   return customerSiteSchema.parse({ ...base, ...overrides, agent: { ...base.agent, ...overrides.agent } });
 }
 
+export function kthDemoCustomerSite(): CustomerSite {
+  return defaultCustomerSite({
+    domain: "kth.portal.contentonline.se",
+    domainStatus: "pending",
+    primaryColor: "#1954a6",
+    accentColor: "#2f8f83",
+    heading: "Kunskap i användning",
+    tagline: "En syntetisk KTH-pilot för informationsresurser, statistik och kundservice.",
+    agent: {
+      enabled: true,
+      agentId: "",
+      clientKey: "",
+      greeting: "Hej! Jag hjälper er att hitta i KTH:s syntetiska kundportal.",
+      positivity: 7,
+      tools: ["portal_context", "portal_navigation", "portfolio_summary", "usage_summary"],
+    },
+  });
+}
+
 const customerSchema = z.object({
   id,
   name,
@@ -72,8 +91,15 @@ const customerSchema = z.object({
   status: z.enum(["draft", "published", "archived"]),
   kind: z.enum(["demo", "customer"]),
   publisherIds: z.array(id).max(100),
-  site: customerSiteSchema.default(() => defaultCustomerSite()),
-});
+  site: customerSiteSchema.optional(),
+}).transform((customer) => ({
+  ...customer,
+  // Existing KTH demo rows predate site configuration. Migrate only a missing
+  // site; an explicitly saved disabled agent must remain disabled.
+  site: customer.site ?? (customer.kind === "demo" && customer.slug === "kth"
+    ? kthDemoCustomerSite()
+    : defaultCustomerSite()),
+}));
 const publisherSchema = z.object({ id, name, status: z.enum(["active", "archived"]) });
 const eventSchema = z.object({ at: z.string(), actor: id, action: z.string(), entityId: id });
 export const registrySchema = z.object({
@@ -111,22 +137,7 @@ export function initialRegistry(): Registry {
       status: "published",
       kind: "demo",
       publisherIds: ["ieee"],
-      site: defaultCustomerSite({
-        domain: "kth.portal.contentonline.se",
-        domainStatus: "pending",
-        primaryColor: "#1954a6",
-        accentColor: "#2f8f83",
-        heading: "Kunskap i användning",
-        tagline: "En syntetisk KTH-pilot för informationsresurser, statistik och kundservice.",
-        agent: {
-          enabled: true,
-          agentId: "",
-          clientKey: "",
-          greeting: "Hej! Jag hjälper er att hitta i KTH:s syntetiska kundportal.",
-          positivity: 7,
-          tools: ["portal_context", "portal_navigation", "portfolio_summary", "usage_summary"],
-        },
-      }),
+      site: kthDemoCustomerSite(),
     }],
     publishers: [
       { id: "ieee", name: "IEEE", status: "active" },
