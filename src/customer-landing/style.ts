@@ -735,7 +735,8 @@ h1, h2, h3, p, figure { margin-top: 0; }
   .landing-gallery-card, .landing-gallery-card-tall, .landing-gallery-card-wide { min-height: 0; aspect-ratio: 4 / 5; }
   .landing-gallery-card:nth-child(even) { aspect-ratio: 4 / 3; }
   .landing-gallery-card-offset { transform: none; }
-  .landing-resources-heading h2 { font-size: clamp(57px, 19vw, 100px); }
+  .landing-resources-heading { min-width: 0; }
+  .landing-resources-heading h2 { max-width: 100%; font-size: clamp(50px, 16vw, 80px); }
   .landing-resource-content { display: block; }
   .landing-resource-tabs button { min-height: 64px; }
   .landing-resource-panels { min-height: 270px; }
