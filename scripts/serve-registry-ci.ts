@@ -13,5 +13,6 @@ const app = createAdminPortal({ authenticate: async request =>
   registryStore: new NeonRegistryStore(query),
   didAgentId: "v2_agt_ci_runtime",
   didClientKey: "ck_ci_runtime_domain_key",
+  customerLogoUploader: async customerId => `https://ci.public.blob.vercel-storage.com/${customerId}-logo.png`,
 });
 serve({ fetch: app.fetch, hostname: "127.0.0.1", port: 3002 });

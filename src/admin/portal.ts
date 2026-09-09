@@ -26,6 +26,7 @@ import {
 } from "./salesforce.js";
 import { workspaceClient } from "./workspace-client.js";
 import { workspaceCss } from "./workspace-style.js";
+import { CustomerLogoError, MAX_CUSTOMER_LOGO_BYTES, uploadCustomerLogo } from "./customer-logo.js";
 import { didEmbedConfiguration, resolveCustomerAgent } from "../customer-portal/agent.js";
 import { customerAccessClient } from "../customer-portal/access-client.js";
 import { customerPortalClient } from "../customer-portal/client.js";
@@ -55,6 +56,7 @@ type AdminPortalOptions = {
   now?: () => Date;
   askAssistant?: (question: string, adminId: string) => Promise<AssistantAnswer>;
   presentationFixtures?: boolean;
+  customerLogoUploader?: (customerId: string, file: File) => Promise<string>;
 };
 type AdminPortalEnvironment = { Variables: { adminIdentity: AdminIdentity } };
 export function clerkFrontendHost(key: string): string | null {
@@ -465,6 +467,35 @@ export function createAdminPortal(
     try { return c.json(adminRegistrySnapshot(await registry().read())); }
     catch { return c.json({ error: "storage_unavailable" }, 503); }
   });
+
+  app.post("/admin/api/customers/:id/logo", async (c) => {
+    // Logo bytes are accepted only from an authenticated, same-origin admin.
+    // The Blob token remains server-side and is never returned to the browser.
+    const origin = c.req.header("origin");
+    if (origin && origin !== PLATFORM_ORIGIN && origin !== new URL(c.req.url).origin) return c.json({ error: "forbidden" }, 403);
+    const contentLength = Number(c.req.header("content-length") ?? "0");
+    if (Number.isFinite(contentLength) && contentLength > MAX_CUSTOMER_LOGO_BYTES + 128_000) {
+      return c.json({ error: "logo_too_large" }, 413);
+    }
+    try {
+      const form = await c.req.raw.formData();
+      const file = form.get("logo");
+      const version = Number(form.get("version"));
+      if (!(file instanceof File) || !Number.isSafeInteger(version) || version < 1) {
+        return c.json({ error: "invalid_logo_upload" }, 422);
+      }
+      const current = await registry().read();
+      if (current.version !== version) return c.json({ error: "version_conflict" }, 409);
+      const customer = current.data.customers.find((candidate) => candidate.id === c.req.param("id"));
+      if (!customer) return c.json({ error: "not_found" }, 404);
+      const url = await (options.customerLogoUploader ?? uploadCustomerLogo)(customer.id, file);
+      return c.json({ url });
+    } catch (error) {
+      if (error instanceof CustomerLogoError) return c.json({ error: error.code }, error.status);
+      return c.json({ error: "logo_upload_unavailable" }, 503);
+    }
+  });
+
   app.post("/admin/api/registry", async (c) => {
     // Bearer auth is mandatory above; a cookie and a foreign origin never authorize writes.
     const origin = c.req.header("origin");

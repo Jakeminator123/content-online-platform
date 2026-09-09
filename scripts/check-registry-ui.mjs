@@ -25,13 +25,17 @@ try{
   await panel.locator('.list-item').filter({hasText:'Browser Partner'}).waitFor();
   await page.locator('.nav [data-id="customers"]').click();
   assert.equal(await page.locator('#view').innerText(), '', 'Real customer management must not display fictional organizations');
-  assert.ok((await panel.locator('.registry-customer').filter({hasText:'KTH'}).innerText()).includes('Gemensam D-ID-agent'));
+  const demo=panel.locator('.registry-demo');
+  assert.ok(await demo.getAttribute('open')!==null);
+  assert.ok((await demo.innerText()).includes('Referensdemo – inte en kund'));
+  assert.ok((await demo.locator('.registry-customer-demo').innerText()).includes('Separat referensdemo, inte kunddata'));
   await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
   assert.equal(await panel.getByLabel('Slug efter inloggning').inputValue(),'browser-customer');
-  await panel.getByRole('button',{name:'Lägg till kund',exact:true}).click();
+  await panel.getByRole('button',{name:'Skapa kundutkast',exact:true}).click();
   let row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
   await row.waitFor();
-  assert.ok((await row.innerText()).includes('Aktuell standarddashboard'));
+  assert.ok((await row.innerText()).includes('Inte publicerad ännu'));
+  assert.ok((await row.innerText()).includes('Portalprofil: Standard'));
   assert.ok((await row.innerText()).includes('Avstängd'));
   await row.getByRole('button',{name:'Styr kundsajt',exact:true}).click();
   await panel.getByLabel('Browser Partner',{exact:true}).check();
@@ -40,6 +44,7 @@ try{
   row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
   await row.getByRole('button',{name:'Styr kundsajt',exact:true}).click();
   await panel.getByLabel('Portalrubrik').fill('Browser kunskapsportal');
+  await panel.getByLabel('Ladda upp logotyp').setInputFiles({name:'browser-logo.png',mimeType:'image/png',buffer:Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])});
   await panel.getByLabel('Primärfärg').fill('#123456');
   await panel.getByLabel('Visa agenten på kundens portal').check();
   await panel.locator('summary').filter({hasText:'Egen D-ID-konfiguration'}).click();
@@ -58,6 +63,7 @@ try{
   assert.equal(publishedPortal.status,200);
   const customerPortal=await publishedPortal.text();
   assert.ok(customerPortal.includes('Browser kunskapsportal'));
+  assert.ok(customerPortal.includes('https://ci.public.blob.vercel-storage.com/'));
   assert.ok(customerPortal.includes('data-agent-id="v2_agt_browser"'));
   await page.reload({waitUntil:'networkidle'});
   row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
@@ -71,7 +77,7 @@ try{
   await row.getByRole('button',{name:'Återställ till utkast'}).click();
   await row.getByRole('button',{name:'Publicera',exact:true}).waitFor();
   assert.equal((await fetch(base+'/portal/browser-customer')).status,404);
-  await row.getByRole('button',{name:'Arkivera kundsajt',exact:true}).click();
+  await row.getByRole('button',{name:'Ta bort utkast…',exact:true}).click();
   await row.getByRole('button',{name:'Radera permanent',exact:true}).click();
   const deleteForm=panel.locator('form[data-reg-form="delete_customer"]');
   await deleteForm.getByLabel('Exakt slug').fill('browser-customer');
@@ -79,7 +85,7 @@ try{
   await row.waitFor({state:'detached'});
   await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
   assert.equal(await panel.getByLabel('Slug efter inloggning').inputValue(),'browser-customer','Permanent deletion must release the slug');
-  await panel.getByRole('button',{name:'Lägg till kund',exact:true}).click();
+  await panel.getByRole('button',{name:'Skapa kundutkast',exact:true}).click();
   row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
   await row.getByRole('button',{name:'Publicera',exact:true}).waitFor();
   await page.setViewportSize({width:390,height:844});

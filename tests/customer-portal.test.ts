@@ -153,6 +153,16 @@ describe("shared multi-tenant customer portal", () => {
     expect(customDomainHtml).not.toContain('/customer-portal/assets/session.js');
   });
 
+  it("publishes a customer whose valid slug contains only digits", async () => {
+    let data = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Customer 111", slug: "111" }, "admin");
+    data = applyRegistryCommand(data, { action: "publish_customer", id: data.customers[1]!.id }, "admin");
+    const app = createAdminPortal({ authenticate: async () => admin }, cfg, { registryStore: storeFor(data) });
+
+    const response = await app.request("/portal/111");
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('data-customer-slug="111"');
+  });
+
   it("routes a ready exact customer hostname across portal, login and public context", async () => {
     const data = publishedCustomer();
     data.customers[1]!.site.domain = "library.example.edu";

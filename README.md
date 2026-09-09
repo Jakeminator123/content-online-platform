@@ -10,6 +10,9 @@ repository eller Vercel-projekt.
 
 Plattformen är en publicerad pilot. KTH är den uttryckligen syntetiska piloten på
 `/portal/kth`; dess produkter, användare och mätvärden är presentationsdata.
+KTH är inte grundmallen för nya kunder. Nya kundposter får en neutral
+standardkonfiguration och delar endast portalruntime och valbar portalprofil med
+piloten.
 Verklig kundstatistik, publisherdata och andra livekällor är ännu inte anslutna.
 
 ## Kanoniska adresser
@@ -53,7 +56,8 @@ cronjobb, rapportflöden och externa källor som ännu inte är anslutna.
 
 ## Kundportal och D-ID
 
-Alla kunder använder samma portaltemplate med kundens namn, färger, logotyp,
+Alla kunder använder samma portaltemplate med kundens namn, färger, uppladdade
+PNG-/JPG-/WebP-logotyp eller publik HTTPS-logotyp,
 publicister och valfria domäninställningar. D-ID-agenten hör till kundportalen,
 inte personaladministrationen, och laddas först när användaren öppnar den.
 Content Online styr hälsning, tonalitet och tillåtna verktyg, men tonaliteten får
