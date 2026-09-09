@@ -28,6 +28,9 @@ export const customerPortalClient = String.raw`
   const sidebar = document.getElementById('portal-sidebar');
   const scrim = document.getElementById('portal-scrim');
   const menu = document.getElementById('portal-menu');
+  const portalMain = document.getElementById('portal-main');
+  const agentConfig = document.getElementById('portal-agent-config');
+  const agentLauncher = document.getElementById('portal-agent-launcher');
   const breadcrumb = document.getElementById('portal-breadcrumb');
   const liveStatus = document.getElementById('portal-live-status');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -42,12 +45,42 @@ export const customerPortalClient = String.raw`
     else sidebar.removeAttribute('aria-hidden');
   };
 
-  const closeMenu = () => {
+  const menuIsOpen = () => Boolean(mobileLayout.matches && sidebar?.classList.contains('open'));
+  const sidebarFocusables = () => sidebar
+    ? [...sidebar.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+        .filter((element) => !element.hidden)
+    : [];
+
+  const closeMenu = (options = {}) => {
+    const wasOpen = menuIsOpen();
     sidebar?.classList.remove('open');
     scrim?.classList.remove('visible');
     menu?.setAttribute('aria-expanded', 'false');
     document.body.classList.remove('portal-nav-open');
+    portalMain?.removeAttribute('inert');
+    sidebar?.removeAttribute('role');
+    sidebar?.removeAttribute('aria-modal');
+    agentLauncher?.removeAttribute('inert');
+    agentLauncher?.removeAttribute('aria-hidden');
     setSidebarAccess(false);
+    if (wasOpen && options.restoreFocus !== false) queueMicrotask(() => menu?.focus());
+  };
+
+  const openMenu = () => {
+    if (!mobileLayout.matches || !sidebar) return;
+    sidebar.classList.add('open');
+    scrim?.classList.add('visible');
+    menu?.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('portal-nav-open');
+    setSidebarAccess(true);
+    sidebar.setAttribute('role', 'dialog');
+    sidebar.setAttribute('aria-modal', 'true');
+    portalMain?.setAttribute('inert', '');
+    agentLauncher?.setAttribute('inert', '');
+    agentLauncher?.setAttribute('aria-hidden', 'true');
+    window.DID_AGENTS_API?.configure?.({ openMode: 'compact' });
+    const preferred = sidebar.querySelector('[data-portal-nav][aria-current="page"]') || sidebarFocusables()[0];
+    queueMicrotask(() => preferred?.focus());
   };
 
   const activateSection = (section, options = {}) => {
@@ -73,6 +106,7 @@ export const customerPortalClient = String.raw`
     if (options.scroll !== false) {
       window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
     }
+    closeMenu({ restoreFocus: false });
     if (options.focus) {
       target.setAttribute('tabindex', '-1');
       target.focus({ preventScroll: true });
@@ -83,7 +117,6 @@ export const customerPortalClient = String.raw`
         { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' },
       );
     }
-    closeMenu();
     return { ok: true, section, label };
   };
 
@@ -95,19 +128,40 @@ export const customerPortalClient = String.raw`
   });
 
   menu?.addEventListener('click', () => {
-    const open = sidebar?.classList.toggle('open');
-    if (open) window.DID_AGENTS_API?.configure?.({ openMode: 'compact' });
-    scrim?.classList.toggle('visible', Boolean(open));
-    menu.setAttribute('aria-expanded', String(Boolean(open)));
-    document.body.classList.toggle('portal-nav-open', Boolean(open));
-    setSidebarAccess(Boolean(open));
+    if (menuIsOpen()) closeMenu();
+    else openMenu();
   });
   scrim?.addEventListener('click', closeMenu);
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeMenu();
+    if (!menuIsOpen()) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusables = sidebarFocusables();
+    if (!focusables.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && (document.activeElement === first || !sidebar?.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !sidebar?.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
+    }
   });
   mobileLayout.addEventListener('change', () => {
-    setSidebarAccess(Boolean(sidebar?.classList.contains('open')));
+    if (!mobileLayout.matches) closeMenu({ restoreFocus: false });
+    else {
+      const focusWasInSidebar = Boolean(sidebar?.contains(document.activeElement));
+      setSidebarAccess(false);
+      if (focusWasInSidebar) queueMicrotask(() => menu?.focus());
+    }
   });
   setSidebarAccess(false);
 
@@ -149,6 +203,8 @@ export const customerPortalClient = String.raw`
     statusNode.dataset.state = normalized;
     statusNode.textContent = normalized === 'connected'
       ? 'Ansluten'
+      : normalized === 'loading'
+        ? 'Öppnar assistenten'
       : normalized === 'connecting'
         ? 'Ansluter'
         : normalized === 'disconnected'
@@ -163,7 +219,6 @@ export const customerPortalClient = String.raw`
     api.configure({
       position: 'right',
       orientation: compactAgentLayout.matches ? 'vertical' : 'horizontal',
-      openMode: 'compact',
       showRestartButton: false,
     });
     return true;
@@ -172,25 +227,97 @@ export const customerPortalClient = String.raw`
     if (didBound) return true;
     const api = window.DID_AGENTS_API;
     if (!api?.events?.on) return false;
+    try {
+      configureDidLayout();
+      api.events.on('connection', (event) => {
+        const state = String(event?.state || '').toLowerCase();
+        setAgentStatus(state);
+        if (state === 'connected') registerTools();
+      });
+    } catch {
+      return false;
+    }
     didBound = true;
-    configureDidLayout();
-    api.events.on('connection', (event) => {
-      const state = String(event?.state || '').toLowerCase();
-      setAgentStatus(state);
-      if (state === 'connected') registerTools();
-    });
+    if (agentLauncher) {
+      const focusTarget = document.querySelector('.didagent_target button, .didagent_target [href], .didagent_target [tabindex]:not([tabindex="-1"]), .didagent_target');
+      if (document.activeElement === agentLauncher && focusTarget?.focus) {
+        if (!focusTarget.hasAttribute('tabindex')) focusTarget.setAttribute('tabindex', '-1');
+        focusTarget.focus({ preventScroll: true });
+        agentLauncher.hidden = true;
+      } else if (document.activeElement === agentLauncher) {
+        agentLauncher.setAttribute('aria-label', 'Content Online AI är öppen');
+        const launcherLabel = agentLauncher.querySelector('strong');
+        if (launcherLabel) launcherLabel.textContent = 'Assistenten är öppen';
+        agentLauncher.addEventListener('blur', () => { agentLauncher.hidden = true; }, { once: true });
+      } else {
+        agentLauncher.hidden = true;
+      }
+    }
     return true;
   };
 
-  if (config.agentEnabled) {
-    compactAgentLayout.addEventListener('change', configureDidLayout);
-    if (!bindDid()) {
+  let agentLoading = false;
+  let agentRequested = false;
+  const loadAgent = () => {
+    if (!config.agentEnabled || agentLoading || agentRequested || didBound || !agentConfig || !agentLauncher) return;
+    const agentId = agentConfig.dataset.agentId;
+    const clientKey = agentConfig.dataset.clientKey;
+    if (!agentId || !clientKey) return;
+    agentLoading = true;
+    agentRequested = true;
+    agentLauncher.setAttribute('aria-busy', 'true');
+    const launcherLabel = agentLauncher.querySelector('strong');
+    const idleLabel = launcherLabel?.textContent || 'Fråga Content Online';
+    if (launcherLabel) launcherLabel.textContent = 'Öppnar assistenten…';
+    setAgentStatus('loading');
+
+    const embed = document.createElement('script');
+    embed.type = 'module';
+    embed.src = 'https://agent.d-id.com/v2/index.js';
+    Object.assign(embed.dataset, {
+      mode: 'fabio',
+      clientKey,
+      agentId,
+      name: 'did-agent',
+      monitor: 'true',
+      orientation: compactAgentLayout.matches ? 'vertical' : 'horizontal',
+      position: 'right',
+      openMode: 'expanded',
+      showAgentName: 'false',
+      showRestartButton: 'false',
+    });
+    embed.addEventListener('error', () => {
+      agentLoading = false;
+      agentRequested = false;
+      agentLauncher.removeAttribute('aria-busy');
+      if (launcherLabel) launcherLabel.textContent = idleLabel;
+      setAgentStatus('disconnected');
+      embed.remove();
+    }, { once: true });
+    embed.addEventListener('load', () => {
       let attempts = 0;
       const timer = setInterval(() => {
         attempts += 1;
-        if (bindDid() || attempts > 80) clearInterval(timer);
+        if (bindDid()) {
+          clearInterval(timer);
+          agentLoading = false;
+          agentLauncher.removeAttribute('aria-busy');
+        } else if (attempts > 80) {
+          clearInterval(timer);
+          agentLoading = false;
+          agentLauncher.removeAttribute('aria-busy');
+          agentLauncher.disabled = true;
+          if (launcherLabel) launcherLabel.textContent = 'Assistenten kunde inte öppnas';
+          setAgentStatus('disconnected');
+        }
       }, 100);
-    }
+    }, { once: true });
+    document.body.append(embed);
+  };
+
+  if (config.agentEnabled && agentLauncher) {
+    compactAgentLayout.addEventListener('change', configureDidLayout);
+    agentLauncher.addEventListener('click', loadAgent);
   }
 })();
 ` + customerPortalInsightsClient;
