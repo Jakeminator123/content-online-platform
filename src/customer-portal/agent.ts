@@ -33,10 +33,9 @@ export function resolveCustomerAgent(
   fallback: Partial<DidAgentConfiguration> = {},
 ): DidAgentConfiguration | null {
   if (!customer.site.agent.enabled) return null;
-  return didEmbedConfiguration(
-    customer.site.agent.agentId || fallback.agentId || "",
-    customer.site.agent.clientKey || fallback.clientKey || "",
-  );
+  const { agentId, clientKey } = customer.site.agent;
+  if (agentId || clientKey) return didEmbedConfiguration(agentId, clientKey);
+  return didEmbedConfiguration(fallback.agentId || "", fallback.clientKey || "");
 }
 
 export function customerAgentPolicy(customer: RegistryCustomer) {

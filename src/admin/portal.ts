@@ -122,6 +122,7 @@ export function createAdminPortal(
         rootDomain: portalRootDomain,
         wildcardReady: portalWildcardReady,
       },
+      agentDefaultConfigured: Boolean(didEmbedConfiguration(fallbackDidAgent.agentId, fallbackDidAgent.clientKey)),
       agentModeByCustomer: Object.fromEntries(snapshot.data.customers.map((customer) => {
         if (!customer.site.agent.enabled) return [customer.id, "disabled"];
         if (didEmbedConfiguration(customer.site.agent.agentId, customer.site.agent.clientKey)) return [customer.id, "customer"];

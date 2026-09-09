@@ -34,7 +34,7 @@ Ingen e-postadress, lösenord eller hemlig nyckel hör hemma i detta publika rep
 
 - `CLERK_SECRET_KEY` och `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: tillförs av Vercel Marketplace.
 - `CONTENT_ONLINE_ADMIN_EMAIL`: server-only, satt som sensitive enbart i Vercels production-miljö.
-- `DID_AGENT_ID` och `DID_CLIENT_KEY`: webbläsarkonfiguration i **All Environments** för Vercel-projektet `content-online-platform`. Client key ska ha kundportalens exakta origin i D-ID Allowed Domains. D-ID API key används inte av applikationen och får aldrig behandlas som frontendkonfiguration.
+- `DID_AGENT_ID` och `DID_CLIENT_KEY`: gemensam demo-/webbläsarkonfiguration i **All Environments** för Vercel-projektet `content-online-platform`. Client key ska ha den delade portalens exakta origin i D-ID Allowed Domains. En egen kunddomän kräver att dess origin också tillåts eller en komplett kundunik override. D-ID API key används inte av applikationen och får aldrig behandlas som frontendkonfiguration.
 - `.env.example`: konfigurationsnamn och icke-hemliga standardvärden, aldrig credentials.
 - `scripts/configure-admin-auth.mjs`: explicit körd, idempotent registreringsallowlist för den konfigurerade adressen. Skickar inte e-post och skapar inte ett verifierat användarkonto.
 
@@ -85,7 +85,7 @@ Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projekt
 
 Plattformens rot var intern inloggning i denna mellanversion. Aktuell lagring, kundadresser, arkivering och kundidentitet beskrivs i [PORTALSTRUKTUR.md](PORTALSTRUKTUR.md). Detta ersätter äldre uppgifter ovan om pausad Neon eller att alla kund-/publicistlistor saknar sparning. Statistik och demofixtures är fortfarande separata.
 
-Adminregistret skiljer nu på **Styr kund**, **Granska kundyta** och **Aktiveringssida**. Publicerade icke-KTH-kunder får en organisationsmärkt sida under `/portal/{slug}` i plattformens gemensamma portalmall. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.
+Adminregistret skiljer nu på **Styr kundsajt**, **Granska kundsajt** och **Kundinloggning**. Inloggningen ligger på `/login?portal={slug}` och den serververifierade destinationen på `/portal/{slug}`. Publicerade icke-KTH-kunder får den aktuella gemensamma dashboarden med egen organisationsmärkning. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.
 
 ## Uppdatering 2026-09-09: kundinloggning och medlemskap
 

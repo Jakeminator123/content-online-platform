@@ -30,7 +30,10 @@ const customerAgentSchema = z.object({
   positivity: z.number().int().min(1).max(10),
   tools: z.array(customerPortalToolSchema).max(customerPortalTools.length)
     .transform((tools) => [...new Set(tools)]),
-});
+}).refine(
+  (agent) => Boolean(agent.agentId) === Boolean(agent.clientKey),
+  { message: "incomplete_did_override", path: ["clientKey"] },
+);
 const customerSiteSchema = z.object({
   preset: z.enum(["insight", "library", "minimal"]),
   domain: hostname,
@@ -56,7 +59,9 @@ export function defaultCustomerSite(overrides: Partial<CustomerSite> = {}): Cust
     heading: "Välkommen till er kundportal",
     tagline: "Informationsprodukter, användning och kundservice i en samlad yta.",
     agent: {
-      enabled: false,
+      // New pilot tenants use the shared, origin-restricted D-ID demo
+      // configuration unless an explicit complete per-customer override is saved.
+      enabled: true,
       agentId: "",
       clientKey: "",
       greeting: "Hej! Hur kan jag hjälpa er i kundportalen?",

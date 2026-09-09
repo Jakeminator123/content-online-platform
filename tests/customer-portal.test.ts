@@ -8,7 +8,7 @@ import {
   type Registry,
   type RegistryStore,
 } from "../src/admin/registry.js";
-import { customerAgentPolicy } from "../src/customer-portal/agent.js";
+import { customerAgentPolicy, resolveCustomerAgent } from "../src/customer-portal/agent.js";
 import { customerPortalClient } from "../src/customer-portal/client.js";
 import { customerSlugFromHostname } from "../src/customer-portal/routing.js";
 
@@ -178,7 +178,18 @@ describe("shared multi-tenant customer portal", () => {
       publishers: [],
       events: [],
     });
-    expect(parsed.customers[0]!.site).toMatchObject({ preset: "insight", domainStatus: "not_configured", agent: { enabled: false, positivity: 5 } });
+    expect(parsed.customers[0]!.site).toMatchObject({ preset: "insight", domainStatus: "not_configured", agent: { enabled: true, positivity: 5 } });
+  });
+
+  it("uses one complete platform demo agent for a new tenant and never mixes a partial override", () => {
+    const data = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, "admin");
+    const customer = data.customers[1]!;
+    const fallback = { agentId: "v2_agt_platform", clientKey: "ck_platform_origin_key" };
+    expect(resolveCustomerAgent(customer, fallback)).toEqual(fallback);
+
+    const partial = structuredClone(customer);
+    partial.site.agent.agentId = "v2_agt_customer";
+    expect(resolveCustomerAgent(partial, fallback)).toBeNull();
   });
 
   it("migrates only a legacy KTH demo without site settings to the intended agent-enabled pilot", async () => {
