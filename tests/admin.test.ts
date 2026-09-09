@@ -459,6 +459,7 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(styles).toContain('url("/customer-landing/MonaSans-Variable.woff2")');
     expect(styles).toContain(".landing-hero-scroll");
     expect(styles).toContain(".landing-card-fan");
+    expect(styles).not.toContain("backdrop-filter");
   });
 
   it("does not treat a transient Clerk reconnect as a signed-out session", () => {

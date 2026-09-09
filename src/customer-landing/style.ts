@@ -84,13 +84,11 @@ h1, h2, h3, p, figure { margin-top: 0; }
   align-items: center;
   justify-content: space-between;
   padding: 10px clamp(16px, 3.2vw, 48px);
-  transition: background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease;
 }
 .landing-header[data-scrolled="true"] {
   border-bottom: 1px solid var(--co-rule-dark);
   background: rgba(9, 21, 35, 0.82);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
 }
 
 .landing-brand {
