@@ -36,6 +36,9 @@ import { customerSlugFromHostname, isCustomerSlug } from "../customer-portal/rou
 import { customerSessionClient } from "../customer-portal/session-client.js";
 import { customerPortalCss } from "../customer-portal/style.js";
 import { customerPortalContext, renderCustomerPortal, type CustomerPortalPage } from "../customer-portal/template.js";
+import { customerLandingClient } from "../customer-landing/client.js";
+import { customerLandingCss } from "../customer-landing/style.js";
+import { renderCustomerLanding } from "../customer-landing/template.js";
 
 type AdminPortalOptions = {
   registryStore?: RegistryStore;
@@ -106,7 +109,7 @@ export function createAdminPortal(
   const domainService = () => options.domainService ?? customerDomainServiceFromEnvironment(options.fetchImpl);
   const customerAccessLocation = (requestUrl: string) => {
     const preference = new URL(requestUrl).searchParams.get("portal") ?? "";
-    return isCustomerSlug(preference) ? `/?portal=${encodeURIComponent(preference)}` : "/";
+    return isCustomerSlug(preference) ? `/login?portal=${encodeURIComponent(preference)}` : "/login";
   };
   const adminRegistrySnapshot = (snapshot: RegistrySnapshot) => ({
     ...snapshot,
@@ -155,6 +158,8 @@ export function createAdminPortal(
   app.get("/customer-portal/assets/client.js", (c) => c.body(customerPortalClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   app.get("/customer-portal/assets/access.js", (c) => c.body(customerAccessClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   app.get("/customer-portal/assets/session.js", (c) => c.body(customerSessionClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
+  app.get("/customer-landing/assets/style.css", (c) => c.body(customerLandingCss, 200, { "content-type": "text/css; charset=utf-8" }));
+  app.get("/customer-landing/assets/client.js", (c) => c.body(customerLandingClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   // A verified wildcard domain maps the first host label to one published tenant.
   app.use("*", async (c, next) => {
     const slug = customerSlugFromHostname(new URL(c.req.url).hostname, portalRootDomain);
@@ -256,7 +261,12 @@ export function createAdminPortal(
     return customer ? c.json(customerPortalContext(customer, data)) : c.json({ error: "not_found" }, 404);
   });
   app.get("/demo", (c) => c.html(page("demo", null, "", false)));
-  app.get("/", (c) => c.html(customerAccessPage("login", host, config.publishableKey, customerConfigured)));
+  app.get("/", (c) => {
+    const preference = new URL(c.req.url).searchParams.get("portal") ?? "";
+    if (isCustomerSlug(preference)) return c.redirect(`/login?portal=${encodeURIComponent(preference)}`, 302);
+    return c.html(renderCustomerLanding());
+  });
+  app.get("/login", (c) => c.html(customerAccessPage("login", host, config.publishableKey, customerConfigured)));
   app.get("/registrera", (c) => c.html(customerAccessPage("register", host, config.publishableKey, customerConfigured)));
   app.get("/kundportal", (c) => c.redirect(customerAccessLocation(c.req.url), 302));
   app.get("/content-online", (c) => c.redirect("/admin", 302));
@@ -542,7 +552,7 @@ function customerAccessPage(mode: "login" | "register", host: string | null, key
   <p class="customer-access-message" id="customer-access-message" role="status">${configured ? "Laddar säker inloggning…" : "Kundinloggningen är inte konfigurerad."}</p>${configured ? html`<div id="customer-auth-widget"></div>` : ""}
   <section class="portal-chooser" id="portal-chooser" aria-labelledby="portal-chooser-title" hidden><h3 id="portal-chooser-title">Era kundportaler</h3><div class="portal-entry-list" id="portal-entry-list"></div></section>
   <div class="customer-account" id="customer-account" hidden><button class="button secondary" id="customer-sign-out" type="button" hidden>Logga ut och byt konto</button></div>
-  <div class="customer-access-switch"><a href="${mode === "register" ? "/" : "/registrera"}">${mode === "register" ? "Har du redan ett konto? Logga in" : "Aktivera ditt kundkonto"}</a><a href="/admin/login">Content Online-personal →</a></div>
+  <div class="customer-access-switch"><a href="${mode === "register" ? "/login" : "/registrera"}">${mode === "register" ? "Har du redan ett konto? Logga in" : "Aktivera ditt kundkonto"}</a><a href="/admin/login">Content Online-personal →</a></div>
   <div class="trust-line"><span>${icon("info")}</span><p>En kundadress eller slug ger aldrig behörighet. Åtkomsten kontrolleras på servern för varje konto.</p></div></section></main></div>
   <noscript><p>Aktivera JavaScript för att logga in.</p></noscript></body></html>`;
 }

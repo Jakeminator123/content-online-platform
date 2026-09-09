@@ -83,12 +83,12 @@ export const customerAccessClient = String.raw`
     try {
       await Clerk.load({
         ui: { ClerkUI: window.__internal_ClerkUICtor },
-        signInUrl: '/',
+        signInUrl: '/login',
         signUpUrl: '/registrera',
         signInForceRedirectUrl: returnUrl,
         signUpForceRedirectUrl: returnUrl,
       });
-      if (signOut) signOut.addEventListener('click', () => Clerk.signOut({ redirectUrl: '/' }));
+      if (signOut) signOut.addEventListener('click', () => Clerk.signOut({ redirectUrl: '/login' }));
       if (Clerk.session) {
         await resolveEntries(Clerk.session);
         return;
@@ -97,7 +97,7 @@ export const customerAccessClient = String.raw`
       if (!widget) return;
       const options = {
         routing: 'hash',
-        signInUrl: '/',
+        signInUrl: '/login',
         signUpUrl: '/registrera',
         forceRedirectUrl: returnUrl,
         fallbackRedirectUrl: returnUrl,

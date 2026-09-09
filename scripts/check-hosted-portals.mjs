@@ -15,9 +15,16 @@ async function check(url, status, options = {}) {
 await check(`${platform}/health`, 200);
 const start = await check(platform, 200);
 assert(!start.body.includes('href="/kundportal"'));
-assert(start.body.includes('data-customer-access-mode="login"'));
-assert(start.body.includes('id="customer-auth-widget"'));
-assert(start.body.includes('href="/admin/login"'));
+assert(start.body.includes('data-page="customer-landing"'));
+assert(start.body.includes('data-customer-login'));
+assert(start.body.includes('href="/login"'));
+assert(!start.body.includes('id="customer-auth-widget"'));
+assert(!start.body.includes('clerk.browser.js'));
+const customerLogin = await check(`${platform}/login`, 200);
+assert(customerLogin.body.includes('data-customer-access-mode="login"'));
+assert(customerLogin.body.includes('id="customer-auth-widget"'));
+assert(customerLogin.body.includes('href="/admin/login"'));
+assert(customerLogin.body.includes('clerk.browser.js'));
 for (const path of ['/admin/login', '/admin/registrera', '/admin']) {
   const { body } = await check(`${platform}${path}`, 200);
   assert(body.includes('clerk.browser.js'));
@@ -27,8 +34,14 @@ for (const path of ['/admin/login', '/admin/registrera', '/admin']) {
   for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) new Script(script);
 }
 const portal = await check(`${platform}/kundportal`, 302);
-assert.equal(portal.response.headers.get('location'), '/');
+assert.equal(portal.response.headers.get('location'), '/login');
 assert.equal(portal.response.headers.get('set-cookie'), null);
+const preferredPortal = await check(`${platform}/?portal=kth`, 302);
+assert.equal(preferredPortal.response.headers.get('location'), '/login?portal=kth');
+assert.equal(preferredPortal.response.headers.get('set-cookie'), null);
+const invalidPortal = await check(`${platform}/?portal=%2F%2Fevil.example`, 200);
+assert(invalidPortal.body.includes('data-page="customer-landing"'));
+assert(!invalidPortal.body.includes('evil.example'));
 await check(`${platform}/v1/portal-entries`, 401);
 await check(`${platform}/admin/api/session`, 401);
 await check(`${platform}/admin/api/users`, 401);

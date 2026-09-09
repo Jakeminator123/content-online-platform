@@ -142,7 +142,7 @@ describe("shared multi-tenant customer portal", () => {
     expect(JSON.stringify(context)).not.toContain("ck_north_domain_key");
 
     const loginHtml = await (await app.request("/portal/north/login")).text();
-    expect(loginHtml).toContain("https://content-online-platform.vercel.app/?portal=north");
+    expect(loginHtml).toContain("https://content-online-platform.vercel.app/login?portal=north");
     expect(loginHtml).not.toContain("content-online-customer-login.vercel.app");
     expect(loginHtml).not.toContain("returnUrl");
     expect(loginHtml).not.toContain("session_token");

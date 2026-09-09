@@ -89,7 +89,7 @@ Adminregistret skiljer nu på **Styr kund**, **Granska kundyta** och **Aktiverin
 
 ## Uppdatering 2026-09-09: kundinloggning och medlemskap
 
-- `/` är kundinloggning; `/admin` och `/admin/login` är fortsatt Content Onlines separata personalyta.
+- `/` är den publika Content Online-ingången, `/login` är kundinloggningen och `/admin` samt `/admin/login` är fortsatt Content Onlines separata personalyta.
 - En verifierad Clerk-session får anropa `/v1/portal-entries`. Endpointen härleder svaret ur aktiva medlemskap och publicerade icke-demo-kunder i registret. URL-sluggen är aldrig ett behörighetsbevis.
 - E-postadressen är endast en väntande inbjudan. Första godkända inloggningen binder medlemskapet till Clerks stabila användar-ID; ett nytt konto som senare återanvänder adressen ärver inte rollen.
 - Portalanvändare skapas och inaktiveras inne i respektive kundpost. KTH är skyddad syntetisk demo och kan inte få riktiga medlemskonton.

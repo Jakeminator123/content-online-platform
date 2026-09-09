@@ -35,7 +35,7 @@ function fakeNode(): FakeNode {
   return node;
 }
 
-async function runClient(entries: Entry[], search = "") {
+async function runClient(entries: Entry[], search = "", authenticated = true) {
   const elements = {
     "customer-access": fakeNode(),
     "customer-access-message": fakeNode(),
@@ -61,15 +61,15 @@ async function runClient(entries: Entry[], search = "") {
   };
   const replace = vi.fn();
   const location = {
-    href: `https://content-online-platform.vercel.app/${search}`,
-    pathname: "/",
+    href: `https://content-online-platform.vercel.app/login${search}`,
+    pathname: "/login",
     search,
     replace,
   };
   const getToken = vi.fn(async () => "customer-session-token");
   const Clerk = {
     load: vi.fn(async () => undefined),
-    session: { getToken },
+    session: authenticated ? { getToken } : null,
     signOut: vi.fn(),
     mountSignIn: vi.fn(),
     mountSignUp: vi.fn(),
@@ -112,6 +112,12 @@ describe("customer portal access client", () => {
   it("redirects a sole membership only to the slug returned by the server", async () => {
     const result = await runClient([alpha]);
 
+    expect(result.Clerk.load).toHaveBeenCalledWith(expect.objectContaining({
+      signInUrl: "/login",
+      signUpUrl: "/registrera",
+      signInForceRedirectUrl: "/login",
+      signUpForceRedirectUrl: "/login",
+    }));
     expect(result.replace).toHaveBeenCalledOnce();
     expect(result.replace).toHaveBeenCalledWith("/portal/alpha");
     expect(result.getToken).toHaveBeenCalledOnce();
@@ -154,5 +160,22 @@ describe("customer portal access client", () => {
 
     expect(result.replace).toHaveBeenCalledOnce();
     expect(result.replace).toHaveBeenCalledWith("/portal/beta");
+  });
+
+  it("mounts customer sign-in on the dedicated path and signs out back to it", async () => {
+    const result = await runClient([], "", false);
+
+    expect(result.Clerk.mountSignIn).toHaveBeenCalledOnce();
+    expect(result.Clerk.mountSignIn.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      signInUrl: "/login",
+      signUpUrl: "/registrera",
+      forceRedirectUrl: "/login",
+      fallbackRedirectUrl: "/login",
+    }));
+    const signOutListener = result.elements["customer-sign-out"].addEventListener.mock.calls
+      .find(([event]) => event === "click")?.[1] as (() => void) | undefined;
+    expect(signOutListener).toBeTypeOf("function");
+    signOutListener?.();
+    expect(result.Clerk.signOut).toHaveBeenCalledWith({ redirectUrl: "/login" });
   });
 });

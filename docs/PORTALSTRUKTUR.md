@@ -10,7 +10,8 @@ skapar bara en tenant-konfiguration som samma deployment läser från registret.
 
 | Område | Adress | Behörighet |
 | --- | --- | --- |
-| Kundinloggning | `https://content-online-platform.vercel.app/` | Verifierad kundidentitet; medlemskap avgör tillgängliga portalposter |
+| Publik ingång | `https://content-online-platform.vercel.app/` | Ingen inloggning; presenterar Content Online och leder vidare till kundinloggningen |
+| Kundinloggning | `https://content-online-platform.vercel.app/login` | Verifierad kundidentitet; medlemskap avgör tillgängliga portalposter |
 | Content Online-admin | `https://content-online-platform.vercel.app/admin` | Intern Clerk-session och serverkontrollerad administratör |
 | Designgranskning | `/demo/customer/kth` | Oföränderlig och tydligt märkt syntetisk fixture, utan databasberoende |
 | Kundsida | `https://content-online-platform.vercel.app/portal/{url-namn}` | Publik, varumärkesmärkt struktur utan verklig kunddata |
@@ -24,8 +25,8 @@ I målbilden returnerar servern de portalposter som den verifierade identitetens
 aktiva medlemskap tillåter. En väntande e-postinbjudan binds vid första godkända
 inloggningen till leverantörens stabila användar-ID. Klienten får bara välja slug bland dessa poster; en
 manuellt angiven slug ger aldrig åtkomst. Den äldre login-sajten får finnas kvar
-som kompatibilitetslänk till `/`, men äger varken session, medlemskap eller
-kundportal.
+som kompatibilitetslänk till den publika ingången, men riktig autentisering sker
+endast på `/login`; den äldre sajten äger varken session, medlemskap eller kundportal.
 
 Den kanoniska `/portal/{slug}`-sidan verifierar samma session och exakta
 serverreturnerade portalpost innan den visar statusen verifierad åtkomst. Den
