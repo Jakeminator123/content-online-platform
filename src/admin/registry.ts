@@ -4,7 +4,9 @@ import { normalizeDidClientKey } from "../customer-portal/agent.js";
 
 const slug = z.string().min(2).max(63).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const name = z.string().trim().min(2).max(120);
+const displayName = z.string().trim().min(1).max(120);
 const id = z.string().min(1).max(80);
+const verifiedEmail = z.string().trim().toLowerCase().max(254).email();
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/).transform((value) => value.toLowerCase());
 const hostname = z.string().trim().toLowerCase().max(253).refine((value) => {
   if (!value) return true;
@@ -103,14 +105,38 @@ const customerSchema = z.object({
     : defaultCustomerSite()),
 }));
 const publisherSchema = z.object({ id, name, status: z.enum(["active", "archived"]) });
+const portalMemberSchema = z.object({
+  id,
+  customerId: id,
+  verifiedEmail,
+  externalUserId: id.nullable().default(null),
+  displayName,
+  role: z.enum(["customer_reader", "customer_admin"]),
+  status: z.enum(["active", "inactive"]),
+});
 const eventSchema = z.object({ at: z.string(), actor: id, action: z.string(), entityId: id });
 export const registrySchema = z.object({
   customers: z.array(customerSchema).max(1000),
   publishers: z.array(publisherSchema).max(100),
+  portalMembers: z.array(portalMemberSchema).max(10000).default([]),
   events: z.array(eventSchema).max(500),
+}).superRefine((registry, context) => {
+  const memberships = new Set<string>();
+  registry.portalMembers.forEach((member, index) => {
+    const key = `${member.customerId}\u0000${member.verifiedEmail}`;
+    if (memberships.has(key)) {
+      context.addIssue({
+        code: "custom",
+        message: "duplicate_portal_member_email",
+        path: ["portalMembers", index, "verifiedEmail"],
+      });
+    }
+    memberships.add(key);
+  });
 });
 export type Registry = z.infer<typeof registrySchema>;
 export type RegistryCustomer = Registry["customers"][number];
+export type PortalMember = Registry["portalMembers"][number];
 export type RegistrySnapshot = { version: number; data: Registry };
 export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("add_customer"), name, slug }),
@@ -156,6 +182,7 @@ export function initialRegistry(): Registry {
       { id: "sae", name: "SAE", status: "active" },
       { id: "astm", name: "ASTM", status: "active" },
     ],
+    portalMembers: [],
     events: [],
   });
 }
