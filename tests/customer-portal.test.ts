@@ -101,7 +101,9 @@ describe("shared multi-tenant customer portal", () => {
     expect(body).toContain("Kunskap i användning");
     expect(body).toContain("SYNTETISK KUNDBILD");
     expect(body).toContain('data-agent-id="v2_agt_preview"');
-    expect((await app.request("/demo/customer/kth/login")).status).toBe(200);
+    const login = await app.request("/demo/customer/kth/login");
+    expect(login.status).toBe(200);
+    expect(await login.text()).not.toContain("agent.d-id.com/v2/index.js");
     const context = await (await app.request("/demo/customer/kth/api/agent-context")).json();
     expect(context).toMatchObject({ portal: { customer: "KTH", dataMode: "synthetic_demo" } });
     expect(context.portfolio.items).toHaveLength(8);
@@ -221,6 +223,7 @@ describe("shared multi-tenant customer portal", () => {
     expect(customerPortalClient).toContain("registeredTools");
     expect(customerPortalClient).toContain("toggleAttribute('inert'");
     expect(customerPortalClient).toContain("window.scrollTo");
+    expect(customerPortalClient).toContain("portal-nav-open");
     expect(customerPortalClient).not.toContain("eval(");
     const customer = publishedCustomer().customers[1]!;
     const policy = customerAgentPolicy(customer);

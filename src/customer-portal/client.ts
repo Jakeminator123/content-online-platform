@@ -43,6 +43,7 @@ export const customerPortalClient = String.raw`
     sidebar?.classList.remove('open');
     scrim?.classList.remove('visible');
     menu?.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('portal-nav-open');
     setSidebarAccess(false);
   };
 
@@ -94,6 +95,7 @@ export const customerPortalClient = String.raw`
     const open = sidebar?.classList.toggle('open');
     scrim?.classList.toggle('visible', Boolean(open));
     menu.setAttribute('aria-expanded', String(Boolean(open)));
+    document.body.classList.toggle('portal-nav-open', Boolean(open));
     setSidebarAccess(Boolean(open));
   });
   scrim?.addEventListener('click', closeMenu);
