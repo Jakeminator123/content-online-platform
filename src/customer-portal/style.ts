@@ -1,3 +1,5 @@
+import { customerPortalInsightsCss } from "./insights-style.js";
+
 export const customerPortalCss = String.raw`
 :root {
   color-scheme: light;
@@ -675,4 +677,4 @@ button:focus-visible, a:focus-visible, [tabindex="-1"]:focus-visible {
     transition-duration: .01ms !important;
   }
 }
-`;
+` + customerPortalInsightsCss;
