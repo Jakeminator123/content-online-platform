@@ -222,7 +222,6 @@ export function renderCustomerLanding(access: CustomerLandingAccess = {
           ${customerAccessConfigured ? `<div id="customer-auth-widget"></div>` : ""}
           <section class="portal-chooser" id="portal-chooser" aria-labelledby="portal-chooser-title" hidden><h3 id="portal-chooser-title">Your customer portals</h3><div class="portal-entry-list" id="portal-entry-list"></div></section>
           <div class="customer-account" id="customer-account" hidden><button class="landing-auth-secondary" id="customer-sign-out" type="button" hidden>Sign out and switch account</button></div>
-          <div class="landing-auth-trust"><span aria-hidden="true">✓</span><p>Access is verified on the server for every account.</p></div>
         </section>
       </div>
     </dialog>

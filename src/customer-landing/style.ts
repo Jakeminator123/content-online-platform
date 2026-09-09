@@ -1004,18 +1004,6 @@ h1, h2, h3, p, figure { margin-top: 0; }
   font-size: 12px;
   font-weight: 760;
 }
-.landing-auth-trust {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 9px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(15,30,51,.1);
-  color: #66717a;
-}
-.landing-auth-trust span { color: #1b8b78; font-weight: 850; }
-.landing-auth-trust p { margin: 0; font-size: 11px; line-height: 1.55; }
-
 .landing-enhanced .landing-reveal-section {
   opacity: 0;
   transform: translateY(35px);
