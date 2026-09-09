@@ -44,7 +44,7 @@ describe("customer portal insights", () => {
     expect(insights.periods["30d"].kpis.sessionMinutes.value).not.toBe(insights.periods["30d"].series.sessionMinutes.at(-1));
   });
 
-  it("renders five overview fields, controllable charts, configuration, and honest ticket previews for the demo", () => {
+  it("renders three primary overview fields, a next action, controllable charts, and honest previews", () => {
     const registry = initialRegistry();
     const customer = registry.customers.find((item) => item.slug === "kth")!;
     const html = renderCustomerPortal(customer, registry, {
@@ -54,23 +54,30 @@ describe("customer portal insights", () => {
       didAgent: { agentId: "v2_agt_test", clientKey: "ck_customer_domain_test" },
     });
 
-    for (const label of ["Produktanvändning", "Förändring", "Produkter", "Publicister", "Nästa förnyelse"]) {
+    for (const label of ["Produktanvändning", "Förändring", "Produkter"]) {
       expect(html).toContain(label);
     }
+    expect(html.match(/class="metric-card"/g)).toHaveLength(3);
+    expect(html).toContain("Förnyelseöversikt");
+    expect(html).toContain("Till rapportflödet");
+    expect(html).toContain("Syntetisk visningsdata");
+    expect(html.match(/class="demo-status"/g)).toHaveLength(1);
     for (const control of ["data-insights-period", "data-insights-metric", "data-insights-group"]) {
       expect(html).toContain(control);
     }
     expect(html).toContain('data-portal-section="configuration"');
-    expect(html).toContain("Syntetisk telemetri");
-    expect(html).toContain("inte härledd från publisher-usage");
+    expect(html).toContain("Syntetisk visningsdata");
+    expect(html).toContain("inga livekällor");
     expect(html).toContain('class="wave-chart"');
     expect(html).toContain('class="donut-chart"');
     expect(html).toContain("Visa datapunkter");
     expect(html).toContain('data-report-cadence');
     expect(html).toContain("Förhandsvisa ärende");
     expect(html).toContain("Inget skickas eller sparas");
-    expect(html).toContain('data-show-agent-name="false"');
-    expect(html).toContain('data-show-restart-button="false"');
+    expect(html).toContain('id="portal-agent-launcher"');
+    expect(html).toContain('id="portal-agent-config"');
+    expect(html).not.toContain('<script type="module" src="https://agent.d-id.com/v2/index.js"');
+    expect(html).toContain('aria-controls="portal-sidebar"');
   });
 
   it("renders every assigned product in the product distribution", () => {
@@ -113,11 +120,13 @@ describe("customer portal insights", () => {
     expect(html).not.toContain("agent.d-id.com/v2/index.js");
   });
 
-  it("keeps D-ID responsive and ticket previews local to the browser", () => {
+  it("loads D-ID only after a deliberate click and keeps previews local to the browser", () => {
     expect(() => new Script(customerPortalClient)).not.toThrow();
     expect(() => new Script(customerPortalInsightsClient)).not.toThrow();
     expect(customerPortalClient).toContain("orientation: compactAgentLayout.matches ? 'vertical' : 'horizontal'");
-    expect(customerPortalClient).toContain("openMode: 'compact'");
+    expect(customerPortalClient).toContain("agentLauncher.addEventListener('click', loadAgent)");
+    expect(customerPortalClient).toContain("embed.src = 'https://agent.d-id.com/v2/index.js'");
+    expect(customerPortalClient).toContain("openMode: 'expanded'");
     expect(customerPortalClient).toContain("if (state === 'connected') registerTools()");
     expect(customerPortalInsightsClient).toContain("event.preventDefault()");
     expect(customerPortalInsightsClient).toContain("Inget har skickats eller sparats");

@@ -72,9 +72,10 @@ describe("shared multi-tenant customer portal", () => {
       expect(response.status).toBe(200);
       const body = await response.text();
       expect(body).toContain("Kunskap i användning");
-      expect(body).toContain("SYNTETISK KUNDBILD");
+      expect(body).toContain("Syntetisk visningsdata");
       expect(body).toContain('/admin/assets/co-logo.png');
-      expect(body).toContain('src="https://agent.d-id.com/v2/index.js"');
+      expect(body).toContain('id="portal-agent-launcher"');
+      expect(body).not.toContain('<script type="module" src="https://agent.d-id.com/v2/index.js"');
       expect(body).toContain(`data-agent-id="${didAgentId}"`);
       expect(body).toContain(`data-client-key="${didClientKey}"`);
       expect(body).toContain("Analys");
@@ -100,7 +101,7 @@ describe("shared multi-tenant customer portal", () => {
     expect(portal.status).toBe(200);
     const body = await portal.text();
     expect(body).toContain("Kunskap i användning");
-    expect(body).toContain("SYNTETISK KUNDBILD");
+    expect(body).toContain("Syntetisk visningsdata");
     expect(body).toContain('data-agent-id="v2_agt_preview"');
     const login = await app.request("/demo/customer/kth/login");
     expect(login.status).toBe(200);
@@ -322,6 +323,10 @@ describe("shared multi-tenant customer portal", () => {
     expect(customerPortalClient).toContain("panel.hidden = !active");
     expect(customerPortalClient).toContain("registeredTools");
     expect(customerPortalClient).toContain("toggleAttribute('inert'");
+    expect(customerPortalClient).toContain("portalMain?.setAttribute('inert'");
+    expect(customerPortalClient).toContain("sidebar.setAttribute('aria-modal', 'true')");
+    expect(customerPortalClient).toContain("event.key !== 'Tab'");
+    expect(customerPortalClient).toContain("queueMicrotask(() => menu?.focus())");
     expect(customerPortalClient).toContain("window.scrollTo");
     expect(customerPortalClient).toContain("portal-nav-open");
     expect(customerPortalClient).not.toContain("eval(");

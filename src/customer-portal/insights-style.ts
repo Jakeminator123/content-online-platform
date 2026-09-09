@@ -1,8 +1,22 @@
 export const customerPortalInsightsCss = String.raw`
 :root { --insight-chart: #285b70; --insight-positive: #397b73; }
-.metric-grid-five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.metric-grid-five .metric-card { min-height: 128px; padding: 18px; }
-.metric-grid-five .metric-card strong { margin-top: 16px; font-size: clamp(25px, 2.8vw, 34px); }
+.metric-grid-primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.metric-grid-primary .metric-card {
+  position: relative;
+  min-height: 150px;
+  overflow: hidden;
+}
+.metric-grid-primary .metric-card::after {
+  position: absolute;
+  inset: auto 22px 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--portal-primary) 20%, transparent);
+  content: "";
+}
+.metric-grid-primary .metric-card:first-child {
+  border-color: color-mix(in srgb, var(--portal-primary) 24%, var(--rule));
+  background: linear-gradient(145deg, #fff, color-mix(in srgb, var(--portal-primary) 5%, #fff));
+}
 
 .analytics-toolbar {
   display: flex;
@@ -249,10 +263,11 @@ export const customerPortalInsightsCss = String.raw`
 }
 
 @media (max-width: 1120px) {
-  .metric-grid-five,
   .telemetry-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
+  .metric-grid-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric-grid-primary .metric-card:first-child { grid-column: 1 / -1; }
   .analytics-toolbar { align-items: stretch; flex-wrap: wrap; }
   .analytics-toolbar label { flex: 1 1 180px; }
   .data-badge { margin-left: 0; align-self: end; }
@@ -260,7 +275,6 @@ export const customerPortalInsightsCss = String.raw`
   .configuration-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
-  .metric-grid-five,
   .telemetry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analytics-toolbar { display: grid; }
   .analytics-toolbar label { min-width: 0; }
@@ -273,8 +287,9 @@ export const customerPortalInsightsCss = String.raw`
   body[data-agent-enabled="true"] .portal-content { padding-right: 15px; padding-bottom: 190px; }
 }
 @media (max-width: 390px) {
-  .metric-grid-five,
+  .metric-grid-primary,
   .telemetry-grid { grid-template-columns: 1fr; }
+  .metric-grid-primary .metric-card:first-child { grid-column: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .chart-line,
