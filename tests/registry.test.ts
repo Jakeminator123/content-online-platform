@@ -4,6 +4,7 @@ import {
   applyRegistryCommand,
   bindPortalIdentity,
   commandSchema,
+  customerSiteInputSchema,
   initialRegistry,
   publicPortal,
   registrySchema,
@@ -87,7 +88,7 @@ describe("Persistent registry domain", () => {
         domain: "",
         domainStatus: "not_configured",
         preset: "insight",
-        agent: { enabled: true, agentId: "", clientKey: "" },
+        agent: { enabled: false, agentId: "", clientKey: "" },
       },
     });
     expect(publicPortal(next, "example-university")).toBeNull();
@@ -437,6 +438,20 @@ describe("Persistent registry domain", () => {
       site: { ...next.customers[1]!.site, agent: { ...next.customers[1]!.site.agent, clientKey: "" } },
     }).success).toBe(false);
   });
+  it("keeps legacy partial D-ID overrides readable while rejecting them on new writes", () => {
+    const persisted = structuredClone(initialRegistry());
+    persisted.customers[0]!.site.agent.agentId = "v2_agt_legacy";
+    persisted.customers[0]!.site.agent.clientKey = "";
+
+    expect(registrySchema.parse(persisted).customers[0]!.site.agent).toMatchObject({
+      agentId: "v2_agt_legacy",
+      clientKey: "",
+    });
+    expect(customerSiteInputSchema.safeParse({
+      ...persisted.customers[0]!.site,
+      agent: persisted.customers[0]!.site.agent,
+    }).success).toBe(false);
+  });
   it("links one Salesforce Account to at most one Content Online customer", () => {
     let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
     const accountId = "001000000000001AAA";
@@ -500,7 +515,7 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("availableSlug");
     expect(registryClient).toContain("configure_customer_site");
     expect(registryClient).toContain("D-ID Allowed Domains");
-    expect(registryClient).toContain("Plattformens demoagent är aktiv");
+    expect(registryClient).toContain("Plattformens demoagent är konfigurerad");
     expect(registryClient).toContain("Lämna båda fälten tomma");
     expect(registryClient).toContain("Egen domän (avancerat och valfritt)");
     expect(registryClient).not.toContain("VERCEL_AUTOMATION_TOKEN");

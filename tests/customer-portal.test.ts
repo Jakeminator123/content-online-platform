@@ -178,16 +178,19 @@ describe("shared multi-tenant customer portal", () => {
       publishers: [],
       events: [],
     });
-    expect(parsed.customers[0]!.site).toMatchObject({ preset: "insight", domainStatus: "not_configured", agent: { enabled: true, positivity: 5 } });
+    expect(parsed.customers[0]!.site).toMatchObject({ preset: "insight", domainStatus: "not_configured", agent: { enabled: false, positivity: 5 } });
   });
 
   it("uses one complete platform demo agent for a new tenant and never mixes a partial override", () => {
     const data = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, "admin");
     const customer = data.customers[1]!;
     const fallback = { agentId: "v2_agt_platform", clientKey: "ck_platform_origin_key" };
-    expect(resolveCustomerAgent(customer, fallback)).toEqual(fallback);
+    expect(resolveCustomerAgent(customer, fallback)).toBeNull();
+    const enabled = structuredClone(customer);
+    enabled.site.agent.enabled = true;
+    expect(resolveCustomerAgent(enabled, fallback)).toEqual(fallback);
 
-    const partial = structuredClone(customer);
+    const partial = structuredClone(enabled);
     partial.site.agent.agentId = "v2_agt_customer";
     expect(resolveCustomerAgent(partial, fallback)).toBeNull();
   });

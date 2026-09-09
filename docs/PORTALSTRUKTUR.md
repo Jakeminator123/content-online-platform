@@ -45,8 +45,9 @@ Det skyddade registret sparar per kund:
   D-ID-override, hälsning, positivitet 1–10 och exakt allowlistade klientverktyg.
 
 Nya kunder börjar som utkast med en föreslagen slug, den aktuella gemensamma
-dashboarden, plattformens demoagent aktiverad, inga publicister, ingen egen domän,
-inga konton och inga kundvärden. Efter publicering blir sidan tillgänglig på
+dashboarden, plattformens demoagent tillgänglig men avstängd, inga publicister,
+ingen egen domän, inga konton och inga kundvärden. Personal aktiverar agenten
+uttryckligen per kund. Efter publicering blir sidan tillgänglig på
 `/portal/{url-namn}`. `/login` använder serverns medlemskap för att välja en sådan
 slug; sluggen i sig ger aldrig behörighet. KTH:s data och identiteter kopieras
 aldrig till andra kunder.
