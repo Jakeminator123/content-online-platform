@@ -685,6 +685,7 @@ function customerAccessPage(mode: "login" | "register", host: string | null, key
   <meta name="description" content="Säker ingång till Content Onlines kundportaler."><meta name="robots" content="noindex,nofollow">
   <link rel="stylesheet" href="/customer-portal/assets/style.css">
   ${configured && host ? html`<script defer crossorigin="anonymous" src="https://${host}/npm/@clerk/ui@1/dist/ui.browser.js"></script><script defer crossorigin="anonymous" data-clerk-publishable-key="${key}" src="https://${host}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script><script defer src="/customer-portal/assets/access.js"></script>` : ""}
+  <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head><body data-preset="academic" data-data-mode="customer-access" data-customer-access-mode="${mode}" style="--portal-primary:#285b70;--portal-accent:#338578;--portal-on-primary:#ffffff">
   <div class="login-shell"><section class="login-brand"><a class="co-brand" href="/" aria-label="Content Online"><span class="co-mark"><img src="/admin/assets/co-logo.png" alt=""></span><span><strong>Content Online</strong><small>KNOWLEDGE. CONNECTED.</small></span></a>
   <div class="login-identity"><span class="section-kicker">KUNDPORTAL</span><h1>Kunskap, samlad för er.</h1><p>En säker ingång till organisationens produkter, analys och rapporter. Vilken portal du får öppna avgörs av ditt verifierade medlemskap.</p></div><small>Content Online · Kundåtkomst</small></section>
@@ -706,6 +707,7 @@ function page(mode: "login" | "register" | "admin" | "demo", host: string | null
   ${configured && host ? html`<script defer crossorigin="anonymous" src="https://${host}/npm/@clerk/ui@1/dist/ui.browser.js"></script><script defer crossorigin="anonymous" data-clerk-publishable-key="${key}" src="https://${host}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script>` : ""}
   ${workspace ? html`<script defer src="/admin/assets/workspace.js"></script>${!demo ? html`<script defer src="/admin/assets/registry.js"></script>` : ""}` : ""}
   ${mode === "admin" ? html`<link rel="stylesheet" href="/admin/assets/assistant.css"><script defer src="/admin/assets/assistant.js"></script>` : ""}
+  <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head><body data-mode="${mode}" data-page="${mode}">
   ${workspace ? html`<div class="shell">
     <aside class="sidebar" id="sidebar">${brand()}<div class="nav-label">ARBETSYTA</div><nav class="nav" aria-label="Content Online">

@@ -37,6 +37,7 @@ export function renderCustomerLanding(access: CustomerLandingAccess = {
     <link rel="stylesheet" href="/customer-landing/assets/style.css">
     <script defer src="/customer-landing/assets/client.js"></script>
     ${customerAccessScripts}
+    <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head>
   <body data-page="customer-landing">
     <a class="skip-link" href="#main-content">Skip to content</a>
