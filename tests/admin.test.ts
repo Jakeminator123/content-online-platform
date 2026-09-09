@@ -256,22 +256,20 @@ describe("Hosted portal entry and guarded admin API", () => {
     const response = await appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }).request("/admin/api/session");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ admin: { role: "content_admin" }, authentication: "development_instance",
-      administration: { users: "read_only_demo", publishers: "persistent_registry" } });
+      administration: { users: "persistent_registry", publishers: "persistent_registry", jobs: "not_connected" } });
   });
 
-  it("serves the read-only internal configuration only after admin authorization", async () => {
+  it("does not expose the former synthetic admin workspace", async () => {
     const response = await appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }).request("/admin/api/workspace");
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.status).toBe("synthetic_configuration");
-    expect(body.customers[0].name).toBe("KTH");
-    expect(body.users.filter((user: { customer: string }) => user.customer === "KTH").map((user: { role: string }) => user.role)).toEqual(["Kundadministratör", "Läsare"]);
-    expect(body.publishers[0]).toMatchObject({ name: "IEEE", route: "MPS / MPS Insight", status: "Inte ansluten" });
-    expect(body.storage.status).toBe("blocked_by_decision");
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "not_found" });
   });
 
   it("answers through the protected assistant API and validates input", async () => {
-    const app = appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }, { assistantApiKey: "" });
+    const app = appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }, {
+      assistantApiKey: "",
+      registryStore: readOnlyRegistryStore(initialRegistry()),
+    });
     const response = await app.request("/admin/api/assistant/message", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -288,35 +286,18 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(invalid.status).toBe(422);
   });
 
-  it("lists and runs only allowlisted jobs after admin authorization", async () => {
-    const app = appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } }, {
-      now: () => new Date("2026-09-05T06:10:00.000Z"),
-    });
+  it("does not expose synthetic admin job controls", async () => {
+    const app = appFor({ status: "authenticated", identity: { id: "admin", email, role: "content_admin" } });
     const list = await app.request("/admin/api/jobs");
-    expect(list.status).toBe(200);
-    expect((await list.json()).jobs).toHaveLength(3);
-
+    expect(list.status).toBe(404);
     const run = await app.request("/admin/api/jobs/customer-scope-audit/run", { method: "POST" });
-    expect(run.status).toBe(200);
-    expect(await run.json()).toMatchObject({ execution: { status: "completed", persisted: false } });
-
-    const arbitrary = await app.request("/admin/api/jobs/arbitrary/run", { method: "POST" });
-    expect(arbitrary.status).toBe(404);
+    expect(run.status).toBe(404);
   });
 
-  it("protects the scheduled readiness job with a server-only secret", async () => {
-    const app = appFor({ status: "unauthenticated" }, {
-      cronSecret: "test-cron-secret",
-      now: () => new Date("2026-09-05T06:10:00.000Z"),
-    });
-    expect((await app.request("/api/cron/platform-readiness")).status).toBe(401);
-    expect((await app.request("/api/cron/platform-readiness", { headers: { authorization: "Bearer wrong" } })).status).toBe(401);
-    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    const response = await app.request("/api/cron/platform-readiness", { headers: { authorization: "Bearer test-cron-secret" } });
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ execution: { jobId: "platform-readiness", status: "attention_needed" } });
-    expect(info).toHaveBeenCalledWith("admin_cron_completed", expect.objectContaining({ jobId: "platform-readiness" }));
-    info.mockRestore();
+  it("removes the synthetic readiness cron route", async () => {
+    const app = appFor({ status: "unauthenticated" });
+    expect((await app.request("/api/cron/platform-readiness")).status).toBe(404);
+    expect((await app.request("/api/cron/platform-readiness", { headers: { authorization: "Bearer legacy" } })).status).toBe(404);
   });
 
   it("fails closed without revealing provider errors", async () => {
@@ -374,7 +355,7 @@ describe("Hosted portal entry and guarded admin API", () => {
 
   it("uses grouped workspace navigation and keeps the chat exclusive to admin", async () => {
     const app = appFor({ status: "unauthenticated" });
-    for (const path of ["/demo", "/admin"]) {
+    for (const path of ["/admin"]) {
       const body = await (await app.request(path)).text();
       expect(body).toContain("/admin/assets/workspace.js");
       expect(body).toContain('class="brand portal-brand"');
@@ -382,17 +363,15 @@ describe("Hosted portal entry and guarded admin API", () => {
       expect(body).toContain('INTERN ARBETSYTA');
       expect(body).toContain('data-nav-group="customers"');
       expect(body).toContain('data-nav-group="connections"');
-      expect(body).not.toContain('Användare <small>Välj kund</small>');
-      expect(body).toContain('Cronjobb <small>Välj kund</small>');
-      expect(body).toContain('Rapportflöde <small>Välj kund</small>');
-      for (const id of ["overview", "customers", "publishers", "products", "connections", "salesforce"]) {
+      expect(body).toContain('data-id="users"');
+      expect(body).toContain('data-id="cron"');
+      expect(body).toContain('data-id="reports"');
+      for (const id of ["overview", "customers", "users", "cron", "reports", "publishers", "products", "connections", "salesforce"]) {
         expect(body).toContain('data-id="' + id + '"');
       }
-      expect(body).not.toContain('data-id="users"');
       expect(body).not.toContain('Kundregister & kundportaler');
     }
-    const demo = await (await app.request("/demo")).text();
-    expect(demo).not.toContain('id="assistant-launcher"');
+    expect((await app.request("/demo")).status).toBe(404);
     const admin = await (await app.request("/admin")).text();
     expect(admin).toContain('id="assistant-launcher"');
     expect(admin).toContain('id="assistant-app" hidden');

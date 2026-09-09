@@ -4,7 +4,8 @@ import { demoWorkspace } from '../src/admin/demo-data.js';
 import { selectStatisticsViews, type StatisticsResource } from '../src/admin/statistics-policy.js';
 import { buildWorkspaceStatistics } from '../src/admin/statistics.js';
 import { runAdminJob } from '../src/admin/jobs.js';
-import { answerAdminQuestion } from '../src/admin/assistant.js';
+import { answerAdminQuestion, buildAdminAssistantSnapshot } from '../src/admin/assistant.js';
+import { initialRegistry } from '../src/admin/registry.js';
 import { statisticsClient } from '../src/admin/statistics-client.js';
 import { workspaceClient } from '../src/admin/workspace-client.js';
 
@@ -67,19 +68,20 @@ describe('workspace, chat and existing job integration', () => {
     expect(execution.facts.some(f => f.label.includes('KTH') && f.value.includes('90 dagar'))).toBe(true);
     expect(runAdminJob('arbitrary-command', demoWorkspace, now)).toBeNull();
   });
-  it('answers statistical questions without sending customer data to an LLM', async () => {
-    const result = await answerAdminQuestion('Vilka KPIer och statistikvyer är bäst för KTH?', demoWorkspace, {
+  it('does not present fixture statistics as live admin data', async () => {
+    const result = await answerAdminQuestion('Vilka KPIer och statistikvyer är bäst för KTH?', buildAdminAssistantSnapshot(initialRegistry()), {
       adminId: 'admin', apiKey: 'unused-test-key', fetchImpl: async () => { throw new Error('Provider must not be called'); },
     });
     expect(result.mode).toBe('local_fallback');
-    expect(result.answer).toContain('KTH');
-    expect(result.answer).toContain('förklarbara regler');
-    expect(result.answer).toContain('inte startat något jobb');
-    expect(result.sources).toContain('STATISTICS_VIEWS.md');
+    expect(result.answer).toContain('Produktregister och användningsdata är inte anslutna');
+    expect(result.answer).not.toContain('KTH');
+    expect(result.answer).not.toContain('50620');
   });
-  it('explicitly reports missing statistics for another named customer', async () => {
-    const result = await answerAdminQuestion('Vilken statistik passar Norrvik Teknik?', demoWorkspace, { adminId: 'admin' });
-    expect(result.answer).toContain('Kundspecifik statistik saknas');
+  it('never echoes a named customer from a statistics question into aggregate fallback data', async () => {
+    const result = await answerAdminQuestion('Vilken statistik passar Norrvik Teknik?', buildAdminAssistantSnapshot(initialRegistry()), { adminId: 'admin' });
+    expect(result.answer).toContain('kundstatistik');
+    expect(result.answer).toContain('inte anslutna');
+    expect(result.answer).not.toContain('Norrvik Teknik');
     expect(result.answer).not.toContain('50620');
   });
   it('publishes safe fixtures with a stable daily selection', () => {

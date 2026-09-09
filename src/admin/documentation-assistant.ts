@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { DemoWorkspace } from "./demo-data.js";
+import type { Registry } from "./registry.js";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 
@@ -20,7 +20,7 @@ const knowledgeSources = [
     id: "ADMIN_DRIFT.md",
     keywords: ["kan", "klart", "nu", "status", "login", "inlogg", "clerk", "lagring", "integration"],
     facts:
-      "Intern Clerk-inloggning och ett beständigt kund- och publicistregister finns. Content Online kan skapa, anpassa, publicera, arkivera och permanent radera skyddade kundposter. Produkt-, användar- och statistikvyer är fortfarande demo; produktionsauth och livekopplingar till publishers, Salesforce och Fortnox återstår.",
+      "Intern Clerk-inloggning och ett beständigt kund-, användar- och publicistregister finns. Content Online kan skapa, anpassa, publicera, arkivera och permanent radera skyddade kundposter. Produktregister, användningsstatistik och automatiserade rapportflöden är ännu inte anslutna.",
   },
   {
     id: "BACKEND_ANSVAR.md",
@@ -38,14 +38,14 @@ const knowledgeSources = [
     id: "AI_ASSISTENT.md",
     keywords: ["assistent", "ai", "bot", "cron", "jobb", "automat", "schema"],
     facts:
-      "Assistenten svarar från projektets dokumenterade kontext och en minimerad demoöversikt. Allowlistade kontrolljobb finns server-side, men chatten kan inte starta dem och får aldrig påstå att ett jobb eller ett ej anslutet system har uppdaterats.",
+      "Assistenten svarar från projektets dokumenterade kontext och en minimerad översikt med aggregerade registertal. Chatten kan inte starta jobb och får aldrig påstå att ett jobb eller ett ej anslutet system har uppdaterats.",
   },
 ] as const;
 
 const instructions = `Du är Content Onlines interna assistent. Svara på svenska, konkret och med korta stycken.
 Använd endast DOKUMENTERAD KONTEXT och SKYDDAD ÖVERSIKT i frågan. Hitta inte på kunddata, avtal, integrationer eller funktioner.
 Skilj alltid tydligt mellan KAN NU, SKA KUNNA och INTE KLART när frågan gäller förmågor eller status.
-Den minimerade översikt som skickas till dig innehåller endast syntetisk demo. Det beständiga registret finns, men dess verkliga kundposter ingår inte i din kontext; hitta aldrig på dem.
+Den minimerade översikt som skickas till dig innehåller endast aggregerade tal från det beständiga registret. Den innehåller inga kundnamn, e-postadresser eller identitets-ID:n; hitta aldrig på dem.
 Du kan inte köra jobb i chattsvaret. Kundspecifika Cronjobb och Rapportflöde är ännu inte aktiverade i adminytan.
 Säg aldrig att en extern synk, renewal, accessändring eller affärshändelse har utförts. Ge inte juridiska eller bindande besked.
 Avsluta med "Källor:" och namnen på relevanta dokument från kontexten.`;
@@ -57,6 +57,47 @@ export type AssistantAnswer = {
   sources: string[];
 };
 
+export type AdminAssistantSnapshot = {
+  customers: { total: number; published: number; draft: number; archived: number };
+  portalMembers: { total: number; active: number; inactive: number; pendingBinding: number };
+  publishers: { total: number; active: number; archived: number };
+  relations: { customerPublisherLinks: number; salesforceLinkedCustomers: number };
+  customerSites: { domainsReady: number; domainsPending: number; agentsEnabled: number };
+  liveData: { products: false; usage: false; cronJobs: false; reportFlows: false };
+};
+
+export function buildAdminAssistantSnapshot(registry: Registry): AdminAssistantSnapshot {
+  return {
+    customers: {
+      total: registry.customers.length,
+      published: registry.customers.filter((customer) => customer.status === "published").length,
+      draft: registry.customers.filter((customer) => customer.status === "draft").length,
+      archived: registry.customers.filter((customer) => customer.status === "archived").length,
+    },
+    portalMembers: {
+      total: registry.portalMembers.length,
+      active: registry.portalMembers.filter((member) => member.status === "active").length,
+      inactive: registry.portalMembers.filter((member) => member.status === "inactive").length,
+      pendingBinding: registry.portalMembers.filter((member) => member.status === "active" && !member.externalUserId).length,
+    },
+    publishers: {
+      total: registry.publishers.length,
+      active: registry.publishers.filter((publisher) => publisher.status === "active").length,
+      archived: registry.publishers.filter((publisher) => publisher.status === "archived").length,
+    },
+    relations: {
+      customerPublisherLinks: registry.customers.reduce((total, customer) => total + customer.publisherIds.length, 0),
+      salesforceLinkedCustomers: registry.customers.filter((customer) => customer.salesforceAccountId).length,
+    },
+    customerSites: {
+      domainsReady: registry.customers.filter((customer) => customer.site.domainStatus === "ready").length,
+      domainsPending: registry.customers.filter((customer) => customer.site.domainStatus === "pending").length,
+      agentsEnabled: registry.customers.filter((customer) => customer.site.agent.enabled).length,
+    },
+    liveData: { products: false, usage: false, cronJobs: false, reportFlows: false },
+  };
+}
+
 type AssistantOptions = {
   apiKey?: string;
   model?: string;
@@ -66,7 +107,7 @@ type AssistantOptions = {
 
 export async function answerAdminQuestion(
   question: string,
-  workspace: DemoWorkspace,
+  snapshot: AdminAssistantSnapshot,
   options: AssistantOptions,
 ): Promise<AssistantAnswer> {
   const sources = selectSources(question);
@@ -74,7 +115,7 @@ export async function answerAdminQuestion(
   const apiKey = options.apiKey?.trim();
 
   if (!apiKey) {
-    return { answer: fallbackAnswer(question, workspace, sources), mode: "local_fallback", model: null, sources };
+    return { answer: fallbackAnswer(question, snapshot, sources), mode: "local_fallback", model: null, sources };
   }
 
   try {
@@ -88,7 +129,7 @@ export async function answerAdminQuestion(
         model,
         store: false,
         instructions,
-        input: buildGroundedInput(question, workspace, sources),
+        input: buildGroundedInput(question, snapshot, sources),
         max_output_tokens: 550,
         text: { verbosity: "low" },
         safety_identifier: createHash("sha256").update(options.adminId).digest("hex").slice(0, 40),
@@ -101,7 +142,7 @@ export async function answerAdminQuestion(
     if (!answer) throw new Error("assistant_empty_response");
     return { answer, mode: "openai", model, sources };
   } catch {
-    return { answer: fallbackAnswer(question, workspace, sources), mode: "local_fallback", model: null, sources };
+    return { answer: fallbackAnswer(question, snapshot, sources), mode: "local_fallback", model: null, sources };
   }
 }
 
@@ -120,53 +161,27 @@ export function selectSources(question: string): string[] {
   return ranked.length > 0 ? ranked : ["PROJEKTBRIEF.md", "ADMIN_DRIFT.md"];
 }
 
-function buildGroundedInput(question: string, workspace: DemoWorkspace, sources: readonly string[]): string {
+function buildGroundedInput(question: string, snapshot: AdminAssistantSnapshot, sources: readonly string[]): string {
   const documentedContext = knowledgeSources
     .filter((source) => sources.includes(source.id))
     .map((source) => `${source.id}: ${source.facts}`)
     .join("\n");
-  const roles = workspace.users.reduce<Record<string, { count: number; dataAccess: string[] }>>((result, user) => {
-    const existing = result[user.role] ?? { count: 0, dataAccess: dataAccessForRole(user.role) };
-    existing.count += 1;
-    result[user.role] = existing;
-    return result;
-  }, {});
-  const safeWorkspace = {
-    status: workspace.status,
-    customers: workspace.customers.map(({ users, products, status }, index) => ({
-      reference: `Syntetisk kund ${index + 1}`,
-      users,
-      products,
-      status,
-      dataAreas: ["Produkter", "Användning", "Dokument", "Ärenden"],
-    })),
-    roles,
-    publishers: workspace.publishers.map(({ name, route, status }) => ({ name, route, status })),
-    connections: workspace.connections.map(({ name, mode, status, lastImport }) => ({ name, mode, status, lastImport })),
-    storage: workspace.storage,
-  };
-
-  return `DOKUMENTERAD KONTEXT\n${documentedContext}\n\nSKYDDAD ÖVERSIKT (minimerad, utan e-post eller identitets-ID)\n${JSON.stringify(safeWorkspace)}\n\nFRÅGA\n${question}`;
+  return `DOKUMENTERAD KONTEXT\n${documentedContext}\n\nSKYDDAD REGISTERÖVERSIKT (endast aggregerade tal)\n${JSON.stringify(snapshot)}\n\nFRÅGA\n${question}`;
 }
 
-function fallbackAnswer(question: string, workspace: DemoWorkspace, sources: readonly string[]): string {
+function fallbackAnswer(question: string, snapshot: AdminAssistantSnapshot, sources: readonly string[]): string {
   const normalized = question.toLocaleLowerCase("sv");
   const sourceLine = `Källor: ${sources.join(", ")}`;
+  const customers = `${snapshot.customers.total} ${snapshot.customers.total === 1 ? "beständig kundpost" : "beständiga kundposter"}`;
+  const publishers = `${snapshot.publishers.total} ${snapshot.publishers.total === 1 ? "publicistpost" : "publicistposter"}`;
 
   if (/cron|jobb|automat|schema/.test(normalized)) {
-    return `KAN NU: Ett dagligt, skrivskyddat readiness-jobb är förberett för Vercel Cron och servern har allowlistade kontrolljobb.\n\nSKA KUNNA: Kundspecifika Cronjobb och Rapportflöde kan aktiveras när datakällor, ansvar och lagring för resultaten är beslutade.\n\nINTE KLART: Chatten kan inte starta jobb, de kundspecifika menyvalen är ännu inte aktiverade och inga externa system är anslutna.\n\n${sourceLine}`;
+    return `KAN NU: Kundregistret kan administreras, men inga kundspecifika cronjobb eller rapportflöden körs från adminytan.\n\nSKA KUNNA: Cronjobb och Rapportflöde kan aktiveras per kund när datakälla, ansvar och lagring för resultatet är beslutade.\n\nINTE KLART: Chatten kan inte starta jobb och inga schemalagda kundjobb är anslutna.\n\n${sourceLine}`;
   }
   if (/kund|använd|roll|behör|data|kth/.test(normalized)) {
-    const users = workspace.users.length;
-    return `KAN NU: Content Online har ett beständigt register för kund- och publicistposter samt publicerade portalskal. Assistentens skyddade underlag innehåller däremot endast ${workspace.customers.length} syntetiska kundorganisationer och ${users} demokonton.\n\nSKA KUNNA: Kundportalen ska bygga på serverfiltrerad live-data per medlemskap, kund och roll.\n\nINTE KLART: Verkliga kundanvändare, produkttilldelningar och usage ingår inte i assistentens underlag och får inte härledas från demon.\n\n${sourceLine}`;
+    return `KAN NU: Det beständiga registret innehåller ${snapshot.customers.total} kundorganisationer, varav ${snapshot.customers.published} publicerade, och ${snapshot.portalMembers.total} portalmedlemskap. Assistenten får bara dessa aggregerade tal, aldrig namn eller e-postadresser.\n\nSKA KUNNA: Kundportalen ska kompletteras med serverfiltrerad live-data per medlemskap, kund och roll.\n\nINTE KLART: Produktregister och användningsdata är inte anslutna och ska därför inte härledas från kund- eller publicistkopplingar.\n\n${sourceLine}`;
   }
-  return `KAN NU: Plattformen har separata kund- och adminingångar, ett beständigt kund- och publicistregister, serverstyrda portalmedlemskap, publicerbara kundportalskal och API-kontrakt för portfölj, usage, medlemmar och ärenden.\n\nSKA KUNNA: Kunder ska få en samlad bild av produkter, användning, förnyelser, access, dokument och ärenden medan innehållet ligger kvar hos publishers.\n\nINTE KLART: Clerk-produktionsinstans, verklig kundstatistik och kopplingar till publishers, Salesforce och Fortnox återstår. Ett portalmedlemskap aktiverar inte dessa datakällor.\n\n${sourceLine}`;
-}
-
-function dataAccessForRole(role: string): string[] {
-  return role === "Kundadministratör"
-    ? ["Komplett tillåten kundbild", "Kostnad", "Användare och roller"]
-    : ["Aktiv portfölj", "Publicerad usage", "Egna ärenden"];
+  return `KAN NU: Plattformen har separata kund- och personalingångar, ${customers}, ${publishers}, serverstyrda portalmedlemskap och publicerbara kundportalskal.\n\nSKA KUNNA: Kunder ska få en samlad bild av produkter, användning, förnyelser, access, dokument och ärenden medan innehållet ligger kvar hos publicisterna.\n\nINTE KLART: Verkligt produktregister, kundstatistik, cronjobb och rapportflöden är inte anslutna. ${snapshot.relations.salesforceLinkedCustomers} kundposter har en sparad Salesforce-koppling, men det bevisar inte en pågående datasynk.\n\n${sourceLine}`;
 }
 
 function extractResponseText(payload: unknown): string | null {

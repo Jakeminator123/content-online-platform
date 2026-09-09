@@ -1,16 +1,14 @@
 import { Hono, type Context } from "hono";
 import { Buffer } from "node:buffer";
-import { timingSafeEqual } from "node:crypto";
 import { html } from "hono/html";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { secureHeaders } from "hono/secure-headers";
-import { answerAdminQuestion, type AssistantAnswer } from "./assistant.js";
+import { answerAdminQuestion, buildAdminAssistantSnapshot, type AssistantAnswer } from "./assistant.js";
 import { assistantClient } from "./assistant-client.js";
 import { assistantCss } from "./assistant-style.js";
 import { demoWorkspace } from "./demo-data.js";
 import { PLATFORM_ORIGIN } from "./identity.js";
 import type { AdminAuthenticator, AdminConfig, AdminIdentity } from "./identity.js";
-import { adminJobs, runAdminJob } from "./jobs.js";
 import { z } from "zod";
 import { applyRegistryCommand, bindPortalIdentity, commandSchema, initialRegistry, publishedCustomer, resolvePortalEntries, RegistryError, type Registry, type RegistrySnapshot, type RegistryStore } from "./registry.js";
 import { registryStoreFromEnvironment } from "./registry-store.js";
@@ -52,7 +50,6 @@ type AdminPortalOptions = {
   portalRootDomain?: string;
   portalWildcardReady?: boolean;
   domainService?: CustomerDomainService;
-  cronSecret?: string;
   fetchImpl?: typeof fetch;
   now?: () => Date;
   askAssistant?: (question: string, adminId: string) => Promise<AssistantAnswer>;
@@ -86,19 +83,6 @@ export function createAdminPortal(
   const salesforceConfig = options.salesforceConfig === undefined
     ? readSalesforceConfiguration(process.env)
     : options.salesforceConfig;
-  const askAssistant =
-    options.askAssistant ??
-    ((question: string, adminId: string) => {
-      const apiKey = options.assistantApiKey ?? process.env.OPENAI_API_KEY;
-      const model = options.assistantModel ?? process.env.OPENAI_ASSISTANT_MODEL;
-      return answerAdminQuestion(question, demoWorkspace, {
-        adminId,
-        ...(apiKey ? { apiKey } : {}),
-        ...(model ? { model } : {}),
-        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-      });
-    });
-
   app.use("*", secureHeaders());
   app.use("*", async (c, next) => {
     await next();
@@ -108,9 +92,34 @@ export function createAdminPortal(
   });
 
   const registry = () => options.registryStore ?? registryStoreFromEnvironment();
+  const askAssistant =
+    options.askAssistant ??
+    (async (question: string, adminId: string) => {
+      const apiKey = options.assistantApiKey ?? process.env.OPENAI_API_KEY;
+      const model = options.assistantModel ?? process.env.OPENAI_ASSISTANT_MODEL;
+      const snapshot = buildAdminAssistantSnapshot((await registry().read()).data);
+      return answerAdminQuestion(question, snapshot, {
+        adminId,
+        ...(apiKey ? { apiKey } : {}),
+        ...(model ? { model } : {}),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+      });
+    });
   const domainService = () => options.domainService ?? customerDomainServiceFromEnvironment(options.fetchImpl, portalRootDomain);
   const adminRegistrySnapshot = (snapshot: RegistrySnapshot) => ({
     ...snapshot,
+    data: {
+      ...snapshot.data,
+      portalMembers: snapshot.data.portalMembers.map(({ externalUserId, ...member }) => ({
+        ...member,
+        identityBound: Boolean(externalUserId),
+      })),
+      events: snapshot.data.events.map((event) => ({
+        at: event.at,
+        action: event.action,
+        entityId: event.entityId,
+      })),
+    },
     runtime: {
       customerSites: {
         canonicalOrigin: PLATFORM_ORIGIN,
@@ -283,7 +292,6 @@ export function createAdminPortal(
       const customer = publishedCustomer(data, "kth");
       return customer ? c.json(customerPortalContext(customer, data)) : c.json({ error: "not_found" }, 404);
     });
-    app.get("/demo", (c) => c.html(page("demo", null, "", false)));
   }
   app.get("/", (c) => c.html(renderCustomerLanding({
       configured: customerConfigured,
@@ -325,21 +333,6 @@ export function createAdminPortal(
     }
   });
 
-  app.get("/api/cron/platform-readiness", (c) => {
-    const cronSecret = options.cronSecret ?? process.env.CRON_SECRET ?? "";
-    if (!authorizedCronRequest(c.req.header("authorization"), cronSecret)) {
-      return c.json({ error: "unauthorized" }, 401);
-    }
-    const execution = runAdminJob("platform-readiness", demoWorkspace, options.now?.() ?? new Date());
-    if (!execution) return c.json({ error: "job_not_found" }, 404);
-    console.info("admin_cron_completed", {
-      jobId: execution.jobId,
-      status: execution.status,
-      finishedAt: execution.finishedAt,
-    });
-    return c.json({ execution });
-  });
-
   app.use("/admin/api/*", async (c, next) => {
     if (c.req.path === "/admin/api/salesforce/oauth/callback") return next();
     let auth;
@@ -363,7 +356,7 @@ export function createAdminPortal(
       authentication: config.publishableKey.startsWith("pk_live_") ? "production" : "development_instance",
       customerDirectoryUrl: "/admin#customers",
       administration: {
-        users: "read_only_demo",
+        users: "persistent_registry",
         publishers: "persistent_registry",
         customers: "persistent_registry",
         customerAssignments: "persistent_publisher_links",
@@ -371,11 +364,10 @@ export function createAdminPortal(
         customerDomains: "vercel_wildcard_or_custom",
         customerAgents: "per_customer_configuration",
         assistant: "documentation_grounded",
-        jobs: "allowlisted_controls",
+        jobs: "not_connected",
       },
     }),
   );
-  app.get("/admin/api/workspace", (c) => c.json(demoWorkspace));
   app.get("/admin/api/salesforce/status", async (c) => {
     if (!salesforceConfig) return c.json({ configured: false, connected: false, provider: "salesforce" });
     try {
@@ -508,32 +500,17 @@ export function createAdminPortal(
     if (question.length < 2 || question.length > 1_200) {
       return c.json({ error: "message_length" }, 422);
     }
-    return c.json(await askAssistant(question, c.get("adminIdentity").id));
-  });
-
-  app.get("/admin/api/jobs", (c) =>
-    c.json({
-      jobs: adminJobs.map((job) => ({ ...job, lastRun: null })),
-      executionPolicy: "allowlisted_read_only",
-      persistence: "disabled",
-    }),
-  );
-  app.post("/admin/api/jobs/:jobId/run", (c) => {
-    const execution = runAdminJob(c.req.param("jobId"), demoWorkspace, options.now?.() ?? new Date());
-    if (!execution) return c.json({ error: "job_not_found" }, 404);
-    return c.json({ execution });
+    try {
+      return c.json(await askAssistant(question, c.get("adminIdentity").id));
+    } catch {
+      return c.json({ error: "assistant_context_unavailable" }, 503);
+    }
   });
 
   app.all("/admin/api/*", (c) => c.json({ error: "not_found" }, 404));
   return app;
 }
 
-function authorizedCronRequest(authorization: string | undefined, cronSecret: string): boolean {
-  if (!cronSecret || !authorization?.startsWith("Bearer ")) return false;
-  const supplied = Buffer.from(authorization.slice(7));
-  const expected = Buffer.from(cronSecret);
-  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
-}
 function assistantWidget(mode: "login" | "register" | "admin" | "demo") {
   if (mode !== "admin") return "";
   return html`
@@ -601,7 +578,7 @@ function page(mode: "login" | "register" | "admin" | "demo", host: string | null
   ${workspace ? html`<div class="shell">
     <aside class="sidebar" id="sidebar">${brand()}<div class="nav-label">ARBETSYTA</div><nav class="nav" aria-label="Content Online">
       <button data-action="navigate" data-id="overview" aria-current="page">${icon("grid")}Översikt</button>
-      <div class="nav-section" data-nav-group="customers"><button data-action="navigate" data-id="customers" aria-current="false">${icon("customers")}Kundorganisationer</button><div class="nav-sub" role="group" aria-label="Kundorganisationer"><button type="button" disabled title="Välj en kundorganisation först">Cronjobb <small>Välj kund</small></button><button type="button" disabled title="Välj en kundorganisation först">Rapportflöde <small>Välj kund</small></button></div></div>
+      <div class="nav-section" data-nav-group="customers"><button data-action="navigate" data-id="customers" aria-current="false">${icon("customers")}Kundorganisationer</button><div class="nav-sub" role="group" aria-label="Kundorganisationer"><button data-action="navigate" data-id="users" aria-current="false">Användare</button><button data-action="navigate" data-id="cron" aria-current="false">Cronjobb</button><button data-action="navigate" data-id="reports" aria-current="false">Rapportflöde</button></div></div>
       <div class="nav-section" data-nav-group="connections"><button data-action="navigate" data-id="connections" aria-current="false">${icon("link")}Anslutningar</button><div class="nav-sub" role="group" aria-label="Anslutningar"><button data-action="navigate" data-id="salesforce" aria-current="false">Salesforce</button><button data-action="navigate" data-id="publishers" aria-current="false">Publicister</button><button data-action="navigate" data-id="products" aria-current="false">Produkter & tilldelningar</button></div></div>
     </nav></aside>
     <button class="mobile-scrim" id="scrim" aria-label="Stäng navigering"></button>

@@ -2,6 +2,7 @@ import { Script } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { demoWorkspace } from "../src/admin/demo-data.js";
 import { createAdminPortal } from "../src/admin/portal.js";
+import { registryClient } from "../src/admin/registry-client.js";
 import {
   completeSalesforceOAuth,
   createSalesforceOAuthRequest,
@@ -63,12 +64,13 @@ describe("Salesforce presentation boundary", () => {
 
   it("ships a parseable Salesforce tab and customer review without secrets", () => {
     expect(() => new Script(workspaceClient)).not.toThrow();
-    expect(workspaceClient).toContain("Så ansluter vi testkontot");
-    expect(workspaceClient).toContain("Granska Salesforce-koppling");
-    expect(workspaceClient).toContain("External Client App");
-    expect(workspaceClient).toContain("credentials:'same-origin'");
-    expect(workspaceClient).not.toContain("client_secret");
-    expect(workspaceClient).not.toContain("access_token");
+    expect(() => new Script(registryClient)).not.toThrow();
+    expect(registryClient).toContain("OAuth-status läses från servern");
+    expect(registryClient).toContain("Salesforce Account ID");
+    expect(registryClient).toContain("credentials:'same-origin'");
+    expect(registryClient).toContain("/admin/api/salesforce/status");
+    expect(workspaceClient + registryClient).not.toContain("client_secret");
+    expect(workspaceClient + registryClient).not.toContain("access_token");
   });
 });
 
