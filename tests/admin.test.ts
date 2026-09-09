@@ -402,9 +402,22 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(start).toContain('data-page="customer-landing"');
     expect(start).toContain('data-customer-login');
     expect(start).toContain('href="/login"');
-    expect(start).toContain('src="/customer-landing/hero-wide.png"');
+    expect(start).toContain('src="/customer-landing/hero-wide.jpg"');
+    expect(start).toContain('id="mission"');
+    expect(start).toContain('id="resources"');
+    expect(start).toContain('id="institutions"');
+    expect(start).toContain('data-resource-tab="journals"');
+    expect(start).toContain('role="tabpanel"');
+    expect(start).toContain('src="/customer-landing/platform.jpg"');
+    expect(start).toContain('src="/customer-landing/lab.jpg"');
+    expect(start).toContain('srcset="/customer-landing/lab-640.jpg 640w');
+    expect(start).toContain('aria-label="Customer log in"');
+    expect(start.match(/<h1\b/g)).toHaveLength(1);
     expect(start).not.toContain('id="customer-auth-widget"');
     expect(start).not.toContain('clerk.browser.js');
+    expect(start).not.toContain('content-online-customer-login');
+    expect(start).not.toContain("<iframe");
+    expect(start).not.toMatch(/6M\+|250K\+|Head Librarian|webinar/i);
     expect(start).not.toContain("INTERN ÅTKOMST");
     expect(start).not.toContain("KTH");
     const customerLogin = await (await app.request("/login")).text();
@@ -432,6 +445,10 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(client).toContain("Close menu");
     expect(client).toContain("requestAnimationFrame(() => firstLink.focus())");
     expect(client).toContain("first && first.focus()");
+    expect(client).toContain("IntersectionObserver");
+    expect(client).toContain("dataset.resourceTab");
+    expect(client).toContain("prefers-reduced-motion: reduce");
+    expect(client).toContain("resourceTabs[nextIndex]");
 
     const styleResponse = await app.request("/customer-landing/assets/style.css");
     const styles = await styleResponse.text();
@@ -439,6 +456,10 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(styleResponse.headers.get("content-type")).toContain("text/css");
     expect(styles).toContain("prefers-reduced-motion");
     expect(styles).toContain(".landing-login");
+    expect(styles).toContain('url("/customer-landing/MonaSans-Variable.woff2")');
+    expect(styles).toContain(".landing-hero-scroll");
+    expect(styles).toContain(".landing-card-fan");
+    expect(styles).not.toContain("backdrop-filter");
   });
 
   it("does not treat a transient Clerk reconnect as a signed-out session", () => {
