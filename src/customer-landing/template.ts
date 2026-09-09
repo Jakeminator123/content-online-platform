@@ -88,7 +88,7 @@ export function renderCustomerLanding(): string {
         <div class="landing-resource-explorer" data-resource-explorer>
           <div class="landing-resource-visual">
             <img src="/customer-landing/platform.jpg" srcset="/customer-landing/platform-640.jpg 640w, /customer-landing/platform.jpg 1024w" sizes="(max-width: 980px) calc(100vw - 36px), 56vw" alt="Research desk with books, journals and a laptop" width="1024" height="1024" loading="lazy">
-            <div class="landing-resource-hotspots" aria-label="Explore the resource types on the image">
+            <div class="landing-resource-hotspots" role="group" aria-label="Explore the resource types on the image">
               <button type="button" class="landing-resource-hotspot" data-resource-hotspot="journals" aria-label="Show journals" aria-pressed="true" style="--spot-x:22%;--spot-y:55%"><span aria-hidden="true"></span></button>
               <button type="button" class="landing-resource-hotspot" data-resource-hotspot="standards" aria-label="Show standards" aria-pressed="false" style="--spot-x:78%;--spot-y:60%"><span aria-hidden="true"></span></button>
               <button type="button" class="landing-resource-hotspot" data-resource-hotspot="books" aria-label="Show eBooks" aria-pressed="false" style="--spot-x:50%;--spot-y:45%"><span aria-hidden="true"></span></button>
@@ -136,6 +136,7 @@ export function renderCustomerLanding(): string {
             <img class="landing-clean-image" src="/customer-landing/reveal.jpg" alt="Research book and a tablet on a study desk" width="1024" height="1024" loading="lazy">
             <canvas class="landing-clean-canvas" id="landing-clean-canvas" width="1" height="1" aria-hidden="true"></canvas>
             <span class="landing-clean-brush" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 11V8a4 4 0 0 1 8 0v3m-9 0h10v9H7zM10 11V8a2 2 0 0 1 4 0v3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <button class="landing-clean-toggle" type="button" aria-pressed="false">View clear</button>
             <figcaption><span class="landing-clean-pointer-hint">Move across the image to bring it into focus.</span><span class="landing-clean-static-hint">Connected research, brought into focus.</span></figcaption>
           </figure>
         </div>

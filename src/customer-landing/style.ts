@@ -645,7 +645,7 @@ h1, h2, h3, p, figure { margin-top: 0; }
   height: 100%;
   object-fit: cover;
 }
-.landing-clean-image { transition: filter 260ms ease, transform 260ms ease; }
+.landing-clean-image { transition: filter 260ms ease; }
 .landing-clean-canvas { z-index: 1; pointer-events: none; }
 .landing-clean-brush {
   position: absolute;
@@ -667,6 +667,29 @@ h1, h2, h3, p, figure { margin-top: 0; }
 }
 .landing-clean-brush svg { width: 27px; height: 27px; }
 .landing-clean-frame[data-clean-active="true"] .landing-clean-brush { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.landing-clean-toggle {
+  position: absolute;
+  z-index: 4;
+  top: 18px;
+  right: 18px;
+  display: none;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: 999px;
+  background: rgba(9,21,35,.82);
+  color: var(--co-white);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.landing-clean-frame[data-clean-enabled="true"] .landing-clean-toggle { display: block; }
+.landing-clean-frame[data-clean-unlocked="true"] .landing-clean-image { filter: none !important; }
+.landing-clean-frame[data-clean-unlocked="true"] .landing-clean-canvas,
+.landing-clean-frame[data-clean-unlocked="true"] .landing-clean-brush { opacity: 0 !important; }
 .landing-clean-frame figcaption {
   position: absolute;
   z-index: 3;
@@ -869,7 +892,7 @@ h1, h2, h3, p, figure { margin-top: 0; }
   .landing-resource-hotspot::before { animation: landing-hotspot-pulse 1.65s ease-out infinite; }
   .landing-resource-hotspot::after { animation: landing-hotspot-pulse 1.65s .34s ease-out infinite; }
   .landing-clean-frame[data-clean-enabled="true"] { cursor: crosshair; }
-  .landing-clean-frame[data-clean-enabled="true"] .landing-clean-image { filter: blur(14px) grayscale(1) brightness(.55); transform: scale(1.045); }
+  .landing-clean-frame[data-clean-enabled="true"] .landing-clean-image { filter: blur(14px) grayscale(1) brightness(.55); }
   .landing-clean-frame[data-clean-enabled="true"] .landing-clean-pointer-hint { display: inline; }
   .landing-clean-frame[data-clean-enabled="true"] .landing-clean-static-hint { display: none; }
 }

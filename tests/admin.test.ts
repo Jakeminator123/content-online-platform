@@ -413,8 +413,10 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(start).toContain('src="/customer-landing/platform.jpg"');
     expect(start.match(/data-resource-hotspot=/g)).toHaveLength(4);
     expect(start).toContain('aria-label="Show eBooks"');
+    expect(start).toContain('role="group" aria-label="Explore the resource types on the image"');
     expect(start).toContain('id="landing-clean-frame"');
     expect(start).toContain('id="landing-clean-canvas"');
+    expect(start).toContain('class="landing-clean-toggle"');
     expect(start).toContain('src="/customer-landing/reveal.jpg"');
     expect(start).toContain('src="/customer-landing/lab.jpg"');
     expect(start).toContain('srcset="/customer-landing/lab-640.jpg 640w');
@@ -476,6 +478,8 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(client).toContain("points.length > 52");
     expect(client).toContain("frame.addEventListener('pointermove', moveCleanReveal)");
     expect(client).toContain("finePointer.matches && !reducedMotion.matches");
+    expect(client).toContain("toggle.addEventListener('click'");
+    expect(client).toContain("setFullReveal(!fullReveal)");
 
     const styleResponse = await app.request("/customer-landing/assets/style.css");
     const styles = await styleResponse.text();

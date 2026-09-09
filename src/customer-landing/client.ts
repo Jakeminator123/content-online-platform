@@ -254,7 +254,8 @@ export const customerLandingClient = String.raw`
     const canvas = document.getElementById('landing-clean-canvas');
     if (!frame || !(canvas instanceof HTMLCanvasElement)) return;
     const image = frame.querySelector('.landing-clean-image');
-    if (!(image instanceof HTMLImageElement)) return;
+    const toggle = frame.querySelector('.landing-clean-toggle');
+    if (!(image instanceof HTMLImageElement) || !(toggle instanceof HTMLButtonElement)) return;
     canvas.width = 1;
     canvas.height = 1;
     const context = canvas.getContext('2d', { alpha: true });
@@ -269,6 +270,7 @@ export const customerLandingClient = String.raw`
     let lastPoint = null;
     let points = [];
     let enabled = finePointer.matches && !reducedMotion.matches;
+    let fullReveal = false;
     const trailDuration = 2800;
     const maxBackingPixels = 1600000;
 
@@ -281,6 +283,14 @@ export const customerLandingClient = String.raw`
       frame.dataset.cleanActive = 'false';
     };
 
+    const setFullReveal = (unlocked) => {
+      fullReveal = unlocked;
+      frame.dataset.cleanUnlocked = unlocked ? 'true' : 'false';
+      toggle.setAttribute('aria-pressed', unlocked ? 'true' : 'false');
+      toggle.textContent = unlocked ? 'Restore fog' : 'View clear';
+      if (unlocked) clearCleanReveal();
+    };
+
     const releaseCleanReveal = () => {
       clearCleanReveal();
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
@@ -291,6 +301,7 @@ export const customerLandingClient = String.raw`
       canvas.width = 1;
       canvas.height = 1;
       frame.dataset.cleanEnabled = 'false';
+      setFullReveal(false);
     };
 
     const resizeCleanReveal = () => {
@@ -399,7 +410,8 @@ export const customerLandingClient = String.raw`
     };
 
     const moveCleanReveal = (event) => {
-      if (!enabled || event.pointerType === 'touch') return;
+      if (!enabled || fullReveal || event.pointerType === 'touch') return;
+      if (event.target instanceof Element && event.target.closest('.landing-clean-toggle')) return;
       const rect = frame.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
       if (!width || !height) resizeCleanReveal();
@@ -427,6 +439,7 @@ export const customerLandingClient = String.raw`
     frame.addEventListener('pointerenter', moveCleanReveal);
     frame.addEventListener('pointermove', moveCleanReveal);
     frame.addEventListener('pointerleave', leaveCleanReveal);
+    toggle.addEventListener('click', () => setFullReveal(!fullReveal));
     window.addEventListener('resize', scheduleCleanResize, { passive: true });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) clearCleanReveal();
