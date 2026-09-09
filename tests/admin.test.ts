@@ -411,6 +411,11 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(start).toContain('data-resource-tab="journals"');
     expect(start).toContain('role="tabpanel"');
     expect(start).toContain('src="/customer-landing/platform.jpg"');
+    expect(start.match(/data-resource-hotspot=/g)).toHaveLength(4);
+    expect(start).toContain('aria-label="Show eBooks"');
+    expect(start).toContain('id="landing-clean-frame"');
+    expect(start).toContain('id="landing-clean-canvas"');
+    expect(start).toContain('src="/customer-landing/reveal.jpg"');
     expect(start).toContain('src="/customer-landing/lab.jpg"');
     expect(start).toContain('srcset="/customer-landing/lab-640.jpg 640w');
     expect(start).toContain('aria-label="Customer log in"');
@@ -464,6 +469,13 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(client).toContain("const shrinkProgress = Math.min(progress / 0.46, 1)");
     expect(client).toContain("const exitProgress = Math.min(Math.max((progress - 0.86) / 0.14, 0), 1)");
     expect(client).toContain("resourceTabs[nextIndex]");
+    expect(client).toContain("dataset.resourceHotspot === resource");
+    expect(client).toContain("hotspot.addEventListener('pointerenter'");
+    expect(client).toContain("const initCleanReveal = () =>");
+    expect(client).toContain("const maxBackingPixels = 1600000");
+    expect(client).toContain("points.length > 52");
+    expect(client).toContain("frame.addEventListener('pointermove', moveCleanReveal)");
+    expect(client).toContain("finePointer.matches && !reducedMotion.matches");
 
     const styleResponse = await app.request("/customer-landing/assets/style.css");
     const styles = await styleResponse.text();
@@ -478,6 +490,9 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(styles).toContain("@media (hover: hover) and (pointer: fine)");
     expect(styles).toContain("(prefers-reduced-motion: no-preference)");
     expect(styles).toContain("filter: grayscale(1) contrast(1.03)");
+    expect(styles).toContain(".landing-resource-hotspot");
+    expect(styles).toContain(".landing-clean-frame");
+    expect(styles).toContain("filter: blur(14px) grayscale(1) brightness(.55)");
     expect(styles).not.toContain("backdrop-filter");
   });
 

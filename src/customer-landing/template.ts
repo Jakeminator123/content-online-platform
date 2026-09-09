@@ -52,7 +52,7 @@ export function renderCustomerLanding(): string {
           <div class="landing-portrait" id="landing-portrait">
             <img class="landing-hero-image" src="/customer-landing/hero-wide.jpg" srcset="/customer-landing/hero-wide-640.jpg 640w, /customer-landing/hero-wide.jpg 1024w" sizes="100vw" alt="Researcher standing between library shelves" width="1024" height="1024" fetchpriority="high">
             <div class="landing-hero-reveal-aura" aria-hidden="true"></div>
-            <canvas class="landing-hero-reveal" id="landing-hero-reveal" aria-hidden="true"></canvas>
+            <canvas class="landing-hero-reveal" id="landing-hero-reveal" width="1" height="1" aria-hidden="true"></canvas>
             <div class="landing-hero-vignette" aria-hidden="true"></div>
             <h1 id="landing-title">UNLOCK WORLD-CLASS RESEARCH</h1>
             <p class="landing-scroll-cue"><span aria-hidden="true">↓</span> Scroll to explore</p>
@@ -88,7 +88,12 @@ export function renderCustomerLanding(): string {
         <div class="landing-resource-explorer" data-resource-explorer>
           <div class="landing-resource-visual">
             <img src="/customer-landing/platform.jpg" srcset="/customer-landing/platform-640.jpg 640w, /customer-landing/platform.jpg 1024w" sizes="(max-width: 980px) calc(100vw - 36px), 56vw" alt="Research desk with books, journals and a laptop" width="1024" height="1024" loading="lazy">
-            <span class="landing-resource-orbit" aria-hidden="true"></span>
+            <div class="landing-resource-hotspots" aria-label="Explore the resource types on the image">
+              <button type="button" class="landing-resource-hotspot" data-resource-hotspot="journals" aria-label="Show journals" aria-pressed="true" style="--spot-x:22%;--spot-y:55%"><span aria-hidden="true"></span></button>
+              <button type="button" class="landing-resource-hotspot" data-resource-hotspot="standards" aria-label="Show standards" aria-pressed="false" style="--spot-x:78%;--spot-y:60%"><span aria-hidden="true"></span></button>
+              <button type="button" class="landing-resource-hotspot" data-resource-hotspot="books" aria-label="Show eBooks" aria-pressed="false" style="--spot-x:50%;--spot-y:45%"><span aria-hidden="true"></span></button>
+              <button type="button" class="landing-resource-hotspot" data-resource-hotspot="learning" aria-label="Show eLearning" aria-pressed="false" style="--spot-x:62%;--spot-y:82%"><span aria-hidden="true"></span></button>
+            </div>
           </div>
           <div class="landing-resource-content">
             <div class="landing-resource-tabs" role="tablist" aria-label="Resource types">
@@ -117,6 +122,22 @@ export function renderCustomerLanding(): string {
           <article><span>02</span><h3>Technical practice</h3><p>Standards and specialist material for work that must be precise.</p></article>
           <article><span>03</span><h3>Professional learning</h3><p>Resources that follow teams from first study to continued development.</p></article>
           <article><span>04</span><h3>Usage insight</h3><p>A customer portal that makes assigned products and reporting easier to understand.</p></article>
+        </div>
+      </section>
+
+      <section class="landing-clean landing-reveal-section" aria-labelledby="clean-title">
+        <div class="landing-clean-inner">
+          <div class="landing-clean-copy">
+            <p>ACCESS, REVEALED</p>
+            <h2 id="clean-title">FROM <span>OBSCURED</span><br>TO CLEAR.</h2>
+            <p>One connected route from specialist content to the people who need it.</p>
+          </div>
+          <figure class="landing-clean-frame" id="landing-clean-frame">
+            <img class="landing-clean-image" src="/customer-landing/reveal.jpg" alt="Research book and a tablet on a study desk" width="1024" height="1024" loading="lazy">
+            <canvas class="landing-clean-canvas" id="landing-clean-canvas" width="1" height="1" aria-hidden="true"></canvas>
+            <span class="landing-clean-brush" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 11V8a4 4 0 0 1 8 0v3m-9 0h10v9H7zM10 11V8a2 2 0 0 1 4 0v3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <figcaption><span class="landing-clean-pointer-hint">Move across the image to bring it into focus.</span><span class="landing-clean-static-hint">Connected research, brought into focus.</span></figcaption>
+          </figure>
         </div>
       </section>
 

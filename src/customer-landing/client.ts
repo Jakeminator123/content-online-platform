@@ -249,6 +249,194 @@ export const customerLandingClient = String.raw`
 
   initPortraitReveal();
 
+  const initCleanReveal = () => {
+    const frame = document.getElementById('landing-clean-frame');
+    const canvas = document.getElementById('landing-clean-canvas');
+    if (!frame || !(canvas instanceof HTMLCanvasElement)) return;
+    const image = frame.querySelector('.landing-clean-image');
+    if (!(image instanceof HTMLImageElement)) return;
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let width = 0;
+    let height = 0;
+    let pixelRatio = 1;
+    let animationFrame = 0;
+    let resizeFrame = 0;
+    let lastPaint = 0;
+    let lastPoint = null;
+    let points = [];
+    let enabled = finePointer.matches && !reducedMotion.matches;
+    const trailDuration = 2800;
+    const maxBackingPixels = 1600000;
+
+    const clearCleanReveal = () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      points = [];
+      lastPoint = null;
+      context.clearRect(0, 0, width, height);
+      frame.dataset.cleanActive = 'false';
+    };
+
+    const releaseCleanReveal = () => {
+      clearCleanReveal();
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = 0;
+      width = 0;
+      height = 0;
+      pixelRatio = 1;
+      canvas.width = 1;
+      canvas.height = 1;
+      frame.dataset.cleanEnabled = 'false';
+    };
+
+    const resizeCleanReveal = () => {
+      if (!enabled) return;
+      width = Math.max(1, frame.clientWidth);
+      height = Math.max(1, frame.clientHeight);
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 1.35, Math.sqrt(maxBackingPixels / (width * height)));
+      canvas.width = Math.max(1, Math.round(width * pixelRatio));
+      canvas.height = Math.max(1, Math.round(height * pixelRatio));
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      points = [];
+      lastPoint = null;
+      frame.dataset.cleanEnabled = 'true';
+    };
+
+    const scheduleCleanResize = () => {
+      if (resizeFrame || !enabled) return;
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = 0;
+        resizeCleanReveal();
+      });
+    };
+
+    const drawCleanImageCover = () => {
+      const imageWidth = image.naturalWidth || image.width;
+      const imageHeight = image.naturalHeight || image.height;
+      if (!imageWidth || !imageHeight) return;
+      const imageAspect = imageWidth / imageHeight;
+      const containerAspect = width / height;
+      const drawWidth = imageAspect > containerAspect ? height * imageAspect : width;
+      const drawHeight = imageAspect > containerAspect ? height : width / imageAspect;
+      const position = getComputedStyle(image).objectPosition.split(/\s+/);
+      const factor = (value, fallback) => value && value.endsWith('%')
+        ? Math.min(Math.max(Number.parseFloat(value) / 100, 0), 1)
+        : fallback;
+      context.drawImage(
+        image,
+        (width - drawWidth) * factor(position[0], 0.5),
+        (height - drawHeight) * factor(position[1], 0.5),
+        drawWidth,
+        drawHeight,
+      );
+    };
+
+    const drawCleanReveal = (now) => {
+      animationFrame = 0;
+      const rect = frame.getBoundingClientRect();
+      if (!enabled || document.hidden || rect.bottom <= 0 || rect.top >= window.innerHeight) {
+        clearCleanReveal();
+        return;
+      }
+      points = points.filter((point) => now - point.at < trailDuration);
+      if (!points.length) {
+        clearCleanReveal();
+        return;
+      }
+      if (now - lastPaint < 1000 / 45) {
+        animationFrame = window.requestAnimationFrame(drawCleanReveal);
+        return;
+      }
+      lastPaint = now;
+      context.clearRect(0, 0, width, height);
+      const brushRadius = Math.max(72, Math.min(width, height) * 0.115);
+      context.save();
+      context.globalCompositeOperation = 'source-over';
+      points.forEach((point) => {
+        const life = Math.max(0, 1 - (now - point.at) / trailDuration);
+        const radius = brushRadius * (0.9 + (1 - life) * 0.18);
+        const gradient = context.createRadialGradient(point.x, point.y, radius * 0.16, point.x, point.y, radius);
+        gradient.addColorStop(0, 'rgba(0,0,0,' + Math.min(1, life * 1.45) + ')');
+        gradient.addColorStop(0.62, 'rgba(0,0,0,' + life * 0.78 + ')');
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        context.fillStyle = gradient;
+        context.fillRect(point.x - radius, point.y - radius, radius * 2, radius * 2);
+      });
+      context.globalCompositeOperation = 'source-in';
+      drawCleanImageCover();
+      context.restore();
+      animationFrame = window.requestAnimationFrame(drawCleanReveal);
+    };
+
+    const requestCleanFrame = () => {
+      if (!animationFrame) animationFrame = window.requestAnimationFrame(drawCleanReveal);
+    };
+
+    const addCleanPoint = (x, y, now) => {
+      const brushRadius = Math.max(72, Math.min(width, height) * 0.115);
+      const spacing = Math.max(13, brushRadius * 0.2);
+      if (lastPoint) {
+        const distance = Math.hypot(x - lastPoint.x, y - lastPoint.y);
+        const steps = Math.max(1, Math.ceil(distance / spacing));
+        for (let step = 1; step <= steps; step += 1) {
+          const progress = step / steps;
+          points.push({
+            x: lastPoint.x + (x - lastPoint.x) * progress,
+            y: lastPoint.y + (y - lastPoint.y) * progress,
+            at: now,
+          });
+        }
+      } else {
+        points.push({ x, y, at: now });
+      }
+      if (points.length > 52) points.splice(0, points.length - 52);
+      lastPoint = { x, y };
+      requestCleanFrame();
+    };
+
+    const moveCleanReveal = (event) => {
+      if (!enabled || event.pointerType === 'touch') return;
+      const rect = frame.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      if (!width || !height) resizeCleanReveal();
+      const x = (event.clientX - rect.left) * (width / rect.width);
+      const y = (event.clientY - rect.top) * (height / rect.height);
+      frame.dataset.cleanActive = 'true';
+      frame.style.setProperty('--clean-x', x + 'px');
+      frame.style.setProperty('--clean-y', y + 'px');
+      addCleanPoint(x, y, performance.now());
+    };
+
+    const leaveCleanReveal = () => {
+      frame.dataset.cleanActive = 'false';
+      lastPoint = null;
+      requestCleanFrame();
+    };
+
+    const syncCleanCapability = () => {
+      enabled = finePointer.matches && !reducedMotion.matches;
+      if (enabled) scheduleCleanResize();
+      else releaseCleanReveal();
+    };
+
+    if (enabled) resizeCleanReveal();
+    frame.addEventListener('pointerenter', moveCleanReveal);
+    frame.addEventListener('pointermove', moveCleanReveal);
+    frame.addEventListener('pointerleave', leaveCleanReveal);
+    window.addEventListener('resize', scheduleCleanResize, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) clearCleanReveal();
+    });
+    if (typeof reducedMotion.addEventListener === 'function') reducedMotion.addEventListener('change', syncCleanCapability);
+    if (typeof finePointer.addEventListener === 'function') finePointer.addEventListener('change', syncCleanCapability);
+  };
+
+  initCleanReveal();
+
   const revealSections = Array.from(document.querySelectorAll('.landing-reveal-section'));
   if ('IntersectionObserver' in window && !reducedMotion.matches) {
     const observer = new IntersectionObserver((entries) => {
@@ -265,6 +453,7 @@ export const customerLandingClient = String.raw`
 
   const resourceTabs = Array.from(document.querySelectorAll('[data-resource-tab]'));
   const resourcePanels = Array.from(document.querySelectorAll('[data-resource-panel]'));
+  const resourceHotspots = Array.from(document.querySelectorAll('[data-resource-hotspot]'));
   const activateResource = (tab, moveFocus) => {
     const resource = tab.dataset.resourceTab;
     resourceTabs.forEach((candidate) => {
@@ -274,6 +463,9 @@ export const customerLandingClient = String.raw`
     });
     resourcePanels.forEach((panel) => {
       panel.hidden = panel.dataset.resourcePanel !== resource;
+    });
+    resourceHotspots.forEach((hotspot) => {
+      hotspot.setAttribute('aria-pressed', hotspot.dataset.resourceHotspot === resource ? 'true' : 'false');
     });
     if (moveFocus) tab.focus();
   };
@@ -289,6 +481,18 @@ export const customerLandingClient = String.raw`
       if (event.key === 'Home') nextIndex = 0;
       if (event.key === 'End') nextIndex = resourceTabs.length - 1;
       activateResource(resourceTabs[nextIndex], true);
+    });
+  });
+
+  resourceHotspots.forEach((hotspot) => {
+    const activateHotspot = () => {
+      const tab = resourceTabs.find((candidate) => candidate.dataset.resourceTab === hotspot.dataset.resourceHotspot);
+      if (tab) activateResource(tab, false);
+    };
+    hotspot.addEventListener('click', activateHotspot);
+    hotspot.addEventListener('focus', activateHotspot);
+    hotspot.addEventListener('pointerenter', () => {
+      if (finePointer.matches) activateHotspot();
     });
   });
 
