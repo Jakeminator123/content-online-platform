@@ -10,7 +10,7 @@ import {
 } from "../src/admin/registry.js";
 import { customerAgentPolicy, resolveCustomerAgent } from "../src/customer-portal/agent.js";
 import { customerPortalClient } from "../src/customer-portal/client.js";
-import { customerSlugFromHostname } from "../src/customer-portal/routing.js";
+import { customerSlugFromHostname, normalizeCustomerHostname } from "../src/customer-portal/routing.js";
 
 const cfg = { allowedEmail: "admin@example.test", secretKey: "fixture", publishableKey: "" };
 const configuredCfg = { ...cfg, publishableKey: `pk_test_${Buffer.from("example.clerk.accounts.dev$").toString("base64")}` };
@@ -151,6 +151,83 @@ describe("shared multi-tenant customer portal", () => {
     expect(customDomainHtml).not.toContain('/customer-portal/assets/session.js');
   });
 
+  it("routes a ready exact customer hostname across portal, login and public context", async () => {
+    const data = publishedCustomer();
+    data.customers[1]!.site.domain = "library.example.edu";
+    data.customers[1]!.site.domainStatus = "ready";
+    const app = createAdminPortal({ authenticate: async () => admin }, configuredCfg, {
+      registryStore: storeFor(data),
+      portalRootDomain: "portal.contentonline.se",
+    });
+
+    const portal = await app.request("https://LIBRARY.EXAMPLE.EDU./");
+    expect(portal.status).toBe(200);
+    const portalHtml = await portal.text();
+    expect(portalHtml).toContain("North knowledge");
+    expect(portalHtml).toContain('data-customer-slug="north"');
+    expect(portalHtml).toContain("Skyddad kundyta");
+    expect(portalHtml).not.toContain("KTH Biblioteket");
+    expect(portalHtml).not.toContain("412");
+
+    const login = await app.request("https://library.example.edu/login");
+    expect(login.status).toBe(200);
+    expect(await login.text()).toContain("Fortsätt till North University");
+
+    const context = await app.request("https://library.example.edu/api/agent-context");
+    expect(context.status).toBe(200);
+    expect(await context.json()).toMatchObject({
+      portal: { customer: "North University", dataMode: "authentication_required" },
+      portfolio: { status: "authentication_required" },
+      usage: { status: "authentication_required" },
+    });
+  });
+
+  it("rejects exact hosts that are unknown, unverified or not published", async () => {
+    const ready = publishedCustomer();
+    ready.customers[1]!.site.domain = "library.example.edu";
+    ready.customers[1]!.site.domainStatus = "ready";
+
+    const pending = structuredClone(ready);
+    pending.customers[1]!.site.domainStatus = "pending";
+    const draft = structuredClone(ready);
+    draft.customers[1]!.status = "draft";
+    const archived = structuredClone(ready);
+    archived.customers[1]!.status = "archived";
+
+    for (const [data, hostname] of [
+      [ready, "unknown.example.edu"],
+      [pending, "library.example.edu"],
+      [draft, "library.example.edu"],
+      [archived, "library.example.edu"],
+    ] as const) {
+      const app = createAdminPortal({ authenticate: async () => admin }, cfg, {
+        registryStore: storeFor(data),
+        portalRootDomain: "portal.contentonline.se",
+      });
+      for (const path of ["/", "/login", "/api/agent-context"]) {
+        const response = await app.request(`https://${hostname}${path}`);
+        expect(response.status).toBe(404);
+        expect(await response.text()).not.toContain('data-page="customer-landing"');
+      }
+    }
+  });
+
+  it("keeps stable platform and shared-root hosts on their existing landing routes", async () => {
+    const app = createAdminPortal({ authenticate: async () => admin }, cfg, {
+      registryStore: storeFor(publishedCustomer()),
+      portalRootDomain: "portal.contentonline.se",
+    });
+    for (const origin of [
+      "https://content-online-platform.vercel.app",
+      "https://content-online-platform-git-main-owner.vercel.app",
+      "https://portal.contentonline.se",
+    ]) {
+      const response = await app.request(`${origin}/`);
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain('data-page="customer-landing"');
+    }
+  });
+
   it("keeps primary button text accessible for middle-luminance customer colors", async () => {
     const data = publishedCustomer();
     data.customers[1]!.site.primaryColor = "#999999";
@@ -256,6 +333,7 @@ describe("shared multi-tenant customer portal", () => {
   });
 
   it("accepts only a single valid customer slug beneath the configured root domain", () => {
+    expect(normalizeCustomerHostname(" LIBRARY.Example.EDU. ")).toBe("library.example.edu");
     expect(customerSlugFromHostname("KTH.portal.contentonline.se", "portal.contentonline.se")).toBe("kth");
     for (const host of ["portal.contentonline.se", "a.b.portal.contentonline.se", "evilportal.contentonline.se", "127.0.0.1"]) {
       expect(customerSlugFromHostname(host, "portal.contentonline.se")).toBeNull();
