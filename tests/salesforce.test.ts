@@ -2,12 +2,14 @@ import { Script } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { demoWorkspace } from "../src/admin/demo-data.js";
 import { createAdminPortal } from "../src/admin/portal.js";
+import { initialRegistry, type Registry, type RegistryStore } from "../src/admin/registry.js";
 import { registryClient } from "../src/admin/registry-client.js";
 import {
   completeSalesforceOAuth,
   createSalesforceOAuthRequest,
   decryptSalesforceRefreshToken,
   encryptSalesforceRefreshToken,
+  getSalesforceAccount,
   listSalesforceAccounts,
   readSalesforceConfiguration,
   verifySalesforceOAuthState,
@@ -33,6 +35,18 @@ function memoryStore(initial: SalesforceConnection | null = null): SalesforceCon
     value: initial,
     async read() { return this.value; },
     async write(connection) { this.value = connection; },
+  };
+}
+
+function registryMemoryStore(): RegistryStore & { value: Registry } {
+  return {
+    value: initialRegistry(),
+    async read() { return { version: 1, data: this.value }; },
+    async write(expectedVersion, data) {
+      if (expectedVersion !== 1) throw new Error("version_conflict");
+      this.value = data;
+      return { version: 2, data };
+    },
   };
 }
 
@@ -69,6 +83,8 @@ describe("Salesforce presentation boundary", () => {
     expect(registryClient).toContain("Salesforce Account ID");
     expect(registryClient).toContain("credentials:'same-origin'");
     expect(registryClient).toContain("/admin/api/salesforce/status");
+    expect(registryClient).toContain("/admin/api/salesforce/accounts/import");
+    expect(registryClient).toContain("Skapa opublicerat kundutkast");
     expect(workspaceClient + registryClient).not.toContain("client_secret");
     expect(workspaceClient + registryClient).not.toContain("access_token");
   });
@@ -173,6 +189,74 @@ describe("Salesforce server boundary", () => {
     expect(accounts).toEqual([{ id: "001000000000001AAA", name: "Max Tegmark AB", ownerName: "Content Online" }]);
     expect(new URL(requests[1]!.url).searchParams.get("q")).toBe("SELECT Id, Name, Owner.Name FROM Account WHERE Name LIKE '%Max%' ORDER BY Name LIMIT 20");
     expect(requests[1]!.authorization).toBe("Bearer new-access-token-for-test");
+  });
+
+  it("loads one exact Account for a server-verified import", async () => {
+    const store = memoryStore({
+      encryptedRefreshToken: encryptSalesforceRefreshToken("refresh-token-value-for-test", salesforceConfig.tokenEncryptionKey),
+      instanceUrl: "https://orgfarm-example.my.salesforce.com",
+      updatedAt: "2026-09-08T08:00:00.000Z",
+      updatedBy: "admin-1",
+    });
+    const requests: string[] = [];
+    const fetchImpl: typeof fetch = async (input) => {
+      requests.push(String(input));
+      if (String(input).endsWith("/services/oauth2/token")) return Response.json({
+        access_token: "new-access-token-for-test",
+        instance_url: "https://orgfarm-example.my.salesforce.com",
+      });
+      return Response.json({ records: [{ Id: "001000000000001AAA", Name: "Salesforce Testkund", Owner: null }] });
+    };
+    await expect(getSalesforceAccount({
+      config: salesforceConfig,
+      store,
+      accountId: "001000000000001AAA",
+      adminId: "admin-1",
+      fetchImpl,
+    })).resolves.toEqual({ id: "001000000000001AAA", name: "Salesforce Testkund", ownerName: null });
+    expect(new URL(requests[1]!).searchParams.get("q")).toBe("SELECT Id, Name, Owner.Name FROM Account WHERE Id = '001000000000001AAA' LIMIT 1");
+  });
+
+  it("imports a verified Salesforce Account as an unpublished customer draft", async () => {
+    const connectionStore = memoryStore({
+      encryptedRefreshToken: encryptSalesforceRefreshToken("refresh-token-value-for-test", salesforceConfig.tokenEncryptionKey),
+      instanceUrl: "https://orgfarm-example.my.salesforce.com",
+      updatedAt: "2026-09-08T08:00:00.000Z",
+      updatedBy: "admin-1",
+    });
+    const registryStore = registryMemoryStore();
+    const fetchImpl: typeof fetch = async (input) => String(input).endsWith("/services/oauth2/token")
+      ? Response.json({ access_token: "new-access-token-for-test", instance_url: "https://orgfarm-example.my.salesforce.com" })
+      : Response.json({ records: [{ Id: "001000000000001AAA", Name: "Salesforce Testkund", Owner: { Name: "Content Online" } }] });
+    const app = createAdminPortal({ authenticate: async () => ({
+      status: "authenticated",
+      identity: { id: "admin-1", email: "admin@example.test", role: "content_admin" },
+    }) }, { allowedEmail: "admin@example.test", secretKey: "fixture", publishableKey: "" }, {
+      registryStore,
+      salesforceConfig,
+      salesforceStore: connectionStore,
+      fetchImpl,
+    });
+    const response = await app.request("/admin/api/salesforce/accounts/import", {
+      method: "POST",
+      body: JSON.stringify({
+        version: 1,
+        accountId: "001000000000001AAA",
+        accountName: "Client-controlled name",
+        slug: "salesforce-testkund",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json() as { data: Registry; importedCustomerId: string };
+    expect(body.data.customers.find((customer) => customer.id === body.importedCustomerId)).toMatchObject({
+      name: "Salesforce Testkund",
+      slug: "salesforce-testkund",
+      status: "draft",
+      kind: "customer",
+      salesforceAccountId: "001000000000001AAA",
+      salesforceAccountName: "Salesforce Testkund",
+    });
+    expect(body.data.portalMembers).toEqual([]);
   });
 
   it("guards OAuth start and keeps the PKCE verifier in a secure HttpOnly cookie", async () => {

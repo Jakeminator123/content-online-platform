@@ -1,7 +1,7 @@
 export const registryClient = String.raw`
 (() => {
   'use strict';
-  let snapshot=null,salesforceStatus=null,busy=false,started=false,query='';
+  let snapshot=null,salesforceStatus=null,salesforceAccounts=[],salesforceSearchMessage='',busy=false,started=false,query='';
   const panel=document.getElementById('registry-panel'),root=document.getElementById('registry-body'),legacyView=document.getElementById('view'),search=document.getElementById('search');
   if(!panel||!root)return;
   if(legacyView){legacyView.hidden=true;legacyView.replaceChildren();}
@@ -86,7 +86,9 @@ export const registryClient = String.raw`
     const visible=customers.filter(customer=>matches(customer.name,customer.slug,customer.salesforceAccountName,customer.salesforceAccountId));
     const action=salesforceStatus?.configured?button(salesforceStatus.connected?'Auktorisera på nytt':'Anslut Salesforce','salesforce_connect','', 'button teal'):'';
     const rows=visible.map(customer=>{const eligible=customer.kind==='customer'&&customer.status!=='archived';const actions=(eligible?button(customer.salesforceAccountId?'Ändra koppling':'Lägg till koppling','edit_salesforce',customer.id):'')+(customer.salesforceAccountId?button('Koppla från','unlink_salesforce_account',customer.id):!eligible?pill(customer.kind==='demo'?'Skyddad pilot':'Arkiverad','amber'):'');return '<div class="list-item"><div class="body"><strong>'+esc(customer.name)+'</strong><small>'+(customer.salesforceAccountId?'<b>'+esc(customer.salesforceAccountName)+'</b> · '+esc(customer.salesforceAccountId):'Inget Salesforce Account sparat')+'</small></div><div class="registry-actions">'+actions+'</div></div>';}).join('');
-    return '<div class="salesforce-hero"><div class="salesforce-brand"><div><div class="eyebrow">SALESFORCE · OAUTH</div><h2>'+esc(salesforceState())+'</h2><p>OAuth-status läses från servern. Endast en uttryckligen sparad Account-koppling visas per kund.</p></div></div><div class="salesforce-actions">'+action+'</div></div><div class="salesforce-metrics"><section class="sf-metric"><span>Kopplade kunder</span><strong>'+linked+'</strong><small>av '+customers.length+' registerposter</small></section><section class="sf-metric"><span>OAuth</span><strong>'+esc(salesforceStatus?.connected?'Klar':'—')+'</strong><small>'+esc(salesforceState())+'</small></section><section class="sf-metric"><span>API-version</span><strong>'+esc(salesforceStatus?.apiVersion||'—')+'</strong><small>Serverkonfiguration</small></section><section class="sf-metric"><span>Senast sparad</span><strong>'+esc(salesforceStatus?.updatedAt?new Date(salesforceStatus.updatedAt).toLocaleDateString('sv-SE'):'—')+'</strong><small>'+esc(formattedSalesforceDate())+'</small></section></div><div class="card-head"><div><h2>Kundkopplingar</h2><p>Sparade Salesforce Account-fält från kundregistret</p></div></div>'+(rows||'<div class="empty"><h3>Ingen kund matchar sökningen</h3></div>')+'<div id="registry-editor"></div><p class="footnote">Kontakter, affärer och förnyelser visas inte eftersom plattformen ännu inte har en verifierad import för dessa data.</p>';
+    const accountRows=salesforceAccounts.map(account=>'<div class="list-item"><div class="body"><strong>'+esc(account.name)+'</strong><small>'+esc(account.id)+(account.ownerName?' · Ägare '+esc(account.ownerName):'')+'</small></div>'+button('Skapa kundutkast','prepare_salesforce_import',account.id,'button teal')+'</div>').join('');
+    const importFlow=salesforceStatus?.connected?'<section class="salesforce-import"><div class="card-head"><div><h2>Testa med en Salesforce-kund</h2><p>Sök efter ett riktigt Account och skapa ett opublicerat kundutkast i Content Online.</p></div></div><form class="registry-form" data-salesforce-search><label>Account-namn<input class="registry-input" type="search" name="salesforceQuery" maxlength="80" placeholder="Sök i Salesforce" required></label><button class="button teal" type="submit">Sök Accounts</button></form><p class="registry-hint" role="status">'+esc(salesforceSearchMessage||'Inga data importeras innan du väljer ett Account och bekräftar ett kundutkast.')+'</p><div class="salesforce-results">'+accountRows+'</div></section>':'<div class="soft-box"><strong>Testkund via Salesforce</strong>Anslut OAuth först. Därefter kan du söka ett Account och skapa ett opublicerat kundutkast utan portalbehörighet eller statistik.</div>';
+    return '<div class="salesforce-hero"><div class="salesforce-brand"><div><div class="eyebrow">SALESFORCE · OAUTH</div><h2>'+esc(salesforceState())+'</h2><p>OAuth-status läses från servern. Endast en uttryckligen sparad Account-koppling visas per kund.</p></div></div><div class="salesforce-actions">'+action+'</div></div><div class="salesforce-metrics"><section class="sf-metric"><span>Kopplade kunder</span><strong>'+linked+'</strong><small>av '+customers.length+' registerposter</small></section><section class="sf-metric"><span>OAuth</span><strong>'+esc(salesforceStatus?.connected?'Klar':'—')+'</strong><small>'+esc(salesforceState())+'</small></section><section class="sf-metric"><span>API-version</span><strong>'+esc(salesforceStatus?.apiVersion||'—')+'</strong><small>Serverkonfiguration</small></section><section class="sf-metric"><span>Senast sparad</span><strong>'+esc(salesforceStatus?.updatedAt?new Date(salesforceStatus.updatedAt).toLocaleDateString('sv-SE'):'—')+'</strong><small>'+esc(formattedSalesforceDate())+'</small></section></div>'+importFlow+'<div class="card-head section-space"><div><h2>Kundkopplingar</h2><p>Sparade Salesforce Account-fält från kundregistret</p></div></div>'+(rows||'<div class="empty"><h3>Ingen kund matchar sökningen</h3></div>')+'<div id="registry-editor"></div><p class="footnote">Ett importerat Account blir alltid ett opublicerat kundutkast. Portalbehörighet, publicering, kontakter, affärer och statistik kräver separata granskade steg.</p>';
   }
 
   function publishersView(customers,publishers){
@@ -151,6 +153,11 @@ export const registryClient = String.raw`
     return '<section class="registry-editor-card" aria-labelledby="registry-salesforce-title"><div class="registry-editor-head"><div><div class="eyebrow">SALESFORCE ACCOUNT</div><h3 id="registry-salesforce-title">'+esc(customer.name)+'</h3><p>Spara endast en granskad Account-post.</p></div>'+button('Stäng','close_editor')+'</div><form class="registry-form registry-editor-form" data-reg-form="link_salesforce_account" data-id="'+esc(customer.id)+'"><h4>Kundkoppling</h4>'+field('accountName','Salesforce Account-namn',customer.salesforceAccountName||'',255)+'<label>Salesforce Account ID<input class="registry-input" type="text" name="accountId" value="'+esc(customer.salesforceAccountId||'')+'" maxlength="18" minlength="15" pattern="001[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?" autocomplete="off" required><small class="registry-hint">Ett 15- eller 18-teckens Account ID som börjar med 001.</small></label><button class="button teal" type="submit">Spara koppling</button></form></section>';
   }
 
+  function salesforceImportEditor(account){
+    const suggestedSlug=availableSlug(account.name);
+    return '<section class="registry-editor-card" aria-labelledby="salesforce-import-title"><div class="registry-editor-head"><div><div class="eyebrow">NYTT KUNDUTKAST</div><h3 id="salesforce-import-title">'+esc(account.name)+'</h3><p>'+esc(account.id)+'</p></div>'+button('Stäng','close_editor')+'</div><div class="soft-box"><strong>Ingen publicering eller åtkomst skapas</strong>Det här steget sparar Account-namn och ID i kundregistret. Portalen förblir opublicerad och får inga användare eller statistik.</div><form class="registry-form registry-editor-form" data-reg-form="import_salesforce_customer"><input type="hidden" name="accountId" value="'+esc(account.id)+'"><label>Salesforce Account<input class="registry-input" value="'+esc(account.name)+'" readonly></label><label>Slug efter inloggning<input class="registry-input" type="text" name="slug" value="'+esc(suggestedSlug)+'" maxlength="63" minlength="2" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required><small class="registry-hint">Reserveras för den delade /portal/{slug}-adressen men blir inte publik nu.</small></label><button class="button teal" type="submit">Skapa opublicerat kundutkast</button></form></section>';
+  }
+
   async function adminToken(){
     const token=await window.Clerk?.session?.getToken();
     if(!token)throw new Error('Du behöver logga in igen.');
@@ -210,11 +217,33 @@ export const registryClient = String.raw`
     }catch(error){state(error.message);busy=false;root.querySelectorAll('button').forEach(node=>node.disabled=false);}
   }
 
+  async function searchSalesforceAccounts(searchQuery){
+    if(busy)return;busy=true;salesforceSearchMessage='Söker i Salesforce…';render();
+    try{
+      const token=await adminToken();
+      const response=await fetch('/admin/api/salesforce/accounts?q='+encodeURIComponent(searchQuery),{credentials:'omit',cache:'no-store',headers:{Authorization:'Bearer '+token}});
+      if(!response.ok)throw new Error('Salesforce-sökningen kunde inte slutföras.');
+      const body=await response.json();salesforceAccounts=Array.isArray(body.accounts)?body.accounts:[];salesforceSearchMessage=salesforceAccounts.length?salesforceAccounts.length+' Account hittades. Välj ett för att förbereda kundutkastet.':'Inget Account matchade sökningen.';
+    }catch(error){salesforceAccounts=[];salesforceSearchMessage=error.message;}finally{busy=false;render();}
+  }
+
+  async function importSalesforceCustomer(accountId,slug){
+    if(busy||!snapshot)return;busy=true;root.querySelectorAll('button').forEach(node=>node.disabled=true);state('Verifierar Account och skapar kundutkast…');
+    try{
+      const token=await adminToken();
+      const response=await fetch('/admin/api/salesforce/accounts/import',{method:'POST',credentials:'omit',cache:'no-store',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({version:snapshot.version,accountId,slug})});
+      if(!response.ok){if(response.status===409)throw new Error('Account eller slug är redan kopplat. Uppdatera och välj en annan kund.');if(response.status===404)throw new Error('Salesforce Account kunde inte längre hittas. Sök igen.');throw new Error('Kundutkastet kunde inte skapas. Ingen lyckad import antas.');}
+      const result=await response.json(),importedCustomerId=result.importedCustomerId;delete result.importedCustomerId;snapshot=result;salesforceAccounts=[];render();state('Kundutkastet är skapat från ett verifierat Salesforce Account. Det är inte publicerat.');
+      const customer=snapshot.data.customers.find(item=>item.id===importedCustomerId);const editor=document.getElementById('registry-editor');if(customer&&editor){editor.innerHTML=salesforceEditor(customer);editor.scrollIntoView({block:'start',behavior:'smooth'});}
+    }catch(error){state(error.message);}finally{busy=false;root.querySelectorAll('button').forEach(node=>node.disabled=false);}
+  }
+
   root.addEventListener('click',event=>{
     const node=event.target instanceof Element?event.target.closest('[data-reg]'):null;if(!node||busy)return;
     const action=node.dataset.reg,id=node.dataset.id;
     if(action==='reload'){load();return;}if(action==='close_editor'){document.getElementById('registry-editor')?.replaceChildren();return;}if(!snapshot)return;
     if(action==='salesforce_connect'){connectSalesforce();return;}
+    if(action==='prepare_salesforce_import'){const account=salesforceAccounts.find(item=>item.id===id),editor=document.getElementById('registry-editor');if(!account||!editor)return;editor.innerHTML=salesforceImportEditor(account);editor.scrollIntoView({block:'start',behavior:'smooth'});return;}
     if(action==='ensure_domain'){ensureDomain(id);return;}
     if(action==='edit_customer'){const customer=snapshot.data.customers.find(item=>item.id===id);if(!customer)return;document.getElementById('registry-editor').innerHTML=customerEditor(customer);document.getElementById('registry-editor').scrollIntoView({block:'start',behavior:'smooth'});return;}
     if(action==='edit_publisher'){const publisher=snapshot.data.publishers.find(item=>item.id===id);if(!publisher)return;document.getElementById('registry-editor').innerHTML='<form class="registry-form" data-reg-form="rename_publisher" data-id="'+esc(id)+'">'+field('name','Publicistens namn',publisher.name)+'<button class="button teal" type="submit">Spara namn</button></form>';return;}
@@ -242,6 +271,7 @@ export const registryClient = String.raw`
   root.addEventListener('submit',event=>{
     const form=event.target instanceof Element?event.target.closest('[data-reg-form]'):null;if(!form)return;event.preventDefault();
     const data=new FormData(form),action=form.dataset.regForm;
+    if(action==='import_salesforce_customer'){importSalesforceCustomer(String(data.get('accountId')||''),String(data.get('slug')||'').trim().toLowerCase());return;}
     if(action==='configure_customer_site'){
       mutate({action,id:form.dataset.id,site:{preset:String(data.get('preset')||'insight'),domain:String(data.get('domain')||'').trim().toLowerCase(),logoUrl:String(data.get('logoUrl')||'').trim(),primaryColor:String(data.get('primaryColor')||''),accentColor:String(data.get('accentColor')||''),heading:String(data.get('heading')||'').trim(),tagline:String(data.get('tagline')||'').trim(),agent:{enabled:data.get('agentEnabled')==='on',agentId:String(data.get('agentId')||'').trim(),clientKey:String(data.get('clientKey')||'').trim(),greeting:String(data.get('greeting')||'').trim(),positivity:Number(data.get('positivity')||5),tools:data.getAll('agentTools')}}});return;
     }
@@ -263,6 +293,7 @@ export const registryClient = String.raw`
     }
     const command={action,name:String(data.get('name')||'').trim()};if(form.dataset.id)command.id=form.dataset.id;if(action==='add_customer')command.slug=String(data.get('slug')||'').trim();if(action==='update_customer')command.publisherIds=data.getAll('publisherIds');mutate(command);
   });
+  root.addEventListener('submit',event=>{const form=event.target instanceof Element?event.target.closest('[data-salesforce-search]'):null;if(!form)return;event.preventDefault();const data=new FormData(form);searchSalesforceAccounts(String(data.get('salesforceQuery')||'').trim());});
   function navigate(){if(!started)return;query='';if(search)search.value='';render();}
   if(search)search.addEventListener('input',()=>{query=search.value.trim().toLocaleLowerCase('sv');if(started)render();});
   window.addEventListener('hashchange',navigate);document.addEventListener('click',event=>{if(event.target instanceof Element&&event.target.closest('[data-action="navigate"]'))queueMicrotask(navigate);});document.addEventListener('content-online:workspace-ready',()=>{if(!started){started=true;load();}});

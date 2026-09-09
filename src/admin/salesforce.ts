@@ -196,6 +196,37 @@ export async function listSalesforceAccounts(input: {
   now?: Date;
   fetchImpl?: typeof fetch;
 }): Promise<SalesforceAccountSummary[]> {
+  const filter = input.query?.trim().slice(0, 80);
+  const escaped = filter?.replaceAll("\\", "\\\\").replaceAll("'", "\\'");
+  const soql = "SELECT Id, Name, Owner.Name FROM Account" + (escaped ? ` WHERE Name LIKE '%${escaped}%'` : "") + " ORDER BY Name LIMIT 20";
+  return querySalesforceAccounts(input, soql);
+}
+
+export async function getSalesforceAccount(input: {
+  config: SalesforceConfiguration;
+  store: SalesforceConnectionStore;
+  accountId: string;
+  adminId: string;
+  now?: Date;
+  fetchImpl?: typeof fetch;
+}): Promise<SalesforceAccountSummary | null> {
+  if (!/^001[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?$/.test(input.accountId)) {
+    throw new Error("salesforce_invalid_account_id");
+  }
+  const accounts = await querySalesforceAccounts(
+    input,
+    `SELECT Id, Name, Owner.Name FROM Account WHERE Id = '${input.accountId}' LIMIT 1`,
+  );
+  return accounts[0]?.id === input.accountId ? accounts[0] : null;
+}
+
+async function querySalesforceAccounts(input: {
+  config: SalesforceConfiguration;
+  store: SalesforceConnectionStore;
+  adminId: string;
+  now?: Date;
+  fetchImpl?: typeof fetch;
+}, soql: string): Promise<SalesforceAccountSummary[]> {
   const connection = await input.store.read();
   if (!connection) throw new Error("salesforce_not_connected");
   const refreshToken = decryptSalesforceRefreshToken(connection.encryptedRefreshToken, input.config.tokenEncryptionKey);
@@ -209,9 +240,6 @@ export async function listSalesforceAccounts(input: {
       updatedBy: input.adminId,
     });
   }
-  const filter = input.query?.trim().slice(0, 80);
-  const escaped = filter?.replaceAll("\\", "\\\\").replaceAll("'", "\\'");
-  const soql = "SELECT Id, Name, Owner.Name FROM Account" + (escaped ? ` WHERE Name LIKE '%${escaped}%'` : "") + " ORDER BY Name LIMIT 20";
   const url = new URL(`/services/data/${input.config.apiVersion}/query`, instanceUrl);
   url.searchParams.set("q", soql);
   const fetchImpl = input.fetchImpl ?? fetch;
