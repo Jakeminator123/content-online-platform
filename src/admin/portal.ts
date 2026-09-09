@@ -106,7 +106,7 @@ export function createAdminPortal(
   });
 
   const registry = () => options.registryStore ?? registryStoreFromEnvironment();
-  const domainService = () => options.domainService ?? customerDomainServiceFromEnvironment(options.fetchImpl);
+  const domainService = () => options.domainService ?? customerDomainServiceFromEnvironment(options.fetchImpl, portalRootDomain);
   const customerAccessLocation = (requestUrl: string) => {
     const preference = new URL(requestUrl).searchParams.get("portal") ?? "";
     return isCustomerSlug(preference) ? `/login?portal=${encodeURIComponent(preference)}` : "/login";
@@ -417,10 +417,20 @@ export function createAdminPortal(
       const store = registry();
       const current = await store.read();
       if (current.version !== body.data.version) return c.json({ error: "version_conflict" }, 409);
-      const next = applyRegistryCommand(current.data, body.data.command, c.get("adminIdentity").id, options.now?.() ?? new Date());
+      const command = body.data.command;
+      const releasedDomain = command.action === "delete_customer"
+        ? current.data.customers.find((customer) => customer.id === command.id)?.site.domain ?? ""
+        : "";
+      const next = applyRegistryCommand(current.data, command, c.get("adminIdentity").id, options.now?.() ?? new Date());
+      // Validation above must succeed before any external side effect. Exact
+      // custom domains are then detached before the irreversible registry write.
+      if (command.action === "delete_customer") await domainService().release(releasedDomain);
       return c.json(adminRegistrySnapshot(await store.write(current.version, next)));
     } catch (error) {
       if (error instanceof SyntaxError) return c.json({ error: "invalid_json" }, 422);
+      if (error instanceof CustomerDomainError) {
+        return c.json({ error: error.code === "unconfigured" ? "domain_automation_unconfigured" : "domain_automation_unavailable" }, 503);
+      }
       if (error instanceof RegistryError) return c.json({ error: error.code }, error.status);
       return c.json({ error: "storage_unavailable" }, 503);
     }
