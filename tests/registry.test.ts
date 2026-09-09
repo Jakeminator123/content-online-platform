@@ -4,6 +4,7 @@ import {
   applyRegistryCommand,
   bindPortalIdentity,
   commandSchema,
+  customerSiteInputSchema,
   initialRegistry,
   publicPortal,
   registrySchema,
@@ -83,7 +84,12 @@ describe("Persistent registry domain", () => {
       status: "draft",
       kind: "customer",
       publisherIds: [],
-      site: { domain: "", domainStatus: "not_configured", preset: "insight" },
+      site: {
+        domain: "",
+        domainStatus: "not_configured",
+        preset: "insight",
+        agent: { enabled: false, agentId: "", clientKey: "" },
+      },
     });
     expect(publicPortal(next, "example-university")).toBeNull();
     expect(initialRegistry().customers).toHaveLength(1);
@@ -426,6 +432,25 @@ describe("Persistent registry domain", () => {
       id: customer.id,
       site: { ...next.customers[1]!.site, agent: { ...next.customers[1]!.site.agent, clientKey: "not-a-browser-client-key" } },
     }).success).toBe(false);
+    expect(commandSchema.safeParse({
+      action: "configure_customer_site",
+      id: customer.id,
+      site: { ...next.customers[1]!.site, agent: { ...next.customers[1]!.site.agent, clientKey: "" } },
+    }).success).toBe(false);
+  });
+  it("keeps legacy partial D-ID overrides readable while rejecting them on new writes", () => {
+    const persisted = structuredClone(initialRegistry());
+    persisted.customers[0]!.site.agent.agentId = "v2_agt_legacy";
+    persisted.customers[0]!.site.agent.clientKey = "";
+
+    expect(registrySchema.parse(persisted).customers[0]!.site.agent).toMatchObject({
+      agentId: "v2_agt_legacy",
+      clientKey: "",
+    });
+    expect(customerSiteInputSchema.safeParse({
+      ...persisted.customers[0]!.site,
+      agent: persisted.customers[0]!.site.agent,
+    }).success).toBe(false);
   });
   it("links one Salesforce Account to at most one Content Online customer", () => {
     let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
@@ -467,14 +492,17 @@ describe("Persistent registry domain", () => {
     expect(() => new Script(registryClient)).not.toThrow();
     expect(registryClient).not.toContain("DATABASE_URL");
     expect(registryClient).toContain("Granska kundsajt");
-    expect(registryClient).toContain("Aktiveringssida");
+    expect(registryClient).toContain("Kundinloggning");
+    expect(registryClient).toContain("/login?portal=");
+    expect(registryClient).toContain("Slug efter inloggning");
+    expect(registryClient).toContain("Aktuell standarddashboard");
     expect(registryClient).toContain("Styr kundsajt");
     expect(registryClient).toContain("Arkivera kundsajt");
     expect(registryClient).toContain("Radera permanent");
     expect(registryClient).toContain("delete_customer");
     expect(registryClient).toContain('data-reg-form="delete_customer"');
     expect(registryClient).toContain("reportValidity()");
-    expect(registryClient).toContain("confirmation!==customer.name&&confirmation!==customer.slug");
+    expect(registryClient).toContain("confirmation!==customer.slug");
     expect(registryClient).not.toContain("prompt(");
     expect(registryClient).toContain('data-reg-form="add_portal_member"');
     expect(registryClient).toContain('data-reg-form="update_portal_member"');
@@ -487,6 +515,9 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("availableSlug");
     expect(registryClient).toContain("configure_customer_site");
     expect(registryClient).toContain("D-ID Allowed Domains");
+    expect(registryClient).toContain("Plattformens demoagent är konfigurerad");
+    expect(registryClient).toContain("Lämna båda fälten tomma");
+    expect(registryClient).toContain("Egen domän (avancerat och valfritt)");
     expect(registryClient).not.toContain("VERCEL_AUTOMATION_TOKEN");
   });
 });
@@ -539,6 +570,7 @@ describe("Registry API boundary", () => {
       runtime: {
         customerSites: { canonicalOrigin: "https://content-online-platform.vercel.app", pathPrefix: "/portal" },
         customerDomains: { rootDomain: "portal.contentonline.se", wildcardReady: false },
+        agentDefaultConfigured: true,
       },
     });
     expect(JSON.parse(text)).toMatchObject({

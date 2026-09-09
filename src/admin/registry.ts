@@ -31,6 +31,10 @@ const customerAgentSchema = z.object({
   tools: z.array(customerPortalToolSchema).max(customerPortalTools.length)
     .transform((tools) => [...new Set(tools)]),
 });
+const customerAgentInputSchema = customerAgentSchema.refine(
+  (agent) => Boolean(agent.agentId) === Boolean(agent.clientKey),
+  { message: "incomplete_did_override", path: ["clientKey"] },
+);
 const customerSiteSchema = z.object({
   preset: z.enum(["insight", "library", "minimal"]),
   domain: hostname,
@@ -42,7 +46,9 @@ const customerSiteSchema = z.object({
   tagline: z.string().trim().min(2).max(240),
   agent: customerAgentSchema,
 });
-export const customerSiteInputSchema = customerSiteSchema.omit({ domainStatus: true });
+export const customerSiteInputSchema = customerSiteSchema
+  .omit({ domainStatus: true, agent: true })
+  .extend({ agent: customerAgentInputSchema });
 export type CustomerSite = z.infer<typeof customerSiteSchema>;
 
 export function defaultCustomerSite(overrides: Partial<CustomerSite> = {}): CustomerSite {
@@ -56,6 +62,8 @@ export function defaultCustomerSite(overrides: Partial<CustomerSite> = {}): Cust
     heading: "Välkommen till er kundportal",
     tagline: "Informationsprodukter, användning och kundservice i en samlad yta.",
     agent: {
+      // The shared, origin-restricted D-ID demo is available without copying
+      // credentials, but staff must explicitly enable it for each new tenant.
       enabled: false,
       agentId: "",
       clientKey: "",

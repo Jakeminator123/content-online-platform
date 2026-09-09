@@ -41,13 +41,16 @@ Det skyddade registret sparar per kund:
 - portal-mall (`standard` är den kompletta mallen; `library` och `minimal` är varianter);
 - primärfärg, accentfärg, rubrik, ingress och publik HTTPS-logotyp;
 - önskad kunddomän och Vercels verifieringsstatus;
-- D-ID agent-ID, frontendavsedd client key, hälsning, positivitet 1–10 och
-  exakt allowlistade klientverktyg.
+- om plattformens gemensamma demoagent ska visas, valfri komplett kundunik
+  D-ID-override, hälsning, positivitet 1–10 och exakt allowlistade klientverktyg.
 
-Nya kunder börjar som utkast med en föreslagen slug, inga publicister, ingen egen
-domän, inga konton och inga kundvärden. Efter publicering blir sidan tillgänglig
-på `/portal/{url-namn}`. KTH:s data, identiteter och konfiguration kopieras aldrig
-till dem.
+Nya kunder börjar som utkast med en föreslagen slug, den aktuella gemensamma
+dashboarden, plattformens demoagent tillgänglig men avstängd, inga publicister,
+ingen egen domän, inga konton och inga kundvärden. Personal aktiverar agenten
+uttryckligen per kund. Efter publicering blir sidan tillgänglig på
+`/portal/{url-namn}`. `/login` använder serverns medlemskap för att välja en sådan
+slug; sluggen i sig ger aldrig behörighet. KTH:s data och identiteter kopieras
+aldrig till andra kunder.
 
 ## Publicering och domäner
 
@@ -72,17 +75,21 @@ server-only `VERCEL_AUTOMATION_TOKEN`. Projekt-ID:t måste då peka på
 verifierad wildcard-väg behöver ingen långlivad token. Innan DNS är verifierad
 fungerar register, publicering och plattformens kundadress fortfarande.
 
-## D-ID per kund
+## Gemensam D-ID-demo med valfri kundoverride
 
 D-ID laddas bara i en publicerad kundportal vars agent är aktiverad och har en
-giltig agent/client-key-konfiguration. KTH kan under migreringen använda de
-befintliga servervariablerna `DID_AGENT_ID` och `DID_CLIENT_KEY`; nya kunder sparar
-sin browser-konfiguration på sin tenant.
+giltig agent/client-key-konfiguration. `DID_AGENT_ID` och `DID_CLIENT_KEY` är den
+gemensamma demostandarden för alla agentaktiverade portaler på plattformens
+origin. Admin visar bara om standarden är giltigt konfigurerad och lämnar aldrig
+ut dess värden. En kundunik override är valfri men måste innehålla både agent-ID
+och client key; en halv konfiguration nekas i stället för att blandas med
+plattformens standard.
 
 Varje D-ID client key ska begränsas till den exakta origin som används. För den
 delade kundadressen är det `https://content-online-platform.vercel.app`; en path
 som `/portal/kth` eller wildcardtext ska inte anges i D-ID Allowed Domains. Om en
-egen kunddomän aktiveras läggs även den origin till. En D-ID API key är en
+egen kunddomän aktiveras måste även den exakta originen tillåtas av standardens
+client key eller av en komplett kundunik override. En D-ID API key är en
 serverhemlighet och får aldrig lagras som client key.
 
 Portalens klient registrerar bara dessa handler-namn:

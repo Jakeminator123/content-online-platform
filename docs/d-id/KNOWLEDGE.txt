@@ -1,5 +1,5 @@
 CONTENT ONLINE – KUNSKAPSUNDERLAG
-Version: 2026-09-08
+Version: 2026-09-09
 Detta är ett statiskt underlag. Senare förändringar måste kontrolleras och läggas till separat.
 
 1. FÖRETAGET OCH UPPDRAGET
@@ -20,12 +20,12 @@ Plattformen ersätter inte automatiskt publicisternas egna tjänster. Att en res
 
 3. TVÅ SEPARATA PORTALOMRÅDEN
 
-Content Onlines interna portal:
+Kundernas gemensamma ingång:
 https://content-online-platform.vercel.app/
 
-Här loggar Content Onlines personal in för att arbeta med kund- och publicistregistret. Startsidan är inte kundernas gemensamma inloggning.
+Startsidan presenterar Content Online och leder kunder till /login. Efter verifierad identitet och ett aktivt organisationsmedlemskap väljer servern rätt destination under /portal/{slug}. Content Onlines personal använder den separata interna adressen /admin.
 
-Kundorganisationerna har egna adresser i samma multikundsanpassade runtime som versionshanteras i content-online-platform. KTH:s syntetiska pilot granskas under /portal/kth och ska efter DNS-verifiering finnas på https://kth.portal.contentonline.se.
+Kundorganisationerna har egna destinationer i samma multikundsanpassade runtime som versionshanteras i content-online-platform. KTH:s syntetiska pilot granskas under /portal/kth och kan efter DNS-verifiering även finnas på https://kth.portal.contentonline.se.
 
 Andra kundadresser följer https://{url-namn}.portal.contentonline.se. Ett nytt GitHub-repo eller Vercel-projekt behövs inte för varje kund. Content Online styr portal-mall, färger, logotyp, publicister och agentprofil från sin skyddade admin.
 
@@ -41,7 +41,7 @@ Kundportalen har två kundroller:
 
 Den föreslagna säkerhetsstandarden begränsar priser, kostnad per nedladdning, avtal och andra användares ärenden för Läsare. Exakta produktionsrättigheter behöver vara uttryckligen fastställda.
 
-Kundernas uppgifter ska hållas åtskilda genom serverkontroller. En kundadress är inte ett behörighetsbevis. Verkliga kundkonton, inbjudningar och medlemskap för nya organisationer återstår att färdigställa.
+Kundernas uppgifter hålls åtskilda genom serverkontroller. En kundadress eller slug är inte ett behörighetsbevis. Content Online kopplar varje godkänd kundanvändare till ett aktivt organisationsmedlemskap innan portalen öppnas.
 
 5. IMPLEMENTERAT KUND- OCH PUBLICISTREGISTER
 
@@ -51,7 +51,7 @@ Behörig personal kan hantera kunder och publicister, koppla publicister till ku
 
 Arkivering är återställbar. Den raderar inte externa licenser. En återställd kund blir ett utkast och publiceras inte automatiskt igen.
 
-En ny kund börjar som utkast utan KTH:s demodata eller demokonton. Publicering gör organisationsnamnet och aktiveringssidan offentliga. Den skapar ännu inte en fullt fungerande kundinloggning, statistikimport eller färdig kundinstallation.
+En ny kund börjar som utkast utan KTH:s demodata eller demokonton. Publicering gör ett organisationsmärkt portalskal tillgängligt under /portal/{slug}, men skapar inte automatiskt medlemskap, produktdata, statistikimport eller externa licenser. Kundåtkomst går via den gemensamma /login-sidan och serververifierat medlemskap.
 
 6. ANVÄNDNING OCH INTEGRATIONER
 
