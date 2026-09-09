@@ -15,6 +15,7 @@ import {
 import { NeonRegistryStore, REGISTRY_SQL, neonQuery } from "../src/admin/registry-store.js";
 import { registryClient } from "../src/admin/registry-client.js";
 import { createAdminPortal } from "../src/admin/portal.js";
+import { PortalInvitationError } from "../src/customer-portal/invitations.js";
 
 const actor = "admin-test";
 function fixtureConnection(host = "ep-test.eu-central-1.aws.neon.tech") { const url = new URL("postgresql://" + host + "/db"); url.username = "fixture"; url.password = crypto.randomUUID(); return url.toString(); }
@@ -576,6 +577,94 @@ describe("Registry API boundary", () => {
     expect((await app.request("/admin/api/registry", { method: "POST", body: "{" })).status).toBe(422);
     expect((await app.request("/admin/api/registry", { method: "POST", body: JSON.stringify({ version: 2, command: { action: "delete_everything" } }) })).status).toBe(422);
     expect((await app.request("/admin/api/registry", { method: "POST", headers: { origin: "https://evil.example" }, body: "{}" })).status).toBe(403);
+  });
+  it("persists a member and sends a Clerk invitation for a published customer", async () => {
+    let data = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Alpha", slug: "alpha" }, actor);
+    const customer = data.customers.at(-1)!;
+    data = applyRegistryCommand(data, { action: "publish_customer", id: customer.id }, actor);
+    const store = memoryStore(data);
+    const invite = vi.fn(async () => undefined);
+    const app = createAdminPortal(
+      { authenticate: async () => ({ status: "authenticated", identity: { id: actor, email: cfg.allowedEmail, role: "content_admin" } }) },
+      cfg,
+      { registryStore: store, portalInvitationService: { invite } },
+    );
+
+    const response = await app.request("/admin/api/registry", {
+      method: "POST",
+      body: JSON.stringify({ version: 1, command: {
+        action: "add_portal_member",
+        customerId: customer.id,
+        verifiedEmail: " MEMBER@EXAMPLE.TEST ",
+        displayName: "Member",
+        role: "customer_reader",
+      } }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ version: 2, invitation: { status: "sent" } });
+    expect(invite).toHaveBeenCalledWith({
+      emailAddress: "member@example.test",
+      redirectUrl: "https://content-online-platform.vercel.app/registrera?portal=alpha",
+    });
+    expect((await store.read()).data.portalMembers[0]).toMatchObject({ verifiedEmail: "member@example.test", externalUserId: null });
+  });
+  it("keeps a saved membership recoverable when invitation delivery fails", async () => {
+    let data = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Alpha", slug: "alpha" }, actor);
+    const customer = data.customers.at(-1)!;
+    data = applyRegistryCommand(data, { action: "publish_customer", id: customer.id }, actor);
+    const store = memoryStore(data);
+    const app = createAdminPortal(
+      { authenticate: async () => ({ status: "authenticated", identity: { id: actor, email: cfg.allowedEmail, role: "content_admin" } }) },
+      cfg,
+      { registryStore: store, portalInvitationService: { invite: async () => { throw new PortalInvitationError("provider_unavailable"); } } },
+    );
+
+    const response = await app.request("/admin/api/registry", {
+      method: "POST",
+      body: JSON.stringify({ version: 1, command: {
+        action: "add_portal_member",
+        customerId: customer.id,
+        verifiedEmail: "member@example.test",
+        displayName: "Member",
+        role: "customer_admin",
+      } }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ version: 2, invitation: { status: "not_sent", reason: "provider_unavailable" } });
+    expect((await store.read()).data.portalMembers).toHaveLength(1);
+  });
+  it("resends an invitation only for an active unbound member of a published customer", async () => {
+    let data = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Alpha", slug: "alpha" }, actor);
+    const customer = data.customers.at(-1)!;
+    data = applyRegistryCommand(data, { action: "publish_customer", id: customer.id }, actor);
+    data = applyRegistryCommand(data, {
+      action: "add_portal_member",
+      customerId: customer.id,
+      verifiedEmail: "member@example.test",
+      displayName: "Member",
+      role: "customer_admin",
+    }, actor);
+    const member = data.portalMembers[0]!;
+    const invite = vi.fn(async () => undefined);
+    const app = createAdminPortal(
+      { authenticate: async () => ({ status: "authenticated", identity: { id: actor, email: cfg.allowedEmail, role: "content_admin" } }) },
+      cfg,
+      { registryStore: memoryStore(data), portalInvitationService: { invite } },
+    );
+
+    const response = await app.request(`/admin/api/portal-members/${member.id}/invite`, {
+      method: "POST",
+      body: JSON.stringify({ version: 1 }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ invitation: "sent" });
+    expect(invite).toHaveBeenCalledWith({
+      emailAddress: "member@example.test",
+      redirectUrl: "https://content-online-platform.vercel.app/registrera?portal=alpha",
+    });
   });
   it("reports runtime agent mode without exposing the fallback client key", async () => {
     const didClientKey = "ck_runtime_status_key";

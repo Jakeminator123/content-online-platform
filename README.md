@@ -34,7 +34,10 @@ Den behövs inte för att publicera kundens `/portal/{url-namn}`-adress.
 
 ## Identitet och datagräns
 
-Kundinloggningen använder en Clerk-session och det serverägda medlemsregistret.
+Kundinloggningen använder en gemensam Clerk-identitet och det serverägda
+medlemsregistret i Neon. När Content Online lägger till en medlem till en
+publicerad kundportal skickar backend en personlig Clerk-inbjudan; fri
+registrering utan inbjudan erbjuds inte.
 `/v1/portal-entries` returnerar endast publicerade portaler som den verifierade
 identiteten har ett aktivt medlemskap i. En slug eller URL ger aldrig behörighet.
 
