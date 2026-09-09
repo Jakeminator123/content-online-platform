@@ -102,6 +102,9 @@ Levererat i första PR:n:
 3. Begränsad, läsande Account-sökning med mockade testfall.
 4. Registerkommandon för unik Account.Id-koppling per Content Online-kund.
 5. En registerbaserad Salesforce-flik med OAuth-status och granskade Account-kopplingar.
+6. Serververifierad Account-sökning och import av en vald Account-post som ett opublicerat kundutkast. Namn och Account.Id läses på nytt från Salesforce vid importen; webbläsaren kan inte bestämma kundnamnet.
+
+Ett importerat testunderlag skapar inte en publik kundsajt, portalmedlem eller statistik. Administratören måste separat granska varumärke, behörighet och publicering i kundflödet.
 
 Efter merge återstår auktorisering av testkontot mot den live callbacken, beslut om tillåtna Contact-/Opportunity-fält och en separat verifierad import innan sådana värden får visas.
 

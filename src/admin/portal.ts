@@ -16,6 +16,7 @@ import { registryClient } from "./registry-client.js";
 import {
   completeSalesforceOAuth,
   createSalesforceOAuthRequest,
+  getSalesforceAccount,
   listSalesforceAccounts,
   readSalesforceConfiguration,
   salesforceStoreFromEnvironment,
@@ -410,6 +411,53 @@ export function createAdminPortal(
       });
       return c.json({ accounts, mode: "read_only" });
     } catch {
+      return c.json({ error: "salesforce_unavailable" }, 503);
+    }
+  });
+  app.post("/admin/api/salesforce/accounts/import", async (c) => {
+    const origin = c.req.header("origin");
+    if (origin && origin !== PLATFORM_ORIGIN && origin !== new URL(c.req.url).origin) return c.json({ error: "forbidden" }, 403);
+    if (!salesforceConfig) return c.json({ error: "salesforce_unconfigured" }, 503);
+    try {
+      const raw = await c.req.text();
+      if (raw.length > 1_000) return c.json({ error: "body_too_large" }, 413);
+      const body = z.object({
+        version: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+        accountId: z.string().regex(/^001[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?$/),
+        slug: z.string().min(2).max(63).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+      }).safeParse(JSON.parse(raw));
+      if (!body.success) return c.json({ error: "invalid_import" }, 422);
+      const actor = c.get("adminIdentity").id;
+      const store = registry();
+      const current = await store.read();
+      if (current.version !== body.data.version) return c.json({ error: "version_conflict" }, 409);
+      const account = await getSalesforceAccount({
+        config: salesforceConfig,
+        store: salesforceStore(),
+        accountId: body.data.accountId,
+        adminId: actor,
+        now: options.now?.() ?? new Date(),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+      });
+      if (!account) return c.json({ error: "salesforce_account_not_found" }, 404);
+      let next = applyRegistryCommand(current.data, {
+        action: "add_customer",
+        name: account.name,
+        slug: body.data.slug,
+      }, actor, options.now?.() ?? new Date());
+      const importedCustomer = next.customers.find((customer) => customer.slug === body.data.slug);
+      if (!importedCustomer) throw new RegistryError("salesforce_import_failed", 503);
+      next = applyRegistryCommand(next, {
+        action: "link_salesforce_account",
+        id: importedCustomer.id,
+        accountId: account.id,
+        accountName: account.name,
+      }, actor, options.now?.() ?? new Date());
+      const saved = await store.write(current.version, next);
+      return c.json({ ...adminRegistrySnapshot(saved), importedCustomerId: importedCustomer.id });
+    } catch (error) {
+      if (error instanceof SyntaxError) return c.json({ error: "invalid_json" }, 422);
+      if (error instanceof RegistryError) return c.json({ error: error.code }, error.status);
       return c.json({ error: "salesforce_unavailable" }, 503);
     }
   });
