@@ -295,7 +295,11 @@ export function createAdminPortal(
   app.get("/", (c) => {
     const preference = new URL(c.req.url).searchParams.get("portal") ?? "";
     if (isCustomerSlug(preference)) return c.redirect(`/login?portal=${encodeURIComponent(preference)}`, 302);
-    return c.html(renderCustomerLanding());
+    return c.html(renderCustomerLanding({
+      configured: customerConfigured,
+      host,
+      publishableKey: config.publishableKey,
+    }));
   });
   app.get("/login", (c) => c.html(customerAccessPage("login", host, config.publishableKey, customerConfigured)));
   app.get("/registrera", (c) => c.html(customerAccessPage("register", host, config.publishableKey, customerConfigured)));

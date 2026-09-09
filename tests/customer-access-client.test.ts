@@ -15,6 +15,7 @@ type FakeNode = {
   textContent: string;
   className: string;
   href: string;
+  dataset: Record<string, string>;
   children: FakeNode[];
   addEventListener: ReturnType<typeof vi.fn>;
   append: (...children: FakeNode[]) => void;
@@ -27,6 +28,7 @@ function fakeNode(): FakeNode {
     textContent: "",
     className: "",
     href: "",
+    dataset: {},
     children: [],
     addEventListener: vi.fn(),
     append: (...children) => { node.children.push(...children); },
@@ -35,7 +37,13 @@ function fakeNode(): FakeNode {
   return node;
 }
 
-async function runClient(entries: Entry[], search = "", authenticated = true) {
+async function runClient(
+  entries: Entry[],
+  search = "",
+  authenticated = true,
+  overlay = false,
+  loadImplementation: () => Promise<void> = async () => undefined,
+) {
   const elements = {
     "customer-access": fakeNode(),
     "customer-access-message": fakeNode(),
@@ -48,6 +56,11 @@ async function runClient(entries: Entry[], search = "", authenticated = true) {
   elements["portal-chooser"].hidden = true;
   elements["customer-account"].hidden = true;
   elements["customer-sign-out"].hidden = true;
+  if (overlay) {
+    elements["customer-access"].dataset.customerAccessMode = "login";
+    elements["customer-access"].dataset.customerAccessAutostart = "false";
+    elements["customer-access"].dataset.customerAccessReturnUrl = "/?login=1";
+  }
 
   const created: FakeNode[] = [];
   const document = {
@@ -61,14 +74,14 @@ async function runClient(entries: Entry[], search = "", authenticated = true) {
   };
   const replace = vi.fn();
   const location = {
-    href: `https://content-online-platform.vercel.app/login${search}`,
-    pathname: "/login",
+    href: `https://content-online-platform.vercel.app${overlay ? "/" : "/login"}${search}`,
+    pathname: overlay ? "/" : "/login",
     search,
     replace,
   };
   const getToken = vi.fn(async () => "customer-session-token");
   const Clerk = {
-    load: vi.fn(async () => undefined),
+    load: vi.fn(loadImplementation),
     session: authenticated ? { getToken } : null,
     signOut: vi.fn(),
     mountSignIn: vi.fn(),
@@ -79,6 +92,10 @@ async function runClient(entries: Entry[], search = "", authenticated = true) {
     status: 200,
     json: async () => ({ entries }),
   }));
+  const windowListeners = new Map<string, () => void>();
+  const addEventListener = vi.fn((event: string, listener: () => void) => {
+    windowListeners.set(event, listener);
+  });
 
   new Script(customerAccessClient).runInNewContext({
     Clerk,
@@ -86,11 +103,11 @@ async function runClient(entries: Entry[], search = "", authenticated = true) {
     document,
     fetch,
     location,
-    window: { __internal_ClerkUICtor: function ClerkUI() {} },
+    window: { __internal_ClerkUICtor: function ClerkUI() {}, addEventListener },
   });
   await new Promise<void>((resolve) => setImmediate(resolve));
 
-  return { Clerk, created, elements, fetch, getToken, replace };
+  return { Clerk, created, elements, fetch, getToken, replace, windowListeners };
 }
 
 const alpha: Entry = {
@@ -183,5 +200,55 @@ describe("customer portal access client", () => {
     expect(signOutListener).toBeTypeOf("function");
     signOutListener?.();
     expect(result.Clerk.signOut).toHaveBeenCalledWith({ redirectUrl: "/login" });
+  });
+
+  it("defers the root overlay sign-in until it is opened and starts only once", async () => {
+    const result = await runClient([], "?login=1", false, true);
+
+    expect(result.Clerk.load).not.toHaveBeenCalled();
+    expect(result.Clerk.mountSignIn).not.toHaveBeenCalled();
+
+    const open = result.windowListeners.get("customer-access:open");
+    expect(open).toBeTypeOf("function");
+    result.elements["customer-access"].dataset.customerAccessRequested = "true";
+    open?.();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(result.Clerk.load).toHaveBeenCalledOnce();
+    expect(result.Clerk.load).toHaveBeenCalledWith(expect.objectContaining({
+      signInForceRedirectUrl: "/?login=1",
+      signUpForceRedirectUrl: "/?login=1",
+    }));
+    expect(result.Clerk.mountSignIn).toHaveBeenCalledOnce();
+    expect(result.Clerk.mountSignIn.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      forceRedirectUrl: "/?login=1",
+      fallbackRedirectUrl: "/?login=1",
+    }));
+
+    open?.();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(result.Clerk.load).toHaveBeenCalledOnce();
+    expect(result.Clerk.mountSignIn).toHaveBeenCalledOnce();
+  });
+
+  it("cancels an in-flight overlay login when the dialog closes", async () => {
+    let finishLoading: (() => void) | undefined;
+    const pendingLoad = new Promise<void>((resolve) => { finishLoading = resolve; });
+    const result = await runClient([alpha], "?login=1", true, true, () => pendingLoad);
+    const open = result.windowListeners.get("customer-access:open");
+    const close = result.windowListeners.get("customer-access:close");
+
+    result.elements["customer-access"].dataset.customerAccessRequested = "true";
+    open?.();
+    expect(result.Clerk.load).toHaveBeenCalledOnce();
+
+    result.elements["customer-access"].dataset.customerAccessRequested = "false";
+    close?.();
+    finishLoading?.();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(result.getToken).not.toHaveBeenCalled();
+    expect(result.fetch).not.toHaveBeenCalled();
+    expect(result.replace).not.toHaveBeenCalled();
   });
 });

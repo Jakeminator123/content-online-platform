@@ -10,6 +10,8 @@ export const customerLandingClient = String.raw`
   const menuButtonLabel = menuButton && menuButton.querySelector('.sr-only');
   const main = document.getElementById('main-content');
   const footer = document.getElementById('contact');
+  const loginDialog = document.getElementById('customer-login-dialog');
+  const customerAccessRoot = document.getElementById('customer-access');
   const heroScroll = document.querySelector('.landing-hero-scroll');
   const portrait = document.getElementById('landing-portrait');
   const revealCanvas = document.getElementById('landing-hero-reveal');
@@ -537,6 +539,47 @@ export const customerLandingClient = String.raw`
   menu.addEventListener('click', (event) => {
     if (event.target instanceof Element && event.target.closest('a')) setMenuOpen(false, false);
   });
+
+  let loginTrigger = null;
+  const setLoginUrlState = (open) => {
+    if (!window.history || typeof window.history.replaceState !== 'function') return;
+    const url = new URL(location.href);
+    if (open) url.searchParams.set('login', '1');
+    else url.searchParams.delete('login');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  };
+  const openCustomerLogin = (trigger, updateUrl) => {
+    if (!loginDialog || typeof loginDialog.showModal !== 'function') return false;
+    loginTrigger = trigger && menu.contains(trigger) ? menuButton : trigger || document.activeElement;
+    setMenuOpen(false, false);
+    if (customerAccessRoot) customerAccessRoot.dataset.customerAccessRequested = 'true';
+    if (!loginDialog.open) loginDialog.showModal();
+    if (updateUrl) setLoginUrlState(true);
+    window.dispatchEvent(new Event('customer-access:open'));
+    return true;
+  };
+
+  document.querySelectorAll('[data-customer-login]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      if (openCustomerLogin(event.currentTarget, true)) event.preventDefault();
+    });
+  });
+
+  if (loginDialog) {
+    loginDialog.addEventListener('click', (event) => {
+      if (event.target === loginDialog) loginDialog.close();
+    });
+    loginDialog.addEventListener('close', () => {
+      if (customerAccessRoot) customerAccessRoot.dataset.customerAccessRequested = 'false';
+      window.dispatchEvent(new Event('customer-access:close'));
+      setLoginUrlState(false);
+      if (loginTrigger && typeof loginTrigger.focus === 'function') loginTrigger.focus();
+      loginTrigger = null;
+    });
+    if (new URL(location.href).searchParams.get('login') === '1') {
+      window.addEventListener('load', () => openCustomerLogin(null, false), { once: true });
+    }
+  }
 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && menuButton.getAttribute('aria-expanded') === 'true') {
