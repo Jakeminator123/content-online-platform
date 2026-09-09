@@ -87,6 +87,9 @@ describe("customer portal insights", () => {
 
     expect(html).toContain('"insights":null');
     expect(html).toContain("Verifierad inloggning krävs");
+    expect(html).toContain("Konfigurationen är inte aktiverad ännu");
+    expect(html).toContain('<p data-locked-only>Inställningar och ärenden kräver verifierat medlemskap.</p>');
+    expect(html).toContain('<p data-authenticated-only hidden>Medlemskapet är verifierat.');
     expect(html).not.toContain("data-demo-ticket-form");
     expect(html).not.toContain("196300");
     expect(html).not.toContain("agent.d-id.com/v2/index.js");
