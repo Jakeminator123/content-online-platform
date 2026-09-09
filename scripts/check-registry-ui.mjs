@@ -32,7 +32,7 @@ try{
   let row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
   await row.waitFor();
   assert.ok((await row.innerText()).includes('Aktuell standarddashboard'));
-  assert.ok((await row.innerText()).includes('Agent avstängd'));
+  assert.ok((await row.innerText()).includes('Avstängd'));
   await row.getByRole('button',{name:'Styr kundsajt',exact:true}).click();
   await panel.getByLabel('Browser Partner',{exact:true}).check();
   await panel.getByRole('button',{name:'Spara organisation',exact:true}).click();
