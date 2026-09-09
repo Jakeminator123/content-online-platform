@@ -508,6 +508,10 @@ describe("Persistent registry domain", () => {
     expect(registryClient).not.toContain("DATABASE_URL");
     expect(registryClient).toContain("Granska kundsajt");
     expect(registryClient).toContain("Kundinloggning");
+    expect(registryClient).toContain("Skapa kundutkast");
+    expect(registryClient).toContain("Utkastet får ingen publik portal");
+    expect(registryClient).toContain("Syntetisk visningsdemo");
+    expect(registryClient).toContain("Ta bort utkast…");
     expect(registryClient).toContain("customer.kind==='customer'&&customer.status!=='archived'");
     expect(registryClient).toContain("/login?portal=");
     expect(registryClient).toContain("Slug efter inloggning");
@@ -529,6 +533,8 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("'/portal'");
     expect(registryClient).toContain("slugify");
     expect(registryClient).toContain("availableSlug");
+    expect(registryClient).toContain("Kundutkastet är skapat");
+    expect(registryClient).toContain("Kundportalen är publicerad");
     expect(registryClient).toContain("configure_customer_site");
     expect(registryClient).toContain("D-ID Allowed Domains");
     expect(registryClient).toContain("gemensamma D-ID-agenten är konfigurerad");

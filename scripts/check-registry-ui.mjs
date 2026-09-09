@@ -25,12 +25,14 @@ try{
   await panel.locator('.list-item').filter({hasText:'Browser Partner'}).waitFor();
   await page.locator('.nav [data-id="customers"]').click();
   assert.equal(await page.locator('#view').innerText(), '', 'Real customer management must not display fictional organizations');
+  await panel.getByText('Syntetisk visningsdemo (1)',{exact:true}).click();
   assert.ok((await panel.locator('.registry-customer').filter({hasText:'KTH'}).innerText()).includes('Gemensam D-ID-agent'));
   await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
   assert.equal(await panel.getByLabel('Slug efter inloggning').inputValue(),'browser-customer');
-  await panel.getByRole('button',{name:'Lägg till kund',exact:true}).click();
+  await panel.getByRole('button',{name:'Skapa kundutkast',exact:true}).click();
   let row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
   await row.waitFor();
+  assert.ok((await row.innerText()).includes('Inte publicerad ännu'));
   assert.ok((await row.innerText()).includes('Aktuell standarddashboard'));
   assert.ok((await row.innerText()).includes('Avstängd'));
   await row.getByRole('button',{name:'Styr kundsajt',exact:true}).click();
@@ -79,7 +81,7 @@ try{
   await row.waitFor({state:'detached'});
   await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
   assert.equal(await panel.getByLabel('Slug efter inloggning').inputValue(),'browser-customer','Permanent deletion must release the slug');
-  await panel.getByRole('button',{name:'Lägg till kund',exact:true}).click();
+  await panel.getByRole('button',{name:'Skapa kundutkast',exact:true}).click();
   row=panel.locator('.registry-customer').filter({hasText:'Browser Customer'});
   await row.getByRole('button',{name:'Publicera',exact:true}).waitFor();
   await page.setViewportSize({width:390,height:844});
