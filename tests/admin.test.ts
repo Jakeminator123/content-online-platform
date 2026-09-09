@@ -352,6 +352,8 @@ describe("Hosted portal entry and guarded admin API", () => {
       expect(body).toContain('/admin/assets/co-logo.png');
       expect(body).toContain('/admin/assets/home-video.webm');
       expect(body).toContain('autoplay muted loop playsinline');
+      expect(body).not.toContain('href="/demo"');
+      expect(body).not.toContain('Se visningsdemon');
       expect(body).not.toContain(config.allowedEmail);
       expect(body).not.toContain(config.secretKey);
     }
@@ -439,6 +441,8 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(staffLogin).toContain('data-mode="login"');
     expect(staffLogin).toContain('id="auth-widget"');
     expect(staffLogin).toContain("INTERN ÅTKOMST");
+    expect(staffLogin).not.toContain('href="/demo"');
+    expect(staffLogin).not.toContain("Se visningsdemon");
     expect(staffLogin).not.toContain('id="customer-auth-widget"');
   });
 
