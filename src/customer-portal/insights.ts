@@ -250,7 +250,7 @@ export function renderOverviewMetrics(insights: PortalInsightsConfig): string {
 
 function renderDistribution(items: PortalInsightsConfig["productUsage"], group: "product" | "publisher"): string {
   const max = Math.max(...items.map((item) => item.value), 1);
-  return `<div class="distribution-list" data-insights-distribution="${group}"${group === "publisher" ? " hidden" : ""}>${items.slice(0, 7).map((item) => `<div class="distribution-row"><div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></div><span>${escapeHtml(formatNumber(item.value))}</span><div class="distribution-track"><i style="--distribution-size:${Math.max(4, Math.round(item.value / max * 100))}%"></i></div></div>`).join("")}</div>`;
+  return `<div class="distribution-list" data-insights-distribution="${group}"${group === "publisher" ? " hidden" : ""}>${items.map((item) => `<div class="distribution-row"><div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></div><span>${escapeHtml(formatNumber(item.value))}</span><div class="distribution-track"><i style="--distribution-size:${Math.max(4, Math.round(item.value / max * 100))}%"></i></div></div>`).join("")}</div>`;
 }
 
 function donutGradient(items: PortalInsightsConfig["contentMix"]): string {

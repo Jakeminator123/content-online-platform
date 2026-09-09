@@ -4,6 +4,7 @@ import { initialRegistry, registrySchema } from "../src/admin/registry.js";
 import { customerPortalClient } from "../src/customer-portal/client.js";
 import {
   buildPortalInsights,
+  renderInsightsPanel,
   type PortalInsightProduct,
 } from "../src/customer-portal/insights.js";
 import { customerPortalInsightsClient } from "../src/customer-portal/insights-client.js";
@@ -70,6 +71,23 @@ describe("customer portal insights", () => {
     expect(html).toContain("Inget skickas eller sparas");
     expect(html).toContain('data-show-agent-name="false"');
     expect(html).toContain('data-show-restart-button="false"');
+  });
+
+  it("renders every assigned product in the product distribution", () => {
+    const assignedProducts = Array.from({ length: 8 }, (_, index) => ({
+      id: `product-${index + 1}`,
+      name: `Product ${index + 1}`,
+      type: "Databas",
+      publisher: `Publisher ${index + 1}`,
+      usage: 100 - index,
+    }));
+    const insights = buildPortalInsights(assignedProducts);
+    const html = renderInsightsPanel(insights);
+
+    expect(html.match(/class="distribution-row"/g)).toHaveLength(
+      insights.productUsage.length + insights.publisherUsage.length,
+    );
+    expect(html).toContain("Product 8");
   });
 
   it("keeps telemetry and the ticket form out of a public non-demo customer portal", () => {
