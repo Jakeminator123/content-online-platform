@@ -11,6 +11,12 @@ export const customerAccessClient = String.raw`
   const signOut = document.getElementById('customer-sign-out');
   const requestedPortal = new URL(location.href).searchParams.get('portal') || '';
   const returnUrl = location.pathname + location.search;
+  const customerAppearance = {
+    elements: {
+      headerTitle: { display: 'none' },
+      headerSubtitle: { display: 'none' },
+    },
+  };
 
   function setMessage(value) {
     if (message) message.textContent = value;
@@ -101,6 +107,7 @@ export const customerAccessClient = String.raw`
         signUpUrl: '/registrera',
         forceRedirectUrl: returnUrl,
         fallbackRedirectUrl: returnUrl,
+        appearance: customerAppearance,
       };
       if (document.body.dataset.customerAccessMode === 'register') Clerk.mountSignUp(widget, options);
       else Clerk.mountSignIn(widget, options);

@@ -171,6 +171,12 @@ describe("customer portal access client", () => {
       signUpUrl: "/registrera",
       forceRedirectUrl: "/login",
       fallbackRedirectUrl: "/login",
+      appearance: {
+        elements: {
+          headerTitle: { display: "none" },
+          headerSubtitle: { display: "none" },
+        },
+      },
     }));
     const signOutListener = result.elements["customer-sign-out"].addEventListener.mock.calls
       .find(([event]) => event === "click")?.[1] as (() => void) | undefined;
