@@ -43,6 +43,7 @@ async function runClient(
   authenticated = true,
   overlay = false,
   loadImplementation: () => Promise<void> = async () => undefined,
+  mode: "login" | "register" = "login",
 ) {
   const elements = {
     "customer-access": fakeNode(),
@@ -60,11 +61,13 @@ async function runClient(
     elements["customer-access"].dataset.customerAccessMode = "login";
     elements["customer-access"].dataset.customerAccessAutostart = "false";
     elements["customer-access"].dataset.customerAccessReturnUrl = "/?login=1";
+  } else {
+    elements["customer-access"].dataset.customerAccessMode = mode;
   }
 
   const created: FakeNode[] = [];
   const document = {
-    body: { dataset: { customerAccessMode: "login" } },
+    body: { dataset: { customerAccessMode: mode } },
     getElementById: (id: keyof typeof elements) => elements[id] ?? null,
     createElement: () => {
       const node = fakeNode();
@@ -74,8 +77,8 @@ async function runClient(
   };
   const replace = vi.fn();
   const location = {
-    href: `https://content-online-platform.vercel.app${overlay ? "/" : "/login"}${search}`,
-    pathname: overlay ? "/" : "/login",
+    href: `https://content-online-platform.vercel.app${overlay ? "/" : mode === "register" ? "/registrera" : "/login"}${search}`,
+    pathname: overlay ? "/" : mode === "register" ? "/registrera" : "/login",
     search,
     replace,
   };
@@ -200,6 +203,26 @@ describe("customer portal access client", () => {
     expect(signOutListener).toBeTypeOf("function");
     signOutListener?.();
     expect(result.Clerk.signOut).toHaveBeenCalledWith({ redirectUrl: "/login" });
+  });
+
+  it("does not offer free registration without a personal invitation", async () => {
+    const result = await runClient([], "", false, false, async () => undefined, "register");
+
+    expect(result.Clerk.mountSignUp).not.toHaveBeenCalled();
+    expect(result.Clerk.mountSignIn).not.toHaveBeenCalled();
+    expect(result.elements["customer-auth-widget"].hidden).toBe(true);
+    expect(result.elements["customer-access-message"].textContent).toContain("personliga länken i inbjudningsmejlet");
+  });
+
+  it("mounts account activation for a Clerk invitation without retaining the ticket in the return URL", async () => {
+    const result = await runClient([], "?__clerk_ticket=invitation-ticket&portal=alpha", false, false, async () => undefined, "register");
+
+    expect(result.Clerk.mountSignUp).toHaveBeenCalledOnce();
+    expect(result.Clerk.mountSignUp.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      forceRedirectUrl: "/registrera?portal=alpha",
+      fallbackRedirectUrl: "/registrera?portal=alpha",
+    }));
+    expect(JSON.stringify(result.Clerk.mountSignUp.mock.calls)).not.toContain("invitation-ticket");
   });
 
   it("defers the root overlay sign-in until it is opened and starts only once", async () => {

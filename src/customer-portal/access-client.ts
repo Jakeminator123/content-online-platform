@@ -10,12 +10,14 @@ export const customerAccessClient = String.raw`
   const account = document.getElementById('customer-account');
   const signOut = document.getElementById('customer-sign-out');
   const mode = root.dataset.customerAccessMode || document.body.dataset.customerAccessMode || 'login';
+  const invitationTicket = new URL(location.href).searchParams.get('__clerk_ticket') || '';
   const deferred = root.dataset.customerAccessAutostart === 'false';
   const rawRequestedPortal = new URL(location.href).searchParams.get('portal') || '';
   const requestedPortal = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(rawRequestedPortal) && rawRequestedPortal.length <= 63 ? rawRequestedPortal : '';
   const configuredReturnUrl = root.dataset.customerAccessReturnUrl || '';
   const portalReturnUrl = deferred && requestedPortal ? '/?login=1&portal=' + encodeURIComponent(requestedPortal) : '';
-  const returnUrl = portalReturnUrl || (/^\/(?!\/)/.test(configuredReturnUrl) ? configuredReturnUrl : location.pathname + location.search);
+  const registrationReturnUrl = '/registrera' + (requestedPortal ? '?portal=' + encodeURIComponent(requestedPortal) : '');
+  const returnUrl = portalReturnUrl || (/^\/(?!\/)/.test(configuredReturnUrl) ? configuredReturnUrl : mode === 'register' ? registrationReturnUrl : location.pathname + location.search);
   const customerAppearance = {
     elements: {
       headerTitle: { display: 'none' },
@@ -123,6 +125,13 @@ export const customerAccessClient = String.raw`
         const resolved = await resolveEntries(Clerk.session, () => isRunActive(run));
         if (run !== runVersion) return;
         ready = resolved;
+        starting = false;
+        return;
+      }
+      if (mode === 'register' && !invitationTicket) {
+        if (widget) widget.hidden = true;
+        setMessage('Registrering öppnas från den personliga länken i inbjudningsmejlet. Har du redan aktiverat kontot väljer du Logga in nedan.');
+        ready = true;
         starting = false;
         return;
       }

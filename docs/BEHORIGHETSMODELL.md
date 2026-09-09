@@ -1,16 +1,17 @@
 # Behörighetsmodell
 
-**Version:** 0.2
+**Version:** 0.3
 
 **Datum:** 2026-09-09
 
 **Status:** Identitets- och tenantgränsen är implementerad för pilotflödet.
 Detaljerade rättigheter till framtida livefunktioner är fortfarande föreslagna.
 
-## Separata identitetsdomäner
+## En identitet, separata behörighetsdomäner
 
-Plattformen skiljer strikt mellan kundmedlemskap och Content Onlines interna
-administration.
+Plattformen använder Clerk som gemensam identitetsleverantör och Neon som
+auktoritativt register för roller, kundmedlemskap och tenantscope. Den skiljer
+strikt mellan kundmedlemskap och Content Onlines interna administration.
 
 | Domän | Ingång | Roller |
 | --- | --- | --- |
@@ -33,11 +34,15 @@ fallback för en annan tenant.
 
 Kundflödet fungerar i följande ordning:
 
-1. Clerk verifierar identiteten.
-2. Backend läser aktiva serverägda medlemskap.
-3. `/v1/portal-entries` returnerar bara publicerade portaler som identiteten får
+1. Content Online sparar medlemskapet i Neon. För en publicerad portal skapar
+   backend samtidigt en personlig Clerk-inbjudan till den registrerade adressen.
+2. Inbjudningslänken öppnar `/registrera`; fri registrering utan inbjudan erbjuds
+   inte.
+3. Clerk verifierar identiteten.
+4. Backend läser aktiva serverägda medlemskap.
+5. `/v1/portal-entries` returnerar bara publicerade portaler som identiteten får
    använda.
-4. `/portal/{slug}` verifierar samma medlemskap innan skyddad kundstatus eller
+6. `/portal/{slug}` verifierar samma medlemskap innan skyddad kundstatus eller
    data får visas.
 
 En e-postadress används bara för en väntande inbjudan. Vid första godkända

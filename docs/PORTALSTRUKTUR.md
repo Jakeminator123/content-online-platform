@@ -26,14 +26,20 @@ ge 404. Lokala och CI-baserade fixtures ska bara nås genom testharnessen.
 
 ## Kundens inloggningsflöde
 
-1. Kunden öppnar `/` och väljer kundinloggning. `/login` finns som direkt
-   fallback för bokmärken och externa returflöden.
-2. Clerk verifierar identiteten.
-3. Servern läser aktiva medlemskap och returnerar tillåtna, publicerade
+1. Content Online lägger till portalmedlemmen i Neon. Om portalen är publicerad
+   skickar backend automatiskt en personlig Clerk-inbjudan. En misslyckad
+   e-postleverans rullar inte tillbaka medlemskapet och kan skickas igen från
+   adminvyn.
+2. Kunden aktiverar kontot via inbjudningslänken till `/registrera`. Sidan
+   erbjuder inte fri registrering utan en giltig inbjudan.
+3. Därefter öppnar kunden `/` och väljer kundinloggning. `/login` finns som
+   direkt fallback för bokmärken och externa returflöden.
+4. Clerk verifierar identiteten.
+5. Servern läser aktiva medlemskap och returnerar tillåtna, publicerade
    portalposter via `/v1/portal-entries`.
-4. Finns exakt en tillåten portal kan klienten öppna den direkt. Annars väljer
+6. Finns exakt en tillåten portal kan klienten öppna den direkt. Annars väljer
    användaren bland sina serverreturnerade organisationer.
-5. `/portal/{slug}` verifierar sessionen och medlemskapet innan den visar
+7. `/portal/{slug}` verifierar sessionen och medlemskapet innan den visar
    kundskyddad status eller data.
 
 Kund- och personalbehörighet är separerade server-side, men den nuvarande

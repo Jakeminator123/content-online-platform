@@ -32,6 +32,7 @@ import { customerAccessClient } from "../customer-portal/access-client.js";
 import { customerPortalClient } from "../customer-portal/client.js";
 import { CustomerDomainError, customerDomainServiceFromEnvironment, type CustomerDomainService } from "../customer-portal/domains.js";
 import { ClerkCustomerAuthenticator, type CustomerAuthenticator } from "../customer-portal/identity.js";
+import { ClerkPortalInvitationService, PortalInvitationError, type PortalInvitationService } from "../customer-portal/invitations.js";
 import { customerSlugFromHostname, isCustomerSlug, isPlatformHostname, normalizeCustomerHostname } from "../customer-portal/routing.js";
 import { customerSessionClient } from "../customer-portal/session-client.js";
 import { customerPortalCss } from "../customer-portal/style.js";
@@ -57,6 +58,7 @@ type AdminPortalOptions = {
   askAssistant?: (question: string, adminId: string) => Promise<AssistantAnswer>;
   presentationFixtures?: boolean;
   customerLogoUploader?: (customerId: string, file: File) => Promise<string>;
+  portalInvitationService?: PortalInvitationService;
 };
 type AdminPortalEnvironment = { Variables: { adminIdentity: AdminIdentity } };
 export function clerkFrontendHost(key: string): string | null {
@@ -77,6 +79,7 @@ export function createAdminPortal(
   const customerConfigured = !!(host && config.secretKey);
   const presentationFixtures = options.presentationFixtures === true;
   const customerAuthenticator = options.customerAuthenticator ?? new ClerkCustomerAuthenticator(config);
+  const portalInvitationService = options.portalInvitationService ?? new ClerkPortalInvitationService(config);
   const portalRootDomain = options.portalRootDomain ?? process.env.CUSTOMER_PORTAL_ROOT_DOMAIN ?? "portal.contentonline.se";
   const portalWildcardReady = options.portalWildcardReady ?? ["1", "true"].includes((process.env.CUSTOMER_PORTAL_WILDCARD_READY ?? "").toLowerCase());
   const fallbackDidAgent = {
@@ -496,6 +499,35 @@ export function createAdminPortal(
     }
   });
 
+  app.post("/admin/api/portal-members/:id/invite", async (c) => {
+    const origin = c.req.header("origin");
+    if (origin && origin !== PLATFORM_ORIGIN && origin !== new URL(c.req.url).origin) return c.json({ error: "forbidden" }, 403);
+    try {
+      const raw = await c.req.text();
+      if (raw.length > 1_000) return c.json({ error: "body_too_large" }, 413);
+      const body = z.object({ version: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).safeParse(JSON.parse(raw));
+      if (!body.success) return c.json({ error: "invalid_invitation" }, 422);
+      const current = await registry().read();
+      if (current.version !== body.data.version) return c.json({ error: "version_conflict" }, 409);
+      const member = current.data.portalMembers.find((candidate) => candidate.id === c.req.param("id"));
+      if (!member) return c.json({ error: "not_found" }, 404);
+      const customer = current.data.customers.find((candidate) => candidate.id === member.customerId);
+      if (!customer) return c.json({ error: "not_found" }, 404);
+      if (customer.kind === "demo") return c.json({ error: "demo_customer_protected" }, 409);
+      if (customer.status !== "published") return c.json({ error: "customer_not_published" }, 409);
+      if (member.status !== "active") return c.json({ error: "portal_member_inactive" }, 409);
+      if (member.externalUserId) return c.json({ error: "portal_identity_already_bound" }, 409);
+      const redirect = new URL("/registrera", PLATFORM_ORIGIN);
+      redirect.searchParams.set("portal", customer.slug);
+      await portalInvitationService.invite({ emailAddress: member.verifiedEmail, redirectUrl: redirect.toString() });
+      return c.json({ invitation: "sent" });
+    } catch (error) {
+      if (error instanceof SyntaxError) return c.json({ error: "invalid_json" }, 422);
+      if (error instanceof PortalInvitationError) return c.json({ error: "portal_invitation_unavailable" }, 503);
+      return c.json({ error: "storage_unavailable" }, 503);
+    }
+  });
+
   app.post("/admin/api/registry", async (c) => {
     // Bearer auth is mandatory above; a cookie and a foreign origin never authorize writes.
     const origin = c.req.header("origin");
@@ -516,7 +548,28 @@ export function createAdminPortal(
       // Validation above must succeed before any external side effect. Exact
       // custom domains are then detached before the irreversible registry write.
       if (command.action === "delete_customer") await domainService().release(releasedDomain);
-      return c.json(adminRegistrySnapshot(await store.write(current.version, next)));
+      const saved = await store.write(current.version, next);
+      if (command.action !== "add_portal_member") return c.json(adminRegistrySnapshot(saved));
+
+      const customer = saved.data.customers.find((candidate) => candidate.id === command.customerId);
+      if (!customer || customer.status !== "published") {
+        return c.json({ ...adminRegistrySnapshot(saved), invitation: { status: "not_sent", reason: "customer_not_published" } });
+      }
+      const member = saved.data.portalMembers.find((candidate) =>
+        candidate.customerId === command.customerId && candidate.verifiedEmail === command.verifiedEmail,
+      );
+      if (!member) return c.json({ ...adminRegistrySnapshot(saved), invitation: { status: "not_sent", reason: "member_not_found" } });
+      const redirect = new URL("/registrera", PLATFORM_ORIGIN);
+      redirect.searchParams.set("portal", customer.slug);
+      try {
+        await portalInvitationService.invite({ emailAddress: member.verifiedEmail, redirectUrl: redirect.toString() });
+        return c.json({ ...adminRegistrySnapshot(saved), invitation: { status: "sent" } });
+      } catch (error) {
+        if (error instanceof PortalInvitationError) {
+          return c.json({ ...adminRegistrySnapshot(saved), invitation: { status: "not_sent", reason: "provider_unavailable" } });
+        }
+        return c.json({ ...adminRegistrySnapshot(saved), invitation: { status: "not_sent", reason: "provider_unavailable" } });
+      }
     } catch (error) {
       if (error instanceof SyntaxError) return c.json({ error: "invalid_json" }, 422);
       if (error instanceof CustomerDomainError) {
@@ -635,7 +688,7 @@ function customerAccessPage(mode: "login" | "register", host: string | null, key
   </head><body data-preset="academic" data-data-mode="customer-access" data-customer-access-mode="${mode}" style="--portal-primary:#285b70;--portal-accent:#338578;--portal-on-primary:#ffffff">
   <div class="login-shell"><section class="login-brand"><a class="co-brand" href="/" aria-label="Content Online"><span class="co-mark"><img src="/admin/assets/co-logo.png" alt=""></span><span><strong>Content Online</strong><small>KNOWLEDGE. CONNECTED.</small></span></a>
   <div class="login-identity"><span class="section-kicker">KUNDPORTAL</span><h1>Kunskap, samlad för er.</h1><p>En säker ingång till organisationens produkter, analys och rapporter. Vilken portal du får öppna avgörs av ditt verifierade medlemskap.</p></div><small>Content Online · Kundåtkomst</small></section>
-  <main class="login-panel" id="customer-access"><section class="login-card"><span class="section-kicker">${mode === "register" ? "AKTIVERA KONTO" : "LOGGA IN"}</span><h2>${mode === "register" ? "Skapa ditt kundkonto." : "Välkommen tillbaka."}</h2><p>${mode === "register" ? "Använd den verifierade e-postadress som Content Online har kopplat till er organisation." : "Logga in med organisationens aktiverade konto."}</p>
+  <main class="login-panel" id="customer-access"><section class="login-card"><span class="section-kicker">${mode === "register" ? "AKTIVERA INBJUDAN" : "LOGGA IN"}</span><h2>${mode === "register" ? "Aktivera ditt kundkonto." : "Välkommen tillbaka."}</h2><p>${mode === "register" ? "Öppna den personliga länken i inbjudningsmejlet. Content Online skapar behörigheten; här verifierar du samma konto som du sedan loggar in med." : "Logga in med organisationens aktiverade konto."}</p>
   <p class="customer-access-message" id="customer-access-message" role="status">${configured ? "Laddar säker inloggning…" : "Kundinloggningen är inte konfigurerad."}</p>${configured ? html`<div id="customer-auth-widget"></div>` : ""}
   <section class="portal-chooser" id="portal-chooser" aria-labelledby="portal-chooser-title" hidden><h3 id="portal-chooser-title">Era kundportaler</h3><div class="portal-entry-list" id="portal-entry-list"></div></section>
   <div class="customer-account" id="customer-account" hidden><button class="button secondary" id="customer-sign-out" type="button" hidden>Logga ut och byt konto</button></div>
