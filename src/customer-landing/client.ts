@@ -12,8 +12,10 @@ export const customerLandingClient = String.raw`
   const footer = document.getElementById('contact');
   const heroScroll = document.querySelector('.landing-hero-scroll');
   const portrait = document.getElementById('landing-portrait');
+  const revealCanvas = document.getElementById('landing-hero-reveal');
   const marquee = document.querySelector('.landing-marquee');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
 
   root.classList.add('landing-enhanced');
 
@@ -25,17 +27,24 @@ export const customerLandingClient = String.raw`
       const rect = heroScroll.getBoundingClientRect();
       const travel = Math.max(heroScroll.offsetHeight - window.innerHeight, 1);
       const progress = Math.min(Math.max(-rect.top / travel, 0), 1);
+      const shrinkProgress = Math.min(progress / 0.46, 1);
+      const exitProgress = Math.min(Math.max((progress - 0.86) / 0.14, 0), 1);
       const endScale = window.innerWidth <= 680 ? 0.58 : 0.48;
-      const scale = 1 - progress * (1 - endScale);
-      const radius = Math.round(progress * (window.innerWidth <= 680 ? 18 : 30));
-      const marqueeOpacity = Math.min(Math.max((progress - 0.12) / 0.42, 0), 1);
-      portrait.style.transform = 'scale(' + scale.toFixed(4) + ')';
+      const scale = 1 - shrinkProgress * (1 - endScale);
+      const radius = Math.round(shrinkProgress * (window.innerWidth <= 680 ? 18 : 30));
+      const marqueeReveal = Math.min(Math.max((progress - 0.1) / 0.3, 0), 1);
+      const exitOffset = exitProgress * -100;
+      portrait.style.transform = 'translateY(' + exitOffset.toFixed(2) + '%) scale(' + scale.toFixed(4) + ')';
       portrait.style.borderRadius = radius + 'px';
-      marquee.style.opacity = String(marqueeOpacity);
+      portrait.style.opacity = String(1 - exitProgress);
+      marquee.style.opacity = String(marqueeReveal * (1 - exitProgress));
+      marquee.style.transform = 'translateY(' + exitOffset.toFixed(2) + '%)';
     } else if (portrait && marquee) {
       portrait.style.transform = '';
       portrait.style.borderRadius = '';
+      portrait.style.opacity = '';
       marquee.style.opacity = '';
+      marquee.style.transform = '';
     }
 
     scheduled = false;
@@ -53,6 +62,192 @@ export const customerLandingClient = String.raw`
   if (typeof reducedMotion.addEventListener === 'function') {
     reducedMotion.addEventListener('change', scheduleViewportUpdate);
   }
+
+  const initPortraitReveal = () => {
+    if (!portrait || !(revealCanvas instanceof HTMLCanvasElement)) return;
+    const image = portrait.querySelector('.landing-hero-image');
+    if (!(image instanceof HTMLImageElement)) return;
+    revealCanvas.width = 1;
+    revealCanvas.height = 1;
+    const context = revealCanvas.getContext('2d', { alpha: true });
+    if (!context) return;
+
+    let width = 0;
+    let height = 0;
+    let pixelRatio = 1;
+    let animationFrame = 0;
+    let resizeFrame = 0;
+    let lastPaint = 0;
+    let lastPoint = null;
+    let points = [];
+    let revealDisabled = reducedMotion.matches;
+    const trailDuration = 1800;
+    const maxBackingPixels = 2400000;
+
+    const clearReveal = () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      points = [];
+      lastPoint = null;
+      context.clearRect(0, 0, width, height);
+      portrait.dataset.revealActive = 'false';
+    };
+
+    const releaseReveal = () => {
+      clearReveal();
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = 0;
+      width = 0;
+      height = 0;
+      pixelRatio = 1;
+      revealCanvas.width = 1;
+      revealCanvas.height = 1;
+    };
+
+    const resizeReveal = () => {
+      width = Math.max(1, portrait.clientWidth);
+      height = Math.max(1, portrait.clientHeight);
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5, Math.sqrt(maxBackingPixels / (width * height)));
+      revealCanvas.width = Math.round(width * pixelRatio);
+      revealCanvas.height = Math.round(height * pixelRatio);
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      points = [];
+      lastPoint = null;
+    };
+
+    const scheduleRevealResize = () => {
+      if (resizeFrame || revealDisabled || !finePointer.matches) return;
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = 0;
+        resizeReveal();
+      });
+    };
+
+    const drawImageCover = () => {
+      const imageWidth = image.naturalWidth || image.width;
+      const imageHeight = image.naturalHeight || image.height;
+      if (!imageWidth || !imageHeight) return;
+      const imageAspect = imageWidth / imageHeight;
+      const containerAspect = width / height;
+      const drawWidth = imageAspect > containerAspect ? height * imageAspect : width;
+      const drawHeight = imageAspect > containerAspect ? height : width / imageAspect;
+      const position = getComputedStyle(image).objectPosition.split(/\s+/);
+      const positionFactor = (value, fallback) => value && value.endsWith('%')
+        ? Math.min(Math.max(Number.parseFloat(value) / 100, 0), 1)
+        : fallback;
+      const drawX = (width - drawWidth) * positionFactor(position[0], 0.5);
+      const drawY = (height - drawHeight) * positionFactor(position[1], 0.5);
+      context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+    };
+
+    const drawReveal = (now) => {
+      animationFrame = 0;
+      const rect = portrait.getBoundingClientRect();
+      if (revealDisabled || document.hidden || rect.bottom <= 0 || rect.top >= window.innerHeight) {
+        clearReveal();
+        return;
+      }
+      points = points.filter((point) => now - point.at < trailDuration);
+      if (!points.length) {
+        clearReveal();
+        return;
+      }
+      if (now - lastPaint < 1000 / 45) {
+        animationFrame = window.requestAnimationFrame(drawReveal);
+        return;
+      }
+      lastPaint = now;
+      context.clearRect(0, 0, width, height);
+
+      const brushRadius = Math.max(105, Math.min(width, height) * 0.2);
+      context.save();
+      context.globalCompositeOperation = 'source-over';
+      points.forEach((point) => {
+        const life = Math.max(0, 1 - (now - point.at) / trailDuration);
+        const radius = brushRadius * (0.72 + (1 - life) * 0.32);
+        const gradient = context.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
+        gradient.addColorStop(0, 'rgba(0,0,0,' + Math.min(1, life * 1.4) + ')');
+        gradient.addColorStop(0.58, 'rgba(0,0,0,' + life + ')');
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        context.fillStyle = gradient;
+        context.fillRect(point.x - radius, point.y - radius, radius * 2, radius * 2);
+      });
+      context.globalCompositeOperation = 'source-in';
+      drawImageCover();
+      context.restore();
+
+      if (points.length) animationFrame = window.requestAnimationFrame(drawReveal);
+    };
+
+    const requestRevealFrame = () => {
+      if (!animationFrame) animationFrame = window.requestAnimationFrame(drawReveal);
+    };
+
+    const addRevealPoint = (x, y, now) => {
+      const brushRadius = Math.max(105, Math.min(width, height) * 0.2);
+      const spacing = Math.max(16, brushRadius * 0.18);
+      if (lastPoint) {
+        const distance = Math.hypot(x - lastPoint.x, y - lastPoint.y);
+        const steps = Math.max(1, Math.ceil(distance / spacing));
+        for (let step = 1; step <= steps; step += 1) {
+          const progress = step / steps;
+          points.push({
+            x: lastPoint.x + (x - lastPoint.x) * progress,
+            y: lastPoint.y + (y - lastPoint.y) * progress,
+            at: now,
+          });
+        }
+      } else {
+        points.push({ x, y, at: now });
+      }
+      if (points.length > 48) points.splice(0, points.length - 48);
+      lastPoint = { x, y };
+      requestRevealFrame();
+    };
+
+    const moveReveal = (event) => {
+      if (revealDisabled || !finePointer.matches || event.pointerType === 'touch') return;
+      const rect = portrait.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      if (!width || !height) resizeReveal();
+      const x = (event.clientX - rect.left) * (width / rect.width);
+      const y = (event.clientY - rect.top) * (height / rect.height);
+      portrait.dataset.revealActive = 'true';
+      portrait.style.setProperty('--reveal-x', x + 'px');
+      portrait.style.setProperty('--reveal-y', y + 'px');
+      addRevealPoint(x, y, performance.now());
+    };
+
+    const leaveReveal = () => {
+      portrait.dataset.revealActive = 'false';
+      lastPoint = null;
+      requestRevealFrame();
+    };
+
+    if (finePointer.matches && !revealDisabled) resizeReveal();
+    portrait.addEventListener('pointerenter', moveReveal);
+    portrait.addEventListener('pointermove', moveReveal);
+    portrait.addEventListener('pointerleave', leaveReveal);
+    window.addEventListener('resize', scheduleRevealResize, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) clearReveal();
+    });
+    if (typeof reducedMotion.addEventListener === 'function') {
+      reducedMotion.addEventListener('change', () => {
+        revealDisabled = reducedMotion.matches;
+        if (revealDisabled) releaseReveal();
+        else if (finePointer.matches) scheduleRevealResize();
+      });
+    }
+    if (typeof finePointer.addEventListener === 'function') {
+      finePointer.addEventListener('change', () => {
+        if (!finePointer.matches) releaseReveal();
+        else if (!revealDisabled) scheduleRevealResize();
+      });
+    }
+  };
+
+  initPortraitReveal();
 
   const revealSections = Array.from(document.querySelectorAll('.landing-reveal-section'));
   if ('IntersectionObserver' in window && !reducedMotion.matches) {

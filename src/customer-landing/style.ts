@@ -240,6 +240,7 @@ h1, h2, h3, p, figure { margin-top: 0; }
   overflow: hidden;
   opacity: 0;
   transition: opacity 80ms linear;
+  will-change: opacity, transform;
 }
 .landing-marquee-line {
   display: flex;
@@ -266,17 +267,37 @@ h1, h2, h3, p, figure { margin-top: 0; }
   background: var(--co-ink);
   box-shadow: 0 35px 90px rgba(2, 8, 14, 0.46);
   transform-origin: 50% 50%;
-  will-change: transform, border-radius;
+  will-change: transform, border-radius, opacity;
 }
 .landing-hero-image {
   position: absolute;
   inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: 50% 45%;
   filter: grayscale(1) contrast(1.03);
   animation: landing-image-arrive 1.1s cubic-bezier(0.16, 0.82, 0.25, 1) both;
+}
+.landing-hero-reveal-aura {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle clamp(130px, 19vw, 285px) at var(--reveal-x, 50%) var(--reveal-y, 50%), rgba(56, 184, 224, 0.32), rgba(25, 84, 166, 0.12) 48%, transparent 72%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+.landing-portrait[data-reveal-active="true"] .landing-hero-reveal-aura { opacity: 1; }
+.landing-hero-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 @keyframes landing-image-arrive {
   from { opacity: 0; transform: scale(1.035); }
@@ -285,6 +306,7 @@ h1, h2, h3, p, figure { margin-top: 0; }
 .landing-hero-vignette {
   position: absolute;
   inset: 0;
+  z-index: 3;
   background: linear-gradient(180deg, rgba(5, 12, 19, 0.2), transparent 26%, transparent 62%, rgba(5, 12, 19, 0.52));
   pointer-events: none;
 }
@@ -292,6 +314,7 @@ h1, h2, h3, p, figure { margin-top: 0; }
   position: absolute;
   left: clamp(18px, 3.2vw, 48px);
   bottom: clamp(22px, 4vw, 50px);
+  z-index: 4;
   max-width: 270px;
   margin: 0;
   color: var(--co-white);
@@ -306,6 +329,7 @@ h1, h2, h3, p, figure { margin-top: 0; }
   position: absolute;
   right: clamp(18px, 3.2vw, 48px);
   bottom: clamp(22px, 4vw, 50px);
+  z-index: 4;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -391,10 +415,10 @@ h1, h2, h3, p, figure { margin-top: 0; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: saturate(0.72);
+  filter: none;
   transition: filter 450ms ease, transform 700ms cubic-bezier(.2,.72,.2,1);
 }
-.landing-gallery-card:hover img { filter: saturate(1); transform: scale(1.035); }
+.landing-gallery-card:hover img { transform: scale(1.035); }
 .landing-gallery-card figcaption {
   position: absolute;
   left: 15px;
@@ -570,7 +594,12 @@ h1, h2, h3, p, figure { margin-top: 0; }
 .landing-card-fan figure:nth-child(3):hover { transform: translateX(-50%) translateY(-62px); }
 .landing-card-fan figure:nth-child(4):hover { transform: translateX(-12%) rotate(3deg) translateY(-48px); }
 .landing-card-fan figure:nth-child(5):hover { transform: translateX(22%) rotate(10deg) translateY(-36px); }
-.landing-card-fan img { width: 100%; height: 100%; object-fit: cover; }
+.landing-card-fan img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 450ms ease, transform 700ms cubic-bezier(.2,.72,.2,1);
+}
 .landing-card-fan figcaption {
   position: absolute;
   inset: auto 0 0;
@@ -696,6 +725,18 @@ h1, h2, h3, p, figure { margin-top: 0; }
 
 :focus-visible { outline: 3px solid var(--co-cyan); outline-offset: 4px; }
 .landing-login:focus-visible, .landing-access > a:focus-visible { outline-color: var(--co-white); }
+
+@media (hover: hover) and (pointer: fine) {
+  .landing-gallery-card img,
+  .landing-card-fan img { filter: grayscale(1) contrast(1.03); }
+  .landing-gallery-card:hover img,
+  .landing-card-fan figure:hover img { filter: grayscale(0) contrast(1) saturate(1.06); }
+  .landing-card-fan figure:hover img { transform: scale(1.025); }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .landing-portrait { cursor: crosshair; }
+}
 
 @media (max-width: 980px) {
   .landing-enhanced .landing-nav { display: flex; }

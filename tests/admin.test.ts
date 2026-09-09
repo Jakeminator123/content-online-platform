@@ -403,6 +403,8 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(start).toContain('data-customer-login');
     expect(start).toContain('href="/login"');
     expect(start).toContain('src="/customer-landing/hero-wide.jpg"');
+    expect(start).toContain('id="landing-hero-reveal"');
+    expect(start).toContain('class="landing-hero-reveal-aura"');
     expect(start).toContain('id="mission"');
     expect(start).toContain('id="resources"');
     expect(start).toContain('id="institutions"');
@@ -448,6 +450,19 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(client).toContain("IntersectionObserver");
     expect(client).toContain("dataset.resourceTab");
     expect(client).toContain("prefers-reduced-motion: reduce");
+    expect(client).toContain("(hover: hover) and (pointer: fine)");
+    expect(client).toContain("portrait.addEventListener('pointermove', moveReveal)");
+    expect(client).toContain("context.globalCompositeOperation = 'source-in'");
+    expect(client).toContain("const maxBackingPixels = 2400000");
+    expect(client).toContain("points.length > 48");
+    expect(client).toContain("rect.bottom <= 0 || rect.top >= window.innerHeight");
+    expect(client).toContain("getComputedStyle(image).objectPosition");
+    expect(client).toContain("if (revealDisabled) releaseReveal()");
+    expect(client).toContain("if (finePointer.matches && !revealDisabled) resizeReveal()");
+    expect(client).toContain("const releaseReveal = () =>");
+    expect(client).toContain("revealCanvas.width = 1");
+    expect(client).toContain("const shrinkProgress = Math.min(progress / 0.46, 1)");
+    expect(client).toContain("const exitProgress = Math.min(Math.max((progress - 0.86) / 0.14, 0), 1)");
     expect(client).toContain("resourceTabs[nextIndex]");
 
     const styleResponse = await app.request("/customer-landing/assets/style.css");
@@ -459,6 +474,10 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(styles).toContain('url("/customer-landing/MonaSans-Variable.woff2")');
     expect(styles).toContain(".landing-hero-scroll");
     expect(styles).toContain(".landing-card-fan");
+    expect(styles).toContain(".landing-hero-reveal");
+    expect(styles).toContain("@media (hover: hover) and (pointer: fine)");
+    expect(styles).toContain("(prefers-reduced-motion: no-preference)");
+    expect(styles).toContain("filter: grayscale(1) contrast(1.03)");
     expect(styles).not.toContain("backdrop-filter");
   });
 

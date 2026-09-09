@@ -51,6 +51,8 @@ export function renderCustomerLanding(): string {
 
           <div class="landing-portrait" id="landing-portrait">
             <img class="landing-hero-image" src="/customer-landing/hero-wide.jpg" srcset="/customer-landing/hero-wide-640.jpg 640w, /customer-landing/hero-wide.jpg 1024w" sizes="100vw" alt="Researcher standing between library shelves" width="1024" height="1024" fetchpriority="high">
+            <div class="landing-hero-reveal-aura" aria-hidden="true"></div>
+            <canvas class="landing-hero-reveal" id="landing-hero-reveal" aria-hidden="true"></canvas>
             <div class="landing-hero-vignette" aria-hidden="true"></div>
             <h1 id="landing-title">UNLOCK WORLD-CLASS RESEARCH</h1>
             <p class="landing-scroll-cue"><span aria-hidden="true">↓</span> Scroll to explore</p>
