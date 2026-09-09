@@ -71,6 +71,9 @@ try{
   assert.equal((await fetch(base+'/portal-directory/browser-customer')).status,404);
   await row.getByRole('button',{name:'Arkivera kundsajt',exact:true}).click();
   await row.getByRole('button',{name:'Radera permanent',exact:true}).click();
+  const deleteForm=panel.locator('form[data-reg-form="delete_customer"]');
+  await deleteForm.getByLabel('Exakt kundnamn eller URL-namn').fill('browser-customer');
+  await deleteForm.getByRole('button',{name:'Radera permanent',exact:true}).click();
   await row.waitFor({state:'detached'});
   await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
   assert.equal(await panel.getByLabel('URL-namn').inputValue(),'browser-customer','Permanent deletion must release the slug');
