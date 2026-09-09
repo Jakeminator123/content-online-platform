@@ -15,8 +15,8 @@ async function check(url, status, options = {}) {
 await check(`${platform}/health`, 200);
 const start = await check(platform, 200);
 assert(!start.body.includes('href="/kundportal"'));
-assert(start.body.includes('data-mode="login"'));
-assert(start.body.includes('id="auth-widget"'));
+assert(start.body.includes('data-customer-access-mode="login"'));
+assert(start.body.includes('id="customer-auth-widget"'));
 assert(start.body.includes('href="/admin/login"'));
 for (const path of ['/admin/login', '/admin/registrera', '/admin']) {
   const { body } = await check(`${platform}${path}`, 200);
@@ -27,8 +27,9 @@ for (const path of ['/admin/login', '/admin/registrera', '/admin']) {
   for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) new Script(script);
 }
 const portal = await check(`${platform}/kundportal`, 302);
-assert.equal(portal.response.headers.get('location'), '/admin#customers');
+assert.equal(portal.response.headers.get('location'), '/');
 assert.equal(portal.response.headers.get('set-cookie'), null);
+await check(`${platform}/v1/portal-entries`, 401);
 await check(`${platform}/admin/api/session`, 401);
 await check(`${platform}/admin/api/users`, 401);
 await check(`${platform}/admin/api/workspace`, 401);
@@ -55,8 +56,10 @@ for (const organization of workspace.customers) {
 await check(`${platform}/demo/workspace`, 404, { method: 'POST' });
 const client = await check(`${platform}/admin/assets/workspace.js`, 200);
 new Script(client.body);
+const accessClient = await check(`${platform}/customer-portal/assets/access.js`, 200);
+new Script(accessClient.body);
 const customerPortal = await check(`${platform}/portal/kth`, 200);
-assert(customerPortal.body.includes('DEMO · SYNTETISKA EXEMPEL'));
+assert(customerPortal.body.includes('SYNTETISK KUNDBILD'));
 assert(customerPortal.body.includes('Kunskap i användning'));
 await check(`${platform}/portal/kth/login`, 200);
 const agentContext = await check(`${platform}/portal/kth/api/agent-context`, 200);

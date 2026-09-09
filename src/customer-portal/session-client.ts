@@ -1,0 +1,61 @@
+export const customerSessionClient = String.raw`
+(() => {
+  'use strict';
+
+  const body = document.body;
+  const slug = body?.dataset.customerSlug || '';
+  const canonicalPath = '/portal/' + encodeURIComponent(slug);
+
+  // The demo and custom-domain routes have separate presentation/auth flows.
+  if (
+    body?.dataset.dataMode !== 'locked'
+    || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
+    || slug.length > 63
+    || location.pathname !== canonicalPath
+  ) return;
+
+  const authenticatedOnly = [...document.querySelectorAll('[data-authenticated-only]')];
+  const lockedOnly = [...document.querySelectorAll('[data-locked-only]')];
+  const footer = document.querySelector('.sidebar-footer');
+  const footerStatus = document.querySelector('[data-portal-access-status]')
+    || document.querySelector('.sidebar-footer span:last-child');
+  const liveStatus = document.getElementById('portal-live-status');
+
+  function markAuthenticated() {
+    body.dataset.dataMode = 'authenticated';
+    body.dataset.portalAccess = 'authenticated';
+    authenticatedOnly.forEach(node => { node.hidden = false; });
+    lockedOnly.forEach(node => { node.hidden = true; });
+    if (footer) footer.dataset.portalAccess = 'authenticated';
+    if (footerStatus) footerStatus.textContent = 'Verifierad åtkomst';
+    if (liveStatus) liveStatus.textContent = 'Kundåtkomsten är verifierad.';
+  }
+
+  async function verifySession() {
+    try {
+      await Clerk.load();
+      const session = Clerk.session;
+      if (!session) return;
+
+      const token = await session.getToken();
+      if (typeof token !== 'string' || !token.trim()) return;
+
+      const response = await fetch('/v1/portal-entries', {
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store',
+        credentials: 'omit',
+      });
+      if (!response.ok) return;
+
+      const payload = await response.json();
+      const entries = payload && Array.isArray(payload.entries) ? payload.entries : [];
+      const allowed = entries.some(entry => entry && typeof entry === 'object' && entry.slug === slug);
+      if (allowed) markAuthenticated();
+    } catch (_) {
+      // Network and identity-provider failures keep the server-rendered locked state.
+    }
+  }
+
+  verifySession();
+})();
+`;

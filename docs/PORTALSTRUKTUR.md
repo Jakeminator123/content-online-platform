@@ -10,6 +10,7 @@ skapar bara en tenant-konfiguration som samma deployment läser från registret.
 
 | Område | Adress | Behörighet |
 | --- | --- | --- |
+| Kundinloggning | `https://content-online-platform.vercel.app/` | Verifierad kundidentitet; medlemskap avgör tillgängliga portalposter |
 | Content Online-admin | `https://content-online-platform.vercel.app/admin` | Intern Clerk-session och serverkontrollerad administratör |
 | Designgranskning | `/demo/customer/kth` | Oföränderlig och tydligt märkt syntetisk fixture, utan databasberoende |
 | Kundsida | `https://content-online-platform.vercel.app/portal/{url-namn}` | Publik, varumärkesmärkt struktur utan verklig kunddata |
@@ -18,6 +19,18 @@ skapar bara en tenant-konfiguration som samma deployment läser från registret.
 
 Kundens URL väljer tenant men bevisar aldrig medlemskap. Verklig portfölj,
 statistik, dokument och ärenden kräver senare ett serververifierat kundmedlemskap.
+
+I målbilden returnerar servern de portalposter som den verifierade identitetens
+aktiva medlemskap tillåter. En väntande e-postinbjudan binds vid första godkända
+inloggningen till leverantörens stabila användar-ID. Klienten får bara välja slug bland dessa poster; en
+manuellt angiven slug ger aldrig åtkomst. Den äldre login-sajten får finnas kvar
+som kompatibilitetslänk till `/`, men äger varken session, medlemskap eller
+kundportal.
+
+Den kanoniska `/portal/{slug}`-sidan verifierar samma session och exakta
+serverreturnerade portalpost innan den visar statusen verifierad åtkomst. Den
+publika, varumärkesmärkta strukturen kan fortfarande visas utan session, men
+innehåller ingen verklig kunddata.
 
 ## Vad Content Online kan styra
 
@@ -107,3 +120,7 @@ läser endast publicerade tenantposter; admin-API:er kräver fortsatt verifierad
 Content Online-identitet. Den gemensamma portalruntimen i detta repository är
 enda driftauktoritet och ett parallellt kundfrontend-repo eller Vercel-projekt får
 inte återskapas.
+
+`vercel.json` anger Stockholm (`arn1`) som målregion för projektets funktioner.
+Det är konfiguration, inte bevis på live-läge; region och Git-SHA ska verifieras
+på den READY-deployment som senare får produktionsaliaset.

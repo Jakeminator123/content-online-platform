@@ -1,6 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
 import { Script } from "node:vm";
-import { applyRegistryCommand, commandSchema, initialRegistry, publicPortal, registrySchema, type Registry, type RegistryStore } from "../src/admin/registry.js";
+import {
+  applyRegistryCommand,
+  bindPortalIdentity,
+  commandSchema,
+  initialRegistry,
+  publicPortal,
+  registrySchema,
+  resolvePortalEntries,
+  type Registry,
+  type RegistryStore,
+} from "../src/admin/registry.js";
 import { NeonRegistryStore, REGISTRY_SQL, neonQuery } from "../src/admin/registry-store.js";
 import { registryClient } from "../src/admin/registry-client.js";
 import { createAdminPortal } from "../src/admin/portal.js";
@@ -16,9 +26,11 @@ function memoryStore(): RegistryStore {
 }
 describe("Persistent registry domain", () => {
   it("migrates legacy snapshots to an empty portal-member allowlist", () => {
-    const { portalMembers: _missingLegacyField, ...legacy } = initialRegistry();
+    const { portalMembers: _legacyMissingField, ...legacy } = initialRegistry();
+    const migrated = registrySchema.parse(legacy);
 
-    expect(registrySchema.parse(legacy).portalMembers).toEqual([]);
+    expect(migrated.portalMembers).toEqual([]);
+    expect(migrated.customers[0]).toMatchObject({ id: "customer-kth-demo", slug: "kth" });
   });
   it("preserves portal members through an existing command and storage parse", async () => {
     const member = {
@@ -109,6 +121,31 @@ describe("Persistent registry domain", () => {
       entityId: id,
     });
   });
+  it("cascades only the deleted customer's portal memberships", () => {
+    let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "First University", slug: "first-university" }, actor);
+    next = applyRegistryCommand(next, { action: "add_customer", name: "Second University", slug: "second-university" }, actor);
+    const firstId = next.customers[1]!.id;
+    const secondId = next.customers[2]!.id;
+    next = applyRegistryCommand(next, {
+      action: "add_portal_member",
+      customerId: firstId,
+      verifiedEmail: "member@example.test",
+      displayName: "First Member",
+      role: "customer_admin",
+    }, actor);
+    next = applyRegistryCommand(next, {
+      action: "add_portal_member",
+      customerId: secondId,
+      verifiedEmail: "member@example.test",
+      displayName: "Second Member",
+      role: "customer_reader",
+    }, actor);
+    next = applyRegistryCommand(next, { action: "archive_customer", id: firstId }, actor);
+    next = applyRegistryCommand(next, { action: "delete_customer", id: firstId, confirmation: "first-university" }, actor);
+
+    expect(next.portalMembers).toHaveLength(1);
+    expect(next.portalMembers[0]).toMatchObject({ customerId: secondId, displayName: "Second Member" });
+  });
   it("requires an archived non-demo customer and an exact confirmation", () => {
     let draft = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
     const id = draft.customers[1]!.id;
@@ -145,6 +182,207 @@ describe("Persistent registry domain", () => {
     expect(next.customers[0]).toMatchObject({ slug: "kth", kind: "demo" });
     expect(commandSchema.safeParse({ action: "delete_customer", id: "customer", confirmation: "customer" }).success).toBe(true);
     expect(commandSchema.safeParse({ action: "delete_customer", id: "customer" }).success).toBe(false);
+  });
+  it("adds and updates normalized portal-member allowlist entries", () => {
+    let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example University", slug: "example-university" }, actor);
+    const customerId = next.customers[1]!.id;
+    next = applyRegistryCommand(next, {
+      action: "add_portal_member",
+      customerId,
+      verifiedEmail: "  LIBRARIAN@Example.Test ",
+      displayName: "  Ada Librarian  ",
+      role: "customer_reader",
+    }, actor);
+    const member = next.portalMembers[0]!;
+
+    expect(member).toMatchObject({
+      customerId,
+      verifiedEmail: "librarian@example.test",
+      displayName: "Ada Librarian",
+      role: "customer_reader",
+      status: "active",
+    });
+    expect(next.events.at(-1)).toMatchObject({ action: "add_portal_member", entityId: member.id });
+    next.portalMembers[0]!.externalUserId = "previous-provider-user";
+
+    next = applyRegistryCommand(next, {
+      action: "update_portal_member",
+      id: member.id,
+      verifiedEmail: "  ADA@EXAMPLE.TEST ",
+      displayName: "Ada Lovelace",
+      role: "customer_admin",
+      status: "inactive",
+    }, actor);
+    expect(next.portalMembers[0]).toMatchObject({
+      id: member.id,
+      customerId,
+      verifiedEmail: "ada@example.test",
+      externalUserId: null,
+      displayName: "Ada Lovelace",
+      role: "customer_admin",
+      status: "inactive",
+    });
+    expect(next.events.at(-1)).toMatchObject({ action: "update_portal_member", entityId: member.id });
+  });
+  it("rejects demo, missing and duplicate portal-member targets", () => {
+    expect(() => applyRegistryCommand(initialRegistry(), {
+      action: "add_portal_member",
+      customerId: "missing",
+      verifiedEmail: "member@example.test",
+      displayName: "Missing Member",
+      role: "customer_reader",
+    }, actor)).toThrow("not_found");
+    expect(() => applyRegistryCommand(initialRegistry(), {
+      action: "add_portal_member",
+      customerId: "customer-kth-demo",
+      verifiedEmail: "member@example.test",
+      displayName: "Demo Member",
+      role: "customer_reader",
+    }, actor)).toThrow("demo_customer_protected");
+
+    let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "First University", slug: "first-university" }, actor);
+    const firstId = next.customers[1]!.id;
+    next = applyRegistryCommand(next, {
+      action: "add_portal_member",
+      customerId: firstId,
+      verifiedEmail: "member@example.test",
+      displayName: "First Member",
+      role: "customer_reader",
+    }, actor);
+    expect(() => applyRegistryCommand(next, {
+      action: "add_portal_member",
+      customerId: firstId,
+      verifiedEmail: " MEMBER@EXAMPLE.TEST ",
+      displayName: "Duplicate Member",
+      role: "customer_admin",
+    }, actor)).toThrow("portal_member_email_exists");
+    next = applyRegistryCommand(next, {
+      action: "add_portal_member",
+      customerId: firstId,
+      verifiedEmail: "other@example.test",
+      displayName: "Other Member",
+      role: "customer_reader",
+    }, actor);
+    const otherMember = next.portalMembers.find(member => member.verifiedEmail === "other@example.test")!;
+    expect(() => applyRegistryCommand(next, {
+      action: "update_portal_member",
+      id: otherMember.id,
+      verifiedEmail: " MEMBER@EXAMPLE.TEST ",
+      displayName: otherMember.displayName,
+      role: otherMember.role,
+      status: otherMember.status,
+    }, actor)).toThrow("portal_member_email_exists");
+
+    next = applyRegistryCommand(next, { action: "add_customer", name: "Second University", slug: "second-university" }, actor);
+    const secondId = next.customers[2]!.id;
+    expect(() => applyRegistryCommand(next, {
+      action: "add_portal_member",
+      customerId: secondId,
+      verifiedEmail: " MEMBER@EXAMPLE.TEST ",
+      displayName: "Other Customer Member",
+      role: "customer_admin",
+    }, actor)).not.toThrow();
+    expect(() => applyRegistryCommand(next, {
+      action: "update_portal_member",
+      id: "missing",
+      verifiedEmail: "member@example.test",
+      displayName: "Missing Member",
+      role: "customer_reader",
+      status: "active",
+    }, actor)).toThrow("not_found");
+  });
+  it("binds pending email invitations to one provider identity before resolving portal entries", () => {
+    let next = initialRegistry();
+    for (const [name, slug] of [
+      ["Alpha University", "alpha-university"],
+      ["Beta University", "beta-university"],
+      ["Draft University", "draft-university"],
+      ["Inactive University", "inactive-university"],
+    ] as const) {
+      next = applyRegistryCommand(next, { action: "add_customer", name, slug }, actor);
+    }
+    const [alpha, beta, draft, inactive] = next.customers.slice(1);
+    for (const customer of [alpha, beta, inactive]) {
+      next = applyRegistryCommand(next, { action: "publish_customer", id: customer!.id }, actor);
+    }
+    for (const [customer, displayName, status] of [
+      [alpha!, "Alpha Member", "active"],
+      [beta!, "Beta Member", "active"],
+      [draft!, "Draft Member", "active"],
+      [inactive!, "Inactive Member", "inactive"],
+    ] as const) {
+      next = applyRegistryCommand(next, {
+        action: "add_portal_member",
+        customerId: customer.id,
+        verifiedEmail: "member@example.test",
+        displayName,
+        role: customer.id === beta!.id ? "customer_admin" : "customer_reader",
+      }, actor);
+      if (status === "inactive") {
+        const member = next.portalMembers.find(member => member.customerId === customer.id)!;
+        next = applyRegistryCommand(next, {
+          action: "update_portal_member",
+          id: member.id,
+          verifiedEmail: member.verifiedEmail,
+          displayName: member.displayName,
+          role: member.role,
+          status,
+        }, actor);
+      }
+    }
+    next = applyRegistryCommand(next, {
+      action: "add_portal_member",
+      customerId: alpha!.id,
+      verifiedEmail: "alpha-only@example.test",
+      displayName: "Alpha Only",
+      role: "customer_reader",
+    }, actor);
+    next = registrySchema.parse({
+      ...next,
+      portalMembers: [...next.portalMembers, {
+        id: "legacy-demo-member",
+        customerId: "customer-kth-demo",
+        verifiedEmail: "member@example.test",
+        displayName: "Demo Member",
+        role: "customer_admin",
+        status: "active",
+      }],
+    });
+
+    expect(resolvePortalEntries(next, { id: "user-member", email: "member@example.test" })).toEqual([]);
+    const memberBinding = bindPortalIdentity(next, { id: "user-member", email: " MEMBER@EXAMPLE.TEST " }, new Date("2026-09-09T12:00:00Z"));
+    expect(memberBinding.changed).toBe(true);
+    next = memberBinding.data;
+    expect(next.portalMembers.filter(member => member.externalUserId === "user-member").map(member => member.customerId))
+      .toEqual([alpha!.id, beta!.id]);
+    expect(next.events.filter(event => event.action === "bind_portal_identity")).toHaveLength(2);
+
+    const alphaBinding = bindPortalIdentity(next, { id: "user-alpha", email: "alpha-only@example.test" });
+    expect(alphaBinding.changed).toBe(true);
+    next = alphaBinding.data;
+    expect(resolvePortalEntries(next, { id: "unknown", email: "unknown@example.test" })).toEqual([]);
+    expect(resolvePortalEntries(next, { id: "invalid id with spaces", email: "not-an-email" })).toEqual([]);
+    expect(resolvePortalEntries(next, { id: "user-alpha", email: "alpha-only@example.test" })).toEqual([
+      expect.objectContaining({ organizationId: alpha!.id, slug: "alpha-university" }),
+    ]);
+    expect(resolvePortalEntries(next, { id: "user-member", email: " MEMBER@EXAMPLE.TEST " })).toEqual([
+      {
+        organizationId: alpha!.id,
+        organizationName: "Alpha University",
+        slug: "alpha-university",
+        displayName: "Alpha Member",
+        role: "customer_reader",
+      },
+      {
+        organizationId: beta!.id,
+        organizationName: "Beta University",
+        slug: "beta-university",
+        displayName: "Beta Member",
+        role: "customer_admin",
+      },
+    ]);
+    expect(resolvePortalEntries(next, { id: "user-recreated", email: "member@example.test" })).toEqual([]);
+    expect(bindPortalIdentity(next, { id: "user-recreated", email: "member@example.test" }).changed).toBe(false);
   });
   it("persists brand, domain and constrained D-ID policy without weakening truthfulness", () => {
     let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
@@ -234,7 +472,16 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("Arkivera kundsajt");
     expect(registryClient).toContain("Radera permanent");
     expect(registryClient).toContain("delete_customer");
-    expect(registryClient).toContain("confirmation.trim()");
+    expect(registryClient).toContain('data-reg-form="delete_customer"');
+    expect(registryClient).toContain("reportValidity()");
+    expect(registryClient).toContain("confirmation!==customer.name&&confirmation!==customer.slug");
+    expect(registryClient).not.toContain("prompt(");
+    expect(registryClient).toContain('data-reg-form="add_portal_member"');
+    expect(registryClient).toContain('data-reg-form="update_portal_member"');
+    expect(registryClient).toContain("verifiedEmail");
+    expect(registryClient).toContain("snapshot.data.portalMembers||[]");
+    expect(registryClient).toContain("KTH är en syntetisk visningsdemo");
+    expect(registryClient).toContain("Inga riktiga medlemskonton");
     expect(registryClient).toContain("'/portal'");
     expect(registryClient).toContain("slugify");
     expect(registryClient).toContain("availableSlug");

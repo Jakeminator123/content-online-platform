@@ -1,6 +1,6 @@
 # Content Online-admin och kundportal
 
-Uppdaterad 2026-09-05. Detta dokument skiljer levererad inloggning från planerad administration.
+Uppdaterad 2026-09-09. Detta dokument skiljer levererad inloggning från planerad administration.
 
 ## Två portaler, olika ansvar
 
@@ -83,6 +83,17 @@ Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projekt
 
 ## Uppdatering 2026-09-08: separata entréer och register
 
-Plattformens rot är nu intern inloggning. Aktuell lagring, kundadresser, arkivering och återstående kundidentitet beskrivs i [PORTALSTRUKTUR.md](PORTALSTRUKTUR.md). Detta ersätter äldre uppgifter ovan om pausad Neon eller att alla kund-/publicistlistor saknar sparning. Statistik och demofixtures är fortfarande separata.
+Plattformens rot var intern inloggning i denna mellanversion. Aktuell lagring, kundadresser, arkivering och kundidentitet beskrivs i [PORTALSTRUKTUR.md](PORTALSTRUKTUR.md). Detta ersätter äldre uppgifter ovan om pausad Neon eller att alla kund-/publicistlistor saknar sparning. Statistik och demofixtures är fortfarande separata.
 
 Adminregistret skiljer nu på **Styr kund**, **Granska kundyta** och **Aktiveringssida**. Publicerade icke-KTH-kunder får en organisationsmärkt sida under `/portal/{slug}` i plattformens gemensamma portalmall. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.
+
+## Uppdatering 2026-09-09: kundinloggning och medlemskap
+
+- `/` är kundinloggning; `/admin` och `/admin/login` är fortsatt Content Onlines separata personalyta.
+- En verifierad Clerk-session får anropa `/v1/portal-entries`. Endpointen härleder svaret ur aktiva medlemskap och publicerade icke-demo-kunder i registret. URL-sluggen är aldrig ett behörighetsbevis.
+- E-postadressen är endast en väntande inbjudan. Första godkända inloggningen binder medlemskapet till Clerks stabila användar-ID; ett nytt konto som senare återanvänder adressen ärver inte rollen.
+- Portalanvändare skapas och inaktiveras inne i respektive kundpost. KTH är skyddad syntetisk demo och kan inte få riktiga medlemskonton.
+- Samma e-postadress kan ha medlemskap i flera kundorganisationer. Ett konto utan medlemskap ser ingen kundportal och får inte adminåtkomst av den anledningen.
+- Kundmedlemskap skapar inte automatiskt ett Clerk-konto och aktiverar inte verklig statistik. Produktionsinstans, avtal och verkliga kunddatakällor är separata driftsgrindar.
+- Vercel-konfigurationen anger `arn1` (Stockholm). Det räknas som live först när en READY Production-deployment har verifierats på samma SHA som GitHub `main`.
+- Medlemsfältets schema ska först driftsättas som en separat, inaktiv expand-fas. Kundfunktionen får mergas först när den fasen är Production READY, så att en normal rollback inte strippar medlemslistan vid nästa registerskrivning.

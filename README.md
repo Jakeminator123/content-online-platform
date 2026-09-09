@@ -8,7 +8,7 @@ Projektet är en publicerad pilot med intern admininloggning, skyddade API:er, d
 
 ## Publicerade ingångar och aktuell gräns
 
-- [Plattformen](https://content-online-platform.vercel.app): enbart Content Onlines interna inloggning.
+- [Kundinloggning](https://content-online-platform.vercel.app): verifierar kundidentitet och visar endast de publicerade portaler som ett aktivt serverägt medlemskap medger.
 - Kundsida `https://content-online-platform.vercel.app/portal/{url-namn}`: den gemensamma portalmallen med en rimlig, kundspecifik slug.
 - Designgranskning `/demo/customer/kth`: oföränderlig, tydligt märkt KTH-fixture som fungerar även när en PR-preview avsiktligt saknar produktionsdatabas.
 - Valfri kunddomän `https://{url-namn}.portal.contentonline.se`: kan kopplas senare till samma Vercel-projekt; den behövs inte för att publicera kundsidan.
@@ -17,7 +17,7 @@ Projektet är en publicerad pilot med intern admininloggning, skyddade API:er, d
 
 Admin kräver en giltig Clerk-session från plattformens origin, en aktiv session och ett icke spärrat konto med verifierad primär e-post som matchar serverns `CONTENT_ONLINE_ADMIN_EMAIL`. Adressen ligger endast i Vercel och Clerk, aldrig i Git. Kundcookies, kundadminroller och klientredigerbar metadata ger inte intern adminbehörighet. Se [driftsinstruktionerna](docs/ADMIN_DRIFT.md).
 
-Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Det skyddade Neon-registret kan hantera, publicera och reversibelt ta bort kundsajter samt arkivera publicister. Det lagrar även kundens portal-mall, valfria domän, logotyp-URL, färger, rubriker och D-ID-profil. Publicering gör den varumärkesanpassade portalen och aktiveringssidan tillgänglig direkt under `/portal/{url-namn}` i den delade Vercel-runtime som redan är deployad; riktiga kundkonton återstår. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). En portalanknytning är inte samma sak som en färdig dataintegration. Den dokumentbaserade D-ID-agenten med video, chatt och valfri mikrofon hör till respektive kundportal, inte den interna adminportalen. Content Online styr agentens hälsning, positivitetsnivå och tillåtna verktyg, men nivån får aldrig påverka faktauppgifterna. [Prompt, Knowledge och verifieringsinstruktioner](docs/d-id/README.md) är versionshanterade; Studio synkroniseras inte automatiskt. Content Onlines skyddade interna textchatt finns kvar i admin.
+Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Det skyddade Neon-registret kan hantera, publicera, arkivera och permanent radera kundsajter samt arkivera publicister. Det lagrar även kundens portalinställningar och en minimal medlemsallowlist per riktig kund. Medlemskapet ger bara rätt att välja en publicerad portal; verklig kundstatistik och övriga livekällor är fortfarande inte anslutna. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). Den dokumentbaserade D-ID-agenten med video, chatt och valfri mikrofon hör till respektive kundportal, inte den interna adminportalen. Content Online styr agentens hälsning, positivitetsnivå och tillåtna verktyg, men nivån får aldrig påverka faktauppgifterna. [Prompt, Knowledge och verifieringsinstruktioner](docs/d-id/README.md) är versionshanterade; Studio synkroniseras inte automatiskt. Content Onlines skyddade interna textchatt finns kvar i admin.
 
 ## Produktmål
 
@@ -58,6 +58,7 @@ Nu implementerad API-yta:
 GET  /health
 GET  /openapi.json
 GET  /v1/me
+GET  /v1/portal-entries
 GET  /v1/organizations/{organizationId}/overview
 GET  /v1/organizations/{organizationId}/portfolio
 GET  /v1/organizations/{organizationId}/usage
@@ -66,7 +67,7 @@ POST /v1/organizations/{organizationId}/tickets
 GET  /v1/organizations/{organizationId}/members
 ```
 
-GitHub Actions kör typkontroll och regressionstester vid push och pull request, inklusive separat adminbehörighet. Kund-API:t `/v1/*` förblir låst i produktion tills beständiga kundmedlemskap och kundautentisering har kopplats in. Admininloggningen ligger under `/admin` och använder inte demobackendens identiteter.
+GitHub Actions kör typkontroll och regressionstester vid push och pull request, inklusive separata kund- och adminbehörigheter. `/v1/portal-entries` använder Clerk och det beständiga medlemsregistret; övriga kunddata-API:er förblir låsta tills deras produktionsrepository har kopplats in. Admininloggningen ligger under `/admin` och använder varken kundmedlemskap eller demobackendens identiteter.
 
 Den gemensamma portalruntimen i detta repository är enda driftauktoritet för kundsidor. Ett separat kundfrontend-repo eller Vercel-projekt får inte återskapas, och ett nytt repo eller projekt får aldrig skapas per kund.
 
