@@ -54,9 +54,9 @@ som ännu inte är anslutna.
   Permanent radering kräver en redan arkiverad icke-syntetisk kund och uttrycklig
   bekräftelse; KTH är skyddad.
 - Portalmedlemmar hanteras inne i respektive kundorganisation. För en publicerad
-  portal skickar backend automatiskt en personlig Clerk-inbjudan, medan Neon
-  fortsatt äger medlemskap, roll och tenantscope. Det skapar ingen
-  publisherbehörighet.
+  portal synkar backend först den servergodkända adressen till Clerk-instansens
+  signup-allowlist och skickar sedan en personlig Clerk-inbjudan. Neon äger
+  fortsatt medlemskap, roll och tenantscope. Det skapar ingen publisherbehörighet.
 - Publicering använder den gemensamma portalruntimen. Den skapar inte ett repo,
   Vercel-projekt eller en deployment per kund.
 - Content Onlines interna textassistent är separerad från kundportalens valfria
