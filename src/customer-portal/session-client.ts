@@ -21,11 +21,27 @@ export const customerSessionClient = String.raw`
     || document.querySelector('.sidebar-footer span:last-child');
   const liveStatus = document.getElementById('portal-live-status');
 
-  function markAuthenticated() {
+  function setText(selector, value) {
+    document.querySelectorAll(selector).forEach(node => { node.textContent = value; });
+  }
+
+  function memberInitials(value) {
+    const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+    return (parts.length > 1 ? parts.slice(0, 2).map(part => part[0]).join('') : parts[0]?.slice(0, 2) || '✓').toUpperCase();
+  }
+
+  function markAuthenticated(entry) {
     body.dataset.dataMode = 'authenticated';
     body.dataset.portalAccess = 'authenticated';
     authenticatedOnly.forEach(node => { node.hidden = false; });
     lockedOnly.forEach(node => { node.hidden = true; });
+    const displayName = typeof entry?.displayName === 'string' && entry.displayName.trim()
+      ? entry.displayName.trim()
+      : 'Verifierad medlem';
+    const role = entry?.role === 'customer_admin' ? 'Kundadministratör' : 'Läsare';
+    setText('[data-portal-member-name]', displayName);
+    setText('[data-portal-member-role]', role);
+    setText('[data-portal-member-initials]', memberInitials(displayName));
     if (footer) footer.dataset.portalAccess = 'authenticated';
     if (footerStatus) footerStatus.textContent = 'Verifierad åtkomst';
     if (liveStatus) liveStatus.textContent = 'Kundåtkomsten är verifierad.';
@@ -49,8 +65,8 @@ export const customerSessionClient = String.raw`
 
       const payload = await response.json();
       const entries = payload && Array.isArray(payload.entries) ? payload.entries : [];
-      const allowed = entries.some(entry => entry && typeof entry === 'object' && entry.slug === slug);
-      if (allowed) markAuthenticated();
+      const allowedEntry = entries.find(entry => entry && typeof entry === 'object' && entry.slug === slug);
+      if (allowedEntry) markAuthenticated(allowedEntry);
     } catch (_) {
       // Network and identity-provider failures keep the server-rendered locked state.
     }
