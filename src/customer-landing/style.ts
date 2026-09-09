@@ -870,7 +870,7 @@ h1, h2, h3, p, figure { margin-top: 0; }
 .landing-footer-row p { margin: 0; }
 
 .landing-auth-dialog {
-  width: min(calc(100vw - 30px), 540px);
+  width: min(calc(100vw - 30px), 490px);
   max-width: none;
   max-height: calc(100svh - 30px);
   padding: 0;
@@ -925,12 +925,12 @@ h1, h2, h3, p, figure { margin-top: 0; }
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 22px 64px 18px 24px;
+  padding: 16px 60px 14px 20px;
   border-bottom: 1px solid rgba(15,30,51,.1);
 }
 .landing-auth-brand > span {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   overflow: hidden;
   border-radius: 9px;
   background: var(--co-cyan);
@@ -938,33 +938,26 @@ h1, h2, h3, p, figure { margin-top: 0; }
 .landing-auth-brand img { width: 100%; height: 100%; object-fit: cover; }
 .landing-auth-brand strong { font-size: 13px; font-style: normal; letter-spacing: .035em; }
 .landing-auth-brand em { font-style: normal; font-weight: 860; letter-spacing: -.025em; text-transform: lowercase; }
-.landing-auth-card { padding: clamp(28px, 6vw, 48px); }
-.landing-auth-kicker {
-  margin: 0 0 9px;
-  color: #217fa2;
-  font-size: 10px;
-  font-weight: 880;
-  letter-spacing: .15em;
-}
+.landing-auth-card { padding: clamp(24px, 5vw, 34px); }
 .landing-auth-card h2 {
   margin: 0;
   color: var(--co-navy);
   font-family: "Mona Sans", "Helvetica Neue", Arial, sans-serif;
-  font-size: clamp(34px, 8vw, 50px);
+  font-size: clamp(30px, 7vw, 39px);
   font-weight: 840;
   letter-spacing: -.055em;
-  line-height: .95;
+  line-height: 1;
 }
 .landing-auth-intro {
   max-width: 390px;
-  margin: 15px 0 0;
+  margin: 10px 0 0;
   color: #66717a;
   font-size: 14px;
   line-height: 1.6;
 }
 .landing-auth-card .customer-access-message {
-  min-height: 20px;
-  margin: 16px 0 0;
+  min-height: 16px;
+  margin: 8px 0 0;
   color: #66717a;
   font-size: 12px;
   line-height: 1.5;
@@ -972,7 +965,7 @@ h1, h2, h3, p, figure { margin-top: 0; }
 #customer-auth-widget {
   display: grid;
   width: 100%;
-  margin-top: 14px;
+  margin-top: 8px;
   justify-items: stretch;
 }
 #customer-auth-widget > *,
@@ -1011,14 +1004,12 @@ h1, h2, h3, p, figure { margin-top: 0; }
   font-size: 12px;
   font-weight: 760;
 }
-.landing-auth-card .customer-access-switch { margin-top: 18px; font-size: 12px; font-weight: 720; }
-.landing-auth-card .customer-access-switch a { color: #177da1; text-decoration: underline; text-underline-offset: 3px; }
 .landing-auth-trust {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 9px;
-  margin-top: 24px;
-  padding-top: 17px;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid rgba(15,30,51,.1);
   color: #66717a;
 }

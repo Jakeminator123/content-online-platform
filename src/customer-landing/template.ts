@@ -216,14 +216,12 @@ export function renderCustomerLanding(access: CustomerLandingAccess = {
           <strong>CONTENT <em>online</em></strong>
         </div>
         <section class="landing-auth-card" id="customer-access" data-customer-access-mode="login" data-customer-access-autostart="false" data-customer-access-return-url="/?login=1">
-          <p class="landing-auth-kicker">CUSTOMER PORTAL</p>
-          <h2 id="customer-login-title">Welcome back.</h2>
+          <h2 id="customer-login-title">Customer sign in.</h2>
           <p class="landing-auth-intro">Sign in with the account connected to your organisation.</p>
           <p class="customer-access-message" id="customer-access-message" role="status">${customerAccessConfigured ? "Loading secure sign-in…" : "Customer sign-in is not configured."}</p>
           ${customerAccessConfigured ? `<div id="customer-auth-widget"></div>` : ""}
           <section class="portal-chooser" id="portal-chooser" aria-labelledby="portal-chooser-title" hidden><h3 id="portal-chooser-title">Your customer portals</h3><div class="portal-entry-list" id="portal-entry-list"></div></section>
           <div class="customer-account" id="customer-account" hidden><button class="landing-auth-secondary" id="customer-sign-out" type="button" hidden>Sign out and switch account</button></div>
-          <div class="customer-access-switch"><a href="/registrera">Activate your customer account</a></div>
           <div class="landing-auth-trust"><span aria-hidden="true">✓</span><p>Access is verified on the server for every account.</p></div>
         </section>
       </div>
