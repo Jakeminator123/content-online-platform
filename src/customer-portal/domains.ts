@@ -2,6 +2,7 @@ export type CustomerDomainResult = { status: "ready" | "pending"; managedDomain:
 
 export interface CustomerDomainService {
   ensure(domain: string): Promise<CustomerDomainResult>;
+  release(domain: string): Promise<void>;
 }
 
 export class CustomerDomainError extends Error {
@@ -57,6 +58,38 @@ export class VercelCustomerDomainService implements CustomerDomainService {
     return { status: verified?.verified === true ? "ready" : "pending", managedDomain };
   }
 
+  async release(input: string): Promise<void> {
+    const domain = input.trim().toLowerCase();
+    if (!domain || domain === "vercel.app" || domain.endsWith(".vercel.app")) return;
+
+    const root = this.config.portalRootDomain.trim().toLowerCase();
+    if (!isHostname(root)) throw new CustomerDomainError("unconfigured");
+
+    // These names are shared by the whole platform and must never be detached
+    // while deleting one tenant. A direct child of the portal root is served by
+    // the shared wildcard, not by its own Vercel domain assignment.
+    const prefix = domain.endsWith(`.${root}`) ? domain.slice(0, -(root.length + 1)) : "";
+    if (
+      domain === root
+      || domain === `*.${root}`
+      || (prefix && !prefix.includes("."))
+    ) return;
+
+    if (!isHostname(domain)) throw new CustomerDomainError("unavailable");
+    if (!this.config.token || !this.config.projectId || !this.config.teamId) {
+      throw new CustomerDomainError("unconfigured");
+    }
+
+    const query = new URLSearchParams({ teamId: this.config.teamId });
+    const project = encodeURIComponent(this.config.projectId);
+    const headers = { authorization: `Bearer ${this.config.token}` };
+    await this.request(
+      `https://api.vercel.com/v9/projects/${project}/domains/${encodeURIComponent(domain)}?${query}`,
+      { method: "DELETE", headers },
+      [404],
+    );
+  }
+
   private async request(url: string, init: RequestInit, tolerated: number[]): Promise<Response> {
     try {
       const response = await this.fetchImpl(url, {
@@ -81,12 +114,15 @@ export class VercelCustomerDomainService implements CustomerDomainService {
   }
 }
 
-export function customerDomainServiceFromEnvironment(fetchImpl: typeof fetch = fetch): CustomerDomainService {
+export function customerDomainServiceFromEnvironment(
+  fetchImpl: typeof fetch = fetch,
+  portalRootDomain = process.env.CUSTOMER_PORTAL_ROOT_DOMAIN?.trim() || "portal.contentonline.se",
+): CustomerDomainService {
   return new VercelCustomerDomainService({
     token: process.env.VERCEL_AUTOMATION_TOKEN?.trim() ?? "",
     projectId: process.env.CUSTOMER_PORTAL_VERCEL_PROJECT_ID?.trim() ?? "",
     teamId: process.env.CUSTOMER_PORTAL_VERCEL_TEAM_ID?.trim() ?? "",
-    portalRootDomain: process.env.CUSTOMER_PORTAL_ROOT_DOMAIN?.trim() ?? "",
+    portalRootDomain,
     managedWildcardReady: ["1", "true"].includes((process.env.CUSTOMER_PORTAL_WILDCARD_READY ?? "").toLowerCase()),
   }, fetchImpl);
 }
