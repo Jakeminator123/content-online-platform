@@ -2,7 +2,7 @@
 
 ## Status för den första versionen
 
-Den separata Salesforce-fliken är ett syntetiskt, läsbart produktförslag. Den visar hur Content Onlines eget Salesforce-konto kan kopplas till det interna kundregistret och hur en medarbetare därefter granskar varje kund. Servern har nu en verklig OAuth/REST-grund, medan vyn fortsätter vara märkt som syntetisk tills fälturvalet är godkänt och testkontot har auktoriserats.
+Den separata Salesforce-fliken visar endast serverns verkliga OAuth-status och de Account-kopplingar som uttryckligen har sparats i kundregistret. Fiktiva kontakter, affärer, ägare och förnyelser visas inte. OAuth/REST-grunden finns, men en sparad kundkoppling är inte bevis på att någon liveimport körs.
 
 Arbetsantagandet är att Content Online har **en Salesforce-organisation** och att kunderna representeras av poster av typen Account. Varje intern kund får då högst en aktiv koppling till ett Account.Id. Om avsikten i stället är att ansluta flera Salesforce-organisationer, till exempel en separat organisation som ägs av varje kund, måste datamodell och OAuth-livscykel utformas för flera tenants.
 
@@ -101,9 +101,9 @@ Levererat i första PR:n:
 2. OAuth-start och callback med signerad state, PKCE och krypterad refresh-token i en separat databastabell.
 3. Begränsad, läsande Account-sökning med mockade testfall.
 4. Registerkommandon för unik Account.Id-koppling per Content Online-kund.
-5. En tydligt syntetisk Salesforce-flik och kundgranskning i Content Onlines formspråk.
+5. En registerbaserad Salesforce-flik med OAuth-status och granskade Account-kopplingar.
 
-Efter merge återstår auktorisering av testkontot mot den live callbacken, beslut om tillåtna Contact-/Opportunity-fält och därefter byte från syntetiska värden till den skyddade API-responsen.
+Efter merge återstår auktorisering av testkontot mot den live callbacken, beslut om tillåtna Contact-/Opportunity-fält och en separat verifierad import innan sådana värden får visas.
 
 Officiella Salesforce-källor:
 

@@ -22,7 +22,7 @@ Client key måste vara giltig för agenten och ha kundportalens exakta origin i 
 ## Två skilda samtal
 
 1. **D-ID dokumentationsagent:** formulerar egna svar från Studio-instruktioner och uppladdad kunskap. Video, D-ID-chatt och röst finns på kundportalen.
-2. **Content Onlines skyddade textchatt:** finns enbart i admin och använder plattformens backend, modell, källurval, minimerade kundbild och allowlistade jobb.
+2. **Content Onlines skyddade textchatt:** finns enbart i admin och använder plattformens backend, dokumenterade källor och en minimerad översikt med aggregerade registertal. Den kan inte köra jobb.
 
 Ingen fråga eller svar kopieras mellan samtalen. Den tidigare `speak()`-bryggan är borttagen för att gränsen ska vara tydlig.
 

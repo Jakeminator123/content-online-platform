@@ -17,9 +17,9 @@ medlem hos någon kund.
 
 Den kanoniska produktionsytan innehåller inga publika `/demo`-rutter,
 tenantkataloger eller äldre login-/portalalias. KTH är det enda publika
-undantaget: `/portal/kth` är en tydligt märkt syntetisk pilot. Några skyddade
-adminvyer använder ännu syntetiska platshållare; de ska ersättas av registerdata
-eller ärliga tomlägen och får inte beskrivas som live.
+undantaget: `/portal/kth` är en tydligt märkt syntetisk pilot. Adminvyerna läser
+det beständiga registret och visar ärliga tomlägen för funktioner och datakällor
+som ännu inte är anslutna.
 
 ## Levererat
 
@@ -47,6 +47,9 @@ eller ärliga tomlägen och får inte beskrivas som live.
   matchning mot Content Onlines serverkonfigurerade allowlist.
 - Det skyddade registret är beständigt och hanterar kunder, publicister,
   portalinställningar, publiceringsstatus, medlemskap och domänstatus.
+- Översikt, användare, anslutningar, Salesforce, publicister och
+  kund–publicistkopplingar läser samma register. Leverantörens interna
+  användar-ID skickas inte till webbläsaren.
 - Kundposter kan skapas, ändras, publiceras, avpubliceras och arkiveras.
   Permanent radering kräver en redan arkiverad icke-syntetisk kund och uttrycklig
   bekräftelse; KTH är skyddad.
@@ -55,7 +58,8 @@ eller ärliga tomlägen och får inte beskrivas som live.
 - Publicering använder den gemensamma portalruntimen. Den skapar inte ett repo,
   Vercel-projekt eller en deployment per kund.
 - Content Onlines interna textassistent är separerad från kundportalens valfria
-  D-ID-agent.
+  D-ID-agent. Den får endast aggregerade registertal, inte namn, e-postadresser
+  eller identitets-ID:n.
 
 ### Kundportal
 

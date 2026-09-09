@@ -47,11 +47,6 @@ jobs:
         run: |
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
-      - name: Check local presentation fixtures
-        run: |
-          npx tsx scripts/serve-admin-demo.ts > /tmp/admin-demo.log 2>&1 &
-          trap 'cat /tmp/admin-demo.log' ERR
-          node scripts/check-statistics-ui.mjs
       - name: Check registry UI against isolated PostgreSQL
         env:
           PGHOST: 127.0.0.1

@@ -1,163 +1,62 @@
-import { statisticsClient } from './statistics-client.js';
-
-export const workspaceClient = statisticsClient + String.raw`
+export const workspaceClient = String.raw`
 (() => {
   'use strict';
-  const icons = {
-    arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',
-    customers:'<path d="M3 21V7l9-4v18M12 9h9v12M7 9v2m0 3v2m9-3v2m0 3v2M1 21h22"/>',
-    users:'<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m2-15a3 3 0 0 1 0 6m2 4a5 5 0 0 1 2 4"/>',
-    book:'<path d="M12 6c-3-3-8-3-10-2v15c3-1 7-1 10 2 3-3 7-3 10-2V4c-3-1-7-1-10 2v15"/>',
-    grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
-    cloud:'<path d="M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.2 8.5 4.5 4.5 0 0 0 7 18Z"/>',
-    link:'<path d="m9 15 6-6m-8 3-2 2a4 4 0 0 0 6 6l2-2m-2-12 2-2a4 4 0 0 1 6 6l-2 2"/>',
-    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-    search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',
-  };
-  const icon = name => '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+(icons[name]||icons.grid)+'</svg>';
-  const esc = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const fmt = value => new Intl.NumberFormat('sv-SE').format(value);
-  const pill = (text,color='') => '<span class="pill '+color+'">'+esc(text)+'</span>';
-  const btn = (text,action,id='',cls='text-link') => '<button aria-label="'+esc(text||'Öppna detaljer')+'" class="'+cls+'" data-action="'+action+'" data-id="'+esc(id)+'">'+esc(text)+icon('arrow')+'</button>';
-  const mark = item => '<span class="entity-mark" style="--entity-color:'+esc(item.color)+'">'+esc(item.initials)+'</span>';
-  const entity = (item,sub='') => '<div class="entity">'+mark(item)+'<div><strong>'+esc(item.name)+'</strong><small>'+esc(sub)+'</small></div></div>';
-  const table = (heads,rows) => '<div class="table-scroll"><table><thead><tr>'+heads.map(h=>'<th scope="col">'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
-  const row = cells => '<tr>'+cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>';
-  const empty = text => '<div class="empty">'+icon('search')+'<h3>Inga träffar</h3><p>'+esc(text)+'</p></div>';
+  if(document.body.dataset.mode!=='admin')return;
+
   const pageMeta = {
     overview:['Översikt','Översikt','Kunder, kundsajter och publicister på en plats.'],
     customers:['Kundorganisationer','Kundorganisationer','Skapa, publicera och anpassa varje kundsajt.'],
-    connections:['Anslutningar','Anslutningar','Status för datakällor och importer.'],
+    users:['Användare','Användare','Hantera kundernas portalmedlemmar och behörigheter.'],
+    cron:['Cronjobb','Cronjobb','Schemalagda kontroller och jobb per kundorganisation.'],
+    reports:['Rapportflöde','Rapportflöde','Rapporter och leveranser per kundorganisation.'],
+    connections:['Anslutningar','Anslutningar','Status för plattformens verkliga anslutningar.'],
     salesforce:['Salesforce','Salesforce','Koppla rätt Salesforce-konto till rätt kundorganisation.'],
-    publishers:['Publicister','Publicister','Content Onlines partnerregister och källor.'],
-    products:['Produkter & tilldelningar','Produkter & tilldelningar','Produkter och deras kundspecifika tilldelningar.'],
+    publishers:['Publicister','Publicister','Content Onlines partnerregister och kundkopplingar.'],
+    products:['Produkter & tilldelningar','Produkter & tilldelningar','Sparade kund–publicistkopplingar och produktkatalogens aktuella status.'],
   };
-  let data,active='overview',query='',salesforceStatus=null,authGraceTimer=null;
-  const root=document.getElementById('view'),dialog=document.getElementById('detail-dialog');
-  const matches=value=>JSON.stringify(value).toLocaleLowerCase('sv-SE').includes(query.toLocaleLowerCase('sv-SE'));
-  const publisher=id=>data.publishers.find(p=>p.id===id);
-  const customer=id=>data.customers.find(c=>c.id===id);
-  const salesforceLink=id=>data.salesforce.customerLinks.find(link=>link.customerId===id);
-  const sourceNote=()=>'<div class="soft-box"><strong>Demo</strong>Källa: '+esc(data.provenance.source)+'<br>Period: '+esc(data.provenance.period)+'<br>'+esc(data.provenance.definition)+'</div>';
-  const demoContext=()=>{
-    const text=active==='salesforce'?'Kundkopplingar och affärer är exempeldata. Anslutningsstatus hämtas separat när den finns.':active==='connections'?'Källor och importhistorik är exempeldata; ingen extern import har körts.':'Visar exempeldata och påverkar inga externa system.';
-    return '<div class="demo-context" role="note">'+pill('Demo','blue')+'<span>'+esc(text)+'</span></div>';
-  };
-  function metrics(){
-    const connected=data.connections.filter(c=>c.status==='Ansluten').length;
-    const counts=[['Kundorganisationer',data.customers.length,'customers','1 pilotkund','2 fiktiva exempel'],['Produkter i katalogen',data.products.length,'book',data.publishers.length+' publicister','Forskning & standarder'],['Kundtilldelningar',data.assignments.length,'link','Delad produktkatalog','Unik portfölj per kund'],['Liveanslutningar',connected,'grid','Under uppbyggnad','Inga externa importer']];
-    return '<div class="metrics">'+counts.map(c=>'<div class="metric-card"><div class="metric-label">'+c[0]+icon(c[2])+'</div><span class="number">'+c[1]+'</span><div class="metric-foot"><em>'+c[3]+'</em> · '+c[4]+'</div></div>').join('')+'</div>';
+  let active='overview',workspaceReady=false,authGraceTimer=null;
+
+  function closeNavigation(){
+    const sidebar=document.getElementById('sidebar');
+    const toggle=document.getElementById('menu-toggle');
+    sidebar?.classList.remove('open');
+    toggle?.setAttribute('aria-expanded','false');
   }
-  function customerTable(list){
-    return list.length?table(['Organisation','Produkter','Användare','Status',''],list.map(c=>row([entity(c,c.type+' · '+c.unit),'<strong>'+c.products+'</strong>',''+c.users,pill(c.id==='customer-kth-demo'?'Pilotkund':'Fiktiv demo',c.id==='customer-kth-demo'?'green':'blue'),btn('Öppna','customer',c.id)]))):empty('Prova ett annat organisationsnamn.');
-  }
-  function overview(){
-    const largest=data.products.filter(p=>p.publisherId==='ieee');
-    const popular=[...data.products].sort((a,b)=>b.usage-a.usage).slice(0,4);
-    const max=Math.max(1,...popular.map(p=>p.usage));
-    return metrics()+statisticsUI.overview(data)+'<div class="grid-main"><section class="card"><div class="card-head"><div><h2>Kundorganisationer</h2><p>Forskning, utbildning och utveckling</p></div>'+btn('Visa alla','navigate','customers')+'</div>'+customerTable(data.customers)+'</section><section class="hero-card"><div class="eyebrow">UTVALT · IEEE</div><h2>En stark partner.<br>Flera kundrelationer.</h2><p>IEEE är den största publicistpartnern i uppdraget. Här möts produkter, tilldelningar och MPS/MPS Insight.</p><div class="mini-flow"><span>IEEE</span>'+icon('arrow')+'<span>Produkter</span>'+icon('arrow')+'<span>'+data.customers.filter(c=>c.productIds.some(id=>largest.some(p=>p.id===id))).length+' kunder</span></div><div style="margin-top:19px">'+btn('Utforska IEEE','publisher','ieee')+'</div></section></div><div class="grid-main"><section class="card"><div class="card-head"><div><h2>Produkter som används mest</h2><p>KTH · januari–augusti 2026 · syntetisk demo</p></div>'+btn('Fler perspektiv','statistics','customer-kth-demo')+'</div><div class="card-body">'+popular.map(p=>'<div class="port-row"><div class="row"><strong>'+esc(p.name)+'</strong><span>'+fmt(p.usage)+'</span></div><div class="bar"><span style="width:'+(p.usage/max*100)+'%"></span></div></div>').join('')+'<p class="footnote">Syntetiskt produktmått. Verkliga källors definitioner måste verifieras före jämförelse.</p></div></section><section class="card"><div class="card-head"><div><h2>Att följa upp</h2><p>Inför nästa steg i piloten</p></div>'+icon('clock')+'</div><div class="card-body">'+[['01','Datakälla för IEEE','Verifiera åtkomst och format i MPS/MPS Insight.','connections'],['02','Kundernas tilldelningar','Granska vilka produkter varje organisation ska se.','customers'],['03','Fler publicister','Kartlägg varje partners leveranssätt.','publishers']].map(x=>'<div class="list-item"><span class="entity-mark">'+x[0]+'</span><div class="body"><strong>'+x[1]+'</strong><small>'+x[2]+'</small></div>'+btn('','navigate',x[3],'row-action')+'</div>').join('')+'</div></section></div>';
-  }
-  function publishersView(){
-    const list=data.publishers.filter(matches);
-    return list.length?'<div class="publisher-grid">'+list.map(p=>'<section class="card publisher-card">'+entity(p,p.route)+'<p>'+esc(p.description)+'</p><div>'+pill(p.status,p.id==='ieee'?'amber':'')+'</div><div class="card-bottom"><span class="lead">'+data.products.filter(x=>x.publisherId===p.id).length+' produkter</span>'+btn('Visa partner','publisher',p.id)+'</div></section>').join('')+'</div>':empty('Prova en annan publicist.');
-  }
-  function productsView(){
-    const list=data.products.filter(p=>matches({...p,publisher:publisher(p.publisherId).name}));
-    return '<section class="card"><div class="card-head"><div><h2>Produktkatalog</h2><p>Portaltilldelning är separat från extern licensprovisionering</p></div>'+pill(list.length+' produkter')+'</div>'+(!list.length?empty('Prova ett annat produktnamn.'):table(['Produkt','Publicist','Typ','Tilldelade kunder',''],list.map(p=>row(['<strong>'+esc(p.name)+'</strong>',esc(publisher(p.publisherId).name),esc(p.type),data.customers.filter(c=>c.productIds.includes(p.id)).map(c=>pill(c.name)).join(' '),btn('Detaljer','product',p.id)]))))+'</section>';
-  }
-  function connectionsView(){
-    const list=data.connections.filter(matches);
-    return '<div class="grid-main"><section class="card"><div class="card-head"><div><h2>Datakällor</h2><p>En verifierad anslutning per faktisk källa</p></div>'+pill('0 anslutna','amber')+'</div>'+(!list.length?empty('Ingen källa matchar sökningen.'):table(['Källa','Metod','Status',''],list.map(c=>row(['<strong>'+esc(c.name)+'</strong><br><small class="lead">'+esc(c.owner)+'</small>',esc(c.mode),pill(c.status,c.name.startsWith('MPS')?'amber':''),btn('Detaljer','connection',c.name)]))))+'</section><section class="card"><div class="card-head"><h2>Importhistorik</h2>'+icon('clock')+'</div><div class="empty">'+icon('link')+'<h3>Ingen import ännu</h3><p>Historik och fel visas här efter den första anslutningen.</p></div></section></div>';
-  }
-  function salesforceView(){
-    const sf=data.salesforce;
-    const allLinks=sf.customerLinks;
-    const links=allLinks.filter(link=>matches({...link,customer:customer(link.customerId)}));
-    const linked=allLinks.filter(link=>link.accountRef).length;
-    const ready=allLinks.filter(link=>link.status==='Klar för granskning').length;
-    const openOpportunities=allLinks.reduce((sum,link)=>sum+link.openOpportunities,0);
-    const linkRows=links.map(link=>{
-      const c=customer(link.customerId);
-      if(!c)return '';
-      return row([
-        entity(c,c.type+' · '+c.unit),
-        '<strong>'+esc(link.accountName)+'</strong><br><small class="lead">'+esc(link.accountRef||'Ingen Account.Id vald')+'</small>',
-        pill(link.status,link.accountRef?'green':'amber'),
-        esc(link.owner),
-        btn('Granska','salesforce-customer',c.id),
-      ]);
-    }).filter(Boolean);
-    const liveConnected=!isDemo&&salesforceStatus?.connected;
-    const connectionLabel=liveConnected?'Ansluten':salesforceStatus?.configured?'Redo för OAuth':sf.connection.status;
-    const connectionAction=!isDemo&&salesforceStatus?.configured?'salesforce-connect':'salesforce-setup';
-    const connectionButton=liveConnected?'Auktorisera på nytt':salesforceStatus?.configured?'Anslut testkontot':'Så ansluter vi testkontot';
-    return '<section class="salesforce-hero"><div class="salesforce-brand"><span class="salesforce-mark">'+icon('cloud')+'</span><div><div class="eyebrow">CONTENT ONLINE · CRM-KOPPLING</div><h2>'+esc(sf.connection.label)+'</h2><p>Ett Content Online-konto i Salesforce. Varje kund länkas separat till en Salesforce Account-post.</p><div class="salesforce-primary">'+btn(connectionButton,connectionAction,'','button salesforce-button')+'</div></div></div><div class="salesforce-actions"><div>'+pill(sf.connection.environment,'blue')+' '+pill(connectionLabel,liveConnected?'green':'amber')+'</div></div></section>'+
-      '<div class="salesforce-metrics">'+[
-        ['Kopplade kunder',linked+' av '+allLinks.length,'Account.Id sparas som extern referens'],
-        ['Redo för granskning',String(ready),'Varje koppling bekräftas av Content Online'],
-        ['Öppna affärer',String(openOpportunities),'Syntetiska Opportunity-exempel'],
-        ['Senaste synk',liveConnected?new Date(salesforceStatus.updatedAt).toLocaleDateString('sv-SE'):'Ingen',liveConnected?'OAuth-anslutningen är serverlagrad':'API:t är ännu inte anslutet'],
-      ].map(item=>'<section class="sf-metric"><span>'+esc(item[0])+'</span><strong>'+esc(item[1])+'</strong><small>'+esc(item[2])+'</small></section>').join('')+'</div>'+
-      '<div class="grid-main"><section class="card"><div class="card-head"><div><h2>Kundkopplingar</h2><p>Content Online-kund ↔ Salesforce Account</p></div>'+pill(links.length+' kunder','blue')+'</div>'+(!linkRows.length?empty('Ingen kundkoppling matchar sökningen.'):table(['Content Online-kund','Salesforce-konto','Granskningsstatus','Kundansvarig',''],linkRows))+'</section>'+
-      '<section class="card review-card"><div class="card-head"><div><h2>Kontroller före import</h2><p>Minsta säkra väg till riktiga data</p></div></div><div class="card-body"><ol class="review-steps"><li><span>1</span><div><strong>Verifiera API-åtkomst</strong><small>Salesforce-utgåva och behörigheten API Enabled.</small></div></li><li><span>2</span><div><strong>Anslut med OAuth</strong><small>External Client App och serverlagrade tokens.</small></div></li><li><span>3</span><div><strong>Matcha Account</strong><small>En bekräftad Salesforce-post per Content Online-kund.</small></div></li><li><span>4</span><div><strong>Godkänn fält</strong><small>Inget CRM-fält visas eller sparas av misstag.</small></div></li></ol></div></section></div>'+
-      '<section class="card"><div class="card-head"><div><h2>Föreslagen fältkarta</h2><p>Första läsbara pilotomfånget · inga automatiska överskrivningar</p></div>'+pill('För beslut','amber')+'</div>'+table(['Salesforce','Content Online','Syfte'],sf.fieldMappings.map(mapping=>row(['<code>'+esc(mapping.source)+'</code>','<strong>'+esc(mapping.target)+'</strong>',esc(mapping.purpose)])))+'</section>';
-  }
-  function render(){
-    const meta=pageMeta[active];document.getElementById('view-title').textContent=meta[1];document.getElementById('view-description').textContent=meta[2];document.getElementById('toolbar').hidden=active==='overview'||(!isDemo&&['customers','publishers'].includes(active));
-    document.querySelectorAll('.nav button[data-id]').forEach(b=>b.setAttribute('aria-current',b.dataset.id===active?'page':'false'));
+
+  function syncPage(){
+    const meta=pageMeta[active]||pageMeta.overview;
+    const title=document.getElementById('view-title');
+    const description=document.getElementById('view-description');
+    const toolbar=document.getElementById('toolbar');
+    if(title)title.textContent=meta[1];
+    if(description)description.textContent=meta[2];
+    if(toolbar)toolbar.hidden=active==='overview';
+    document.querySelectorAll('.nav button[data-id]').forEach(button=>button.setAttribute('aria-current',button.dataset.id===active?'page':'false'));
     document.querySelectorAll('.nav-section').forEach(section=>section.classList.toggle('has-active',Boolean(section.querySelector('[aria-current="page"]'))));
-    if(!isDemo&&['overview','customers','publishers'].includes(active)){root.replaceChildren();return;}
-    const content=active==='overview'?overview():active==='customers'?'<section class="card"><div class="card-head"><h2>Kundregister</h2></div>'+customerTable(data.customers.filter(matches))+'</section>':active==='publishers'?publishersView():active==='products'?productsView():active==='salesforce'?salesforceView():connectionsView();
-    root.innerHTML=demoContext()+content;
   }
-  function openDialog(title,subtitle,body){document.getElementById('detail-title').textContent=title;document.getElementById('detail-subtitle').textContent=subtitle;document.getElementById('detail-body').innerHTML=body;if(!dialog.open)dialog.showModal();}
-  function customerDetail(id,preview=false){
-    const c=data.customers.find(c=>c.id===id);if(!c)return;
-    const items=data.products.filter(p=>c.productIds.includes(p.id));const users=data.users.filter(u=>u.customerId===id);const sf=salesforceLink(id);
-    const sfSection=sf?'<h3 class="section-space">Salesforce CRM</h3><div class="salesforce-inline"><div><strong>'+esc(sf.accountName)+'</strong><small>'+esc(sf.accountRef||'Ingen Account.Id vald')+' · '+esc(sf.status)+'</small></div>'+btn('Granska Salesforce-koppling','salesforce-customer',c.id)+'</div>':'';
-    openDialog(preview?c.name+' · kundförhandsvisning':c.name,preview?'Så här avgränsas kundens portfölj':'Kundorganisation · syntetiskt exempel',entity(c,c.fullName)+'<p class="connection-detail">'+esc(preview?'Här visas endast de produkter som tilldelats denna organisation i demokonfigurationen.':c.note)+'</p><div class="detail-grid"><div><dt>Produkter</dt><dd>'+items.length+' tilldelade</dd></div><div><dt>Kundroller</dt><dd>Kundadministratör och läsare</dd></div></div><div class="section-space">'+btn('Visa kundens statistik','statistics',c.id,'button teal')+'</div>'+sfSection+'<h3 class="section-space">Tilldelad produktportfölj</h3>'+items.map(p=>'<div class="list-item">'+mark(publisher(p.publisherId))+'<div class="body"><strong>'+esc(p.name)+'</strong><small>'+esc(p.type)+' · '+esc(publisher(p.publisherId).name)+'</small></div>'+pill('Tilldelad','green')+'</div>').join('')+(preview?'':'<h3 class="section-space">Portalanvändare</h3>'+users.map(u=>'<div class="list-item"><div class="body"><strong>'+esc(u.name)+'</strong><small>'+esc(u.role)+'</small></div>'+pill('Demo')+'</div>').join(''))+'<div class="section-space">'+(preview?sourceNote():btn('Förhandsvisa kundens portfölj','preview',c.id,'button teal'))+'</div><p class="footnote">Detta är en visningsdemo. Ingen tilldelning sparas och ingen extern licens ändras.</p>');
-  }
-  function salesforceCustomerDetail(id){
-    const c=customer(id),link=salesforceLink(id);if(!c||!link)return;
-    openDialog(c.name+' · Salesforce','Granska kundkoppling · syntetiskt exempel',entity(c,c.fullName)+'<div class="salesforce-review-status">'+pill(link.status,link.accountRef?'green':'amber')+'<span>'+esc(link.review)+'</span></div><div class="detail-grid"><div><dt>Salesforce Account</dt><dd>'+esc(link.accountName)+'</dd></div><div><dt>Extern referens</dt><dd>'+esc(link.accountRef||'Inte vald')+'</dd></div><div><dt>Kundansvarig</dt><dd>'+esc(link.owner)+'</dd></div><div><dt>Senast ändrad i demo</dt><dd>'+esc(link.updatedAt)+'</dd></div></div><h3>Underlag för kundgranskning</h3><div class="review-summary"><div><span>Kontakter</span><strong>'+link.contacts+'</strong><small>Endast antal i prototypen</small></div><div><span>Öppna affärer</span><strong>'+link.openOpportunities+'</strong><small>Opportunity · syntetiskt</small></div><div><span>Förnyelse</span><strong>'+esc(link.renewal||'Ej angiven')+'</strong><small>Fält beslutas före import</small></div></div><div class="soft-box section-space"><strong>Trygg koppling per kund</strong>Content Online-kundens interna id kopplas till exakt en Salesforce Account.Id. CRM-data blir läsbar i granskningen först efter att kopplingen och de tillåtna fälten har godkänts.</div><p class="footnote">Ingen riktig Salesforce-post har hämtats. Värdena är fiktiva och visar den tänkta granskningsytan.</p>');
-  }
-  function salesforceSetup(){
-    openDialog('Anslut Salesforces testkonto','Säker API-förberedelse','<div class="setup-flow"><div><span>1</span><strong>Kontrollera kontot</strong><small>Utgåva, orgtyp och behörigheten API Enabled.</small></div><div><span>2</span><strong>Skapa External Client App</strong><small>OAuth med minsta läsbehörighet och fast callback-URL.</small></div><div><span>3</span><strong>Testa anslutningen</strong><small>Hämta endast ett par syntetiska Account-poster.</small></div><div><span>4</span><strong>Bekräfta fälten</strong><small>Välj vad som får visas för Content Online-personal.</small></div></div><div class="soft-box section-space"><strong>Det jag behöver från dig – inga hemligheter i chatten</strong>Salesforce-utgåva och om kontot är Developer, Trial eller Sandbox; bekräftelse på att kunder ligger som Account; samt vilka uppgifter du vill granska. Consumer Secret, access token och refresh token ska aldrig klistras in här eller ligga i webbläsarkoden.</div>');
-  }
-  async function salesforceConnect(){
-    try{
-      const response=await fetch('/admin/api/salesforce/oauth/start',{headers:await freshAdminHeaders(),cache:'no-store',credentials:'same-origin'});
-      if(!response.ok)throw new Error('unavailable');
-      const body=await response.json();
-      if(typeof body.authorizationUrl!=='string'||!body.authorizationUrl.startsWith('https://'))throw new Error('invalid');
-      location.assign(body.authorizationUrl);
-    }catch{openDialog('Salesforce kunde inte anslutas','Försök igen senare','OAuth-starten är inte tillgänglig. Kontrollera serverkonfigurationen och den separata tokenlagringen.');}
-  }
-  function publisherDetail(id){
-    const p=publisher(id);if(!p)return;const items=data.products.filter(x=>x.publisherId===id),clients=data.customers.filter(c=>c.productIds.some(id=>items.some(p=>p.id===id)));
-    openDialog(p.name,'Publicist & dataleverantör',entity(p,p.route)+'<p class="connection-detail">'+esc(p.description)+'</p><div class="detail-grid"><div><dt>Anslutningsstatus</dt><dd>'+esc(p.status)+'</dd></div><div><dt>Dataleverans</dt><dd>'+esc(p.route)+'</dd></div></div><h3>Produkter</h3>'+items.map(x=>'<div class="list-item"><div class="body"><strong>'+esc(x.name)+'</strong><small>'+esc(x.type)+'</small></div>'+btn('Visa','product',x.id)+'</div>').join('')+'<h3 class="section-space">Kunder via produkttilldelning</h3>'+clients.map(c=>'<div class="list-item">'+entity(c,c.type)+btn('Öppna','customer',c.id)+'</div>').join('')+'<p class="footnote">Kundrelationerna går via produkter, inte genom gemensamma kundkonton.</p>');
-  }
-  function productDetail(id){
-    const p=data.products.find(x=>x.id===id);if(!p)return;
-    openDialog(p.name,'Produktinformation · demo','<p class="connection-detail">'+esc(p.description)+'</p><div class="detail-grid"><div><dt>Publicist</dt><dd>'+esc(publisher(p.publisherId).name)+'</dd></div><div><dt>Produkttyp</dt><dd>'+esc(p.type)+'</dd></div></div><h3>Tilldelade organisationer</h3>'+data.customers.filter(c=>c.productIds.includes(id)).map(c=>'<div class="list-item">'+entity(c,c.unit)+btn('Kundvy','preview',c.id)+'</div>').join('')+'<div class="section-space">'+sourceNote()+'</div>');
-  }
-  function connectionDetail(name){
-    const c=data.connections.find(x=>x.name===name);if(!c)return;
-    const next=name.startsWith('MPS')?'Verifiera IEEE-åtkomst, rapportformat, perioder och definitioner i MPS/MPS Insight. Ingen autentiseringsnyckel ska läggas i klienten.':name==='Salesforce'?'Kontrollera testkontots API-åtkomst och välj vilka Account-, Contact- och Opportunity-fält som får läsas.':name==='Fortnox'?'Denna källa ingår i en framtida anslutning. Informationsfält och åtkomst behöver beslutas.':'Kartlägg leveranssätt med varje publicist: API, filer eller en annan lösning.';
-    openDialog(c.name,'Datakoppling','<div class="detail-grid"><div><dt>Ägare</dt><dd>'+esc(c.owner)+'</dd></div><div><dt>Status</dt><dd>'+esc(c.status)+'</dd></div><div><dt>Senaste import</dt><dd>Ingen import</dd></div><div><dt>Rapportperiod</dt><dd>Ingen data mottagen</dd></div></div><div class="soft-box"><strong>Nästa steg</strong>'+next+'</div>'+(name==='Salesforce'?'<div class="section-space">'+btn('Öppna Salesforce-fliken','navigate','salesforce','button salesforce-button')+'</div>':''));
-  }
-  const closeNavigation=()=>{document.getElementById('sidebar').classList.remove('open');document.getElementById('menu-toggle').setAttribute('aria-expanded','false');};
+
   document.addEventListener('click',event=>{
-    const b=event.target instanceof Element?event.target.closest('[data-action]'):null;if(!b)return;const {action,id}=b.dataset;
-    if(action==='close'){dialog.close();return;}if(!data)return;
-    if(action==='navigate'){active=pageMeta[id]?id:'overview';query='';document.getElementById('search').value='';history.replaceState(null,'','#'+active);render();closeNavigation();}
-    if(action==='customer')customerDetail(id);if(action==='preview')customerDetail(id,true);if(action==='publisher')publisherDetail(id);if(action==='product')productDetail(id);if(action==='connection')connectionDetail(id);if(action==='salesforce-customer')salesforceCustomerDetail(id);if(action==='salesforce-setup')salesforceSetup();if(action==='salesforce-connect')salesforceConnect();
-    if(action==='statistics'){const c=data.customers.find(c=>c.id===id);if(c){const selected=b.dataset.statView;openDialog(c.name+' · statistik','Kundinsikter · syntetiskt underlag',statisticsUI.detail(data,id,selected));if(selected)dialog.querySelector('[data-stat-view="'+selected+'"]').focus();}}
+    const button=event.target instanceof Element?event.target.closest('[data-action="navigate"]'):null;
+    if(!button)return;
+    const requested=button.dataset.id;
+    active=requested&&pageMeta[requested]?requested:'overview';
+    const search=document.getElementById('search');
+    if(search instanceof HTMLInputElement)search.value='';
+    history.replaceState(null,'','#'+active);
+    syncPage();
+    closeNavigation();
   });
-  document.getElementById('search').addEventListener('input',e=>{query=e.target.value;render();});
-  document.getElementById('menu-toggle').addEventListener('click',()=>{const open=document.getElementById('sidebar').classList.toggle('open');document.getElementById('menu-toggle').setAttribute('aria-expanded',String(open));});
-  document.getElementById('scrim').addEventListener('click',closeNavigation);document.addEventListener('keydown',e=>{if(e.key==='Escape')closeNavigation();});
-  const isDemo=document.body.dataset.mode==='demo';
+
+  const menuToggle=document.getElementById('menu-toggle');
+  menuToggle?.addEventListener('click',()=>{
+    const sidebar=document.getElementById('sidebar');
+    if(!sidebar)return;
+    const open=sidebar.classList.toggle('open');
+    menuToggle.setAttribute('aria-expanded',String(open));
+  });
+  document.getElementById('scrim')?.addEventListener('click',closeNavigation);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')closeNavigation();});
+
   async function freshAdminHeaders(){
     const session=window.Clerk?.session;
     if(session===null)throw new Error('signed_out');
@@ -166,38 +65,59 @@ export const workspaceClient = statisticsClient + String.raw`
     if(!token)throw new Error('signed_out');
     return {Authorization:'Bearer '+token};
   }
+
   function hideProtectedWorkspace(text){
-    data=null;salesforceStatus=null;root.replaceChildren();document.getElementById('workspace').hidden=true;
-    if(dialog.open)dialog.close();document.getElementById('message').textContent=text;document.getElementById('access-message').hidden=false;
+    workspaceReady=false;
+    document.getElementById('registry-body')?.replaceChildren();
+    const workspace=document.getElementById('workspace');
+    const message=document.getElementById('message');
+    const accessMessage=document.getElementById('access-message');
+    if(workspace)workspace.hidden=true;
+    if(message)message.textContent=text;
+    if(accessMessage)accessMessage.hidden=false;
   }
+
   function handleClerkState(state){
     if(authGraceTimer!==null){clearTimeout(authGraceTimer);authGraceTimer=null;}
     if(state.session===null){hideProtectedWorkspace('Din session har avslutats.');location.replace('/admin/login');return;}
     if(state.session===undefined){authGraceTimer=setTimeout(()=>{authGraceTimer=null;if(window.Clerk?.session===undefined)hideProtectedWorkspace('Inloggningen kunde inte bekräftas. Ladda om sidan för att försöka igen.');},15000);}
   }
+
   async function start(){
     const message=document.getElementById('message');
     try{
-      let headers={};
-      if(!isDemo){
-        if(!window.Clerk)throw new Error('auth');await Clerk.load({ui:{ClerkUI:window.__internal_ClerkUICtor}});
-        if(Clerk.session===null){location.replace('/admin/login');return;}
-        if(Clerk.session===undefined)throw new Error('auth_loading');
-        document.getElementById('sign-out').addEventListener('click',()=>Clerk.signOut({redirectUrl:'/admin/login'}));
-        Clerk.addListener(handleClerkState);
-        headers=await freshAdminHeaders();
-        const session=await fetch('/admin/api/session',{headers,cache:'no-store',credentials:'omit'});
-        if(!session.ok){message.textContent='Kontot saknar åtkomst eller kunde inte verifieras. Logga ut och försök igen.';return;}
-        const identity=await session.json();document.getElementById('account-email').textContent=identity.admin.email;
-      }
-      if(!isDemo)headers=await freshAdminHeaders();
-      const response=await fetch(isDemo?'/demo/workspace':'/admin/api/workspace',{headers,cache:'no-store',credentials:isDemo?'same-origin':'omit'});if(!response.ok)throw new Error('workspace');data=await response.json();
-      if(!isDemo){const sfResponse=await fetch('/admin/api/salesforce/status',{headers:await freshAdminHeaders(),cache:'no-store',credentials:'omit'});if(sfResponse.ok)salesforceStatus=await sfResponse.json();}
-      if(!isDemo)document.dispatchEvent(new CustomEvent('content-online:workspace-ready',{detail:{workspace:data}}));
-      active=pageMeta[location.hash.slice(1)]?location.hash.slice(1):'overview';document.getElementById('access-message').hidden=true;document.getElementById('workspace').hidden=false;render();
-    }catch{data=null;root.replaceChildren();document.getElementById('workspace').hidden=true;message.textContent='Arbetsytan kunde inte laddas. Ladda om sidan för att försöka igen.';document.getElementById('access-message').hidden=false;}
+      if(!window.Clerk)throw new Error('auth');
+      await Clerk.load({ui:{ClerkUI:window.__internal_ClerkUICtor}});
+      if(Clerk.session===null){location.replace('/admin/login');return;}
+      if(Clerk.session===undefined)throw new Error('auth_loading');
+      document.getElementById('sign-out')?.addEventListener('click',()=>Clerk.signOut({redirectUrl:'/admin/login'}));
+      Clerk.addListener(handleClerkState);
+      const session=await fetch('/admin/api/session',{headers:await freshAdminHeaders(),cache:'no-store',credentials:'omit'});
+      if(!session.ok){if(message)message.textContent='Kontot saknar åtkomst eller kunde inte verifieras. Logga ut och försök igen.';return;}
+      const identity=await session.json();
+      const accountEmail=document.getElementById('account-email');
+      if(accountEmail)accountEmail.textContent=identity.admin.email;
+
+      active=pageMeta[location.hash.slice(1)]?location.hash.slice(1):'overview';
+      workspaceReady=true;
+      syncPage();
+      const accessMessage=document.getElementById('access-message');
+      const workspace=document.getElementById('workspace');
+      if(accessMessage)accessMessage.hidden=true;
+      if(workspace)workspace.hidden=false;
+      document.dispatchEvent(new CustomEvent('content-online:workspace-ready'));
+    }catch{
+      hideProtectedWorkspace('Arbetsytan kunde inte laddas. Ladda om sidan för att försöka igen.');
+    }
   }
-  window.addEventListener('hashchange',()=>{if(!data)return;active=pageMeta[location.hash.slice(1)]?location.hash.slice(1):'overview';query='';document.getElementById('search').value='';render();});
+
+  window.addEventListener('hashchange',()=>{
+    if(!workspaceReady)return;
+    active=pageMeta[location.hash.slice(1)]?location.hash.slice(1):'overview';
+    const search=document.getElementById('search');
+    if(search instanceof HTMLInputElement)search.value='';
+    syncPage();
+  });
   window.addEventListener('load',start);
 })();
 `;

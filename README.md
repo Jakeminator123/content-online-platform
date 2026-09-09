@@ -47,9 +47,9 @@ tillgänglig och en minimal audit-händelse bevaras.
 
 KTH är undantaget från riktiga medlemskonton och permanent radering. Andra
 kundportaler visar säkra tomlägen tills deras verkliga dataflöden har anslutits.
-Publika fixture-rutter är borttagna. Några skyddade adminvyer använder ännu
-tydligt syntetiska platshållare tills motsvarande livekällor har ersatt dem; de
-får aldrig beskrivas som verkliga kundutfall.
+Publika fixture-rutter är borttagna. Den skyddade adminytan använder samma
+beständiga register i samtliga vyer och visar ärliga tomlägen för produktdata,
+cronjobb, rapportflöden och externa källor som ännu inte är anslutna.
 
 ## Kundportal och D-ID
 

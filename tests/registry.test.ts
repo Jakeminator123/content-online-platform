@@ -19,8 +19,8 @@ import { createAdminPortal } from "../src/admin/portal.js";
 const actor = "admin-test";
 function fixtureConnection(host = "ep-test.eu-central-1.aws.neon.tech") { const url = new URL("postgresql://" + host + "/db"); url.username = "fixture"; url.password = crypto.randomUUID(); return url.toString(); }
 const cfg = { allowedEmail: "admin@example.test", secretKey: "fixture", publishableKey: "" };
-function memoryStore(): RegistryStore {
-  let version = 1, data = initialRegistry();
+function memoryStore(seed: Registry = initialRegistry()): RegistryStore {
+  let version = 1, data = seed;
   return { read: async () => ({ version, data }), write: async (expected, next) => {
     expect(expected).toBe(version); version++; data = next; return { version, data };
   } };
@@ -452,24 +452,39 @@ describe("Persistent registry domain", () => {
       agent: persisted.customers[0]!.site.agent,
     }).success).toBe(false);
   });
-  it("links one Salesforce Account to at most one Content Online customer", () => {
+  it("links one Salesforce Account only to an eligible Content Online customer", () => {
     let next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
+    const exampleId = next.customers.at(-1)!.id;
     const accountId = "001000000000001AAA";
     next = applyRegistryCommand(next, {
       action: "link_salesforce_account",
-      id: "customer-kth-demo",
+      id: exampleId,
       accountId,
       accountName: "Max Tegmark AB",
     }, actor);
-    expect(next.customers[0]).toMatchObject({ salesforceAccountId: accountId, salesforceAccountName: "Max Tegmark AB" });
+    expect(next.customers.at(-1)).toMatchObject({ salesforceAccountId: accountId, salesforceAccountName: "Max Tegmark AB" });
+    next = applyRegistryCommand(next, { action: "add_customer", name: "Other", slug: "other" }, actor);
     expect(() => applyRegistryCommand(next, {
       action: "link_salesforce_account",
-      id: next.customers[1]!.id,
+      id: next.customers.at(-1)!.id,
       accountId,
       accountName: "Duplicate",
     }, actor)).toThrow("salesforce_account_already_linked");
-    next = applyRegistryCommand(next, { action: "unlink_salesforce_account", id: "customer-kth-demo" }, actor);
-    expect(next.customers[0]).toMatchObject({ salesforceAccountId: null, salesforceAccountName: null });
+    expect(() => applyRegistryCommand(next, {
+      action: "link_salesforce_account",
+      id: "customer-kth-demo",
+      accountId: "001000000000002AAA",
+      accountName: "Protected",
+    }, actor)).toThrow("demo_customer_protected");
+    next = applyRegistryCommand(next, { action: "archive_customer", id: exampleId }, actor);
+    expect(() => applyRegistryCommand(next, {
+      action: "link_salesforce_account",
+      id: exampleId,
+      accountId: "001000000000003AAA",
+      accountName: "Archived",
+    }, actor)).toThrow("salesforce_customer_unavailable");
+    next = applyRegistryCommand(next, { action: "unlink_salesforce_account", id: exampleId }, actor);
+    expect(next.customers.find((customer) => customer.id === exampleId)).toMatchObject({ salesforceAccountId: null, salesforceAccountName: null });
   });
   it("archives publishers without deleting existing assignments and rejects new archived assignments", () => {
     let next = applyRegistryCommand(initialRegistry(), { action: "archive_publisher", id: "ieee" }, actor);
@@ -493,6 +508,7 @@ describe("Persistent registry domain", () => {
     expect(registryClient).not.toContain("DATABASE_URL");
     expect(registryClient).toContain("Granska kundsajt");
     expect(registryClient).toContain("Kundinloggning");
+    expect(registryClient).toContain("customer.kind==='customer'&&customer.status!=='archived'");
     expect(registryClient).toContain("/login?portal=");
     expect(registryClient).toContain("Slug efter inloggning");
     expect(registryClient).toContain("Aktuell standarddashboard");
@@ -571,6 +587,29 @@ describe("Registry API boundary", () => {
     expect(JSON.parse(text)).toMatchObject({
       runtime: { agentModeByCustomer: { "customer-kth-demo": "platform_fallback" } },
     });
+  });
+  it("redacts provider identity ids from the admin registry response", async () => {
+    let data = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example", slug: "example" }, actor);
+    const customer = data.customers.at(-1)!;
+    data = applyRegistryCommand(data, { action: "publish_customer", id: customer.id }, actor);
+    data = applyRegistryCommand(data, {
+      action: "add_portal_member",
+      customerId: customer.id,
+      verifiedEmail: "member@example.test",
+      displayName: "Member",
+      role: "customer_reader",
+    }, actor);
+    data = bindPortalIdentity(data, { id: "provider-user-secret-id", email: "member@example.test" }).data;
+    const app = createAdminPortal(
+      { authenticate: async () => ({ status: "authenticated", identity: { id: actor, email: cfg.allowedEmail, role: "content_admin" } }) },
+      cfg,
+      { registryStore: memoryStore(data) },
+    );
+    const response = await app.request("/admin/api/registry");
+    const text = await response.text();
+    expect(text).not.toContain("provider-user-secret-id");
+    expect(JSON.parse(text).data.portalMembers[0]).toMatchObject({ identityBound: true });
+    expect(JSON.parse(text).data.portalMembers[0]).not.toHaveProperty("externalUserId");
   });
   it("fails closed instead of returning fabricated successful empty data", async () => {
     const store = { read: async () => { throw new Error("private-db-credentials"); }, write: vi.fn() };

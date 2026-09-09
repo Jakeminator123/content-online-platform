@@ -328,6 +328,8 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
         if (!c.site.domain) throw new RegistryError("domain_unconfigured", 409);
         c.site.domainStatus = command.domainStatus;
       } else if (command.action === "link_salesforce_account") {
+        if (c.kind === "demo") throw new RegistryError("demo_customer_protected", 409);
+        if (c.status === "archived") throw new RegistryError("salesforce_customer_unavailable", 409);
         if (next.customers.some(other => other.id !== c.id && other.salesforceAccountId === command.accountId)) {
           throw new RegistryError("salesforce_account_already_linked", 409);
         }
