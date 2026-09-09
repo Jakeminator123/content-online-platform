@@ -430,6 +430,7 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(client).not.toContain("content-online-customer-login");
     expect(client).toContain("main.inert = open");
     expect(client).toContain("Close menu");
+    expect(client).toContain("requestAnimationFrame(() => firstLink.focus())");
     expect(client).toContain("first && first.focus()");
 
     const styleResponse = await app.request("/customer-landing/assets/style.css");

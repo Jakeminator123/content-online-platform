@@ -41,7 +41,7 @@ export const customerLandingClient = String.raw`
     if (moveFocus) {
       if (open) {
         const firstLink = menu.querySelector('a');
-        if (firstLink) firstLink.focus();
+        if (firstLink) window.requestAnimationFrame(() => firstLink.focus());
       } else {
         menuButton.focus();
       }
