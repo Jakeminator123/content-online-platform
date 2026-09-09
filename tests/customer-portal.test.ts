@@ -91,11 +91,12 @@ describe("shared multi-tenant customer portal", () => {
     expect(internal).not.toContain("agent.d-id.com/v2/index.js");
   });
 
-  it("offers a database-free synthetic KTH review route for protected previews", async () => {
+  it("offers a database-free synthetic KTH route only to the explicit test harness", async () => {
     const app = createAdminPortal({ authenticate: async () => admin }, cfg, {
       registryStore: { read: async () => { throw new Error("preview database is intentionally unavailable"); }, write: async () => { throw new Error("unreachable"); } },
       didAgentId: "v2_agt_preview",
       didClientKey: "ck_preview_domain_key",
+      presentationFixtures: true,
     });
     const portal = await app.request("/demo/customer/kth");
     expect(portal.status).toBe(200);
@@ -142,11 +143,11 @@ describe("shared multi-tenant customer portal", () => {
     });
     expect(JSON.stringify(context)).not.toContain("ck_north_domain_key");
 
-    const loginHtml = await (await app.request("/portal/north/login")).text();
-    expect(loginHtml).toContain("https://content-online-platform.vercel.app/login?portal=north");
-    expect(loginHtml).not.toContain("content-online-customer-login.vercel.app");
-    expect(loginHtml).not.toContain("returnUrl");
-    expect(loginHtml).not.toContain("session_token");
+    expect(html).toContain("https://content-online-platform.vercel.app/login?portal=north");
+    expect(html).not.toContain("content-online-customer-login.vercel.app");
+    expect(html).not.toContain("returnUrl");
+    expect(html).not.toContain("session_token");
+    expect((await app.request("/portal/north/login")).status).toBe(404);
 
     const customDomainHtml = await (await app.request("https://north.portal.contentonline.se/")).text();
     expect(customDomainHtml).not.toContain('/customer-portal/assets/session.js');

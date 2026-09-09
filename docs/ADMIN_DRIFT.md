@@ -1,99 +1,144 @@
 # Content Online-admin och kundportal
 
-Uppdaterad 2026-09-09. Detta dokument skiljer levererad inloggning från planerad administration.
+Uppdaterad 2026-09-09. Detta dokument beskriver aktuell produktionsmodell och
+skiljer levererade funktioner från ännu ej anslutna datakällor.
 
-## Två portaler, olika ansvar
+## En plattform, två behörighetsdomäner
 
-| Del | Vem? | Ansvar |
-|---|---|---|
-| Kundportal | Kundperson, exempelvis KTH-bibliotekarie | Bara den egna organisationens resurser. Kundadmin är en kundroll. |
-| Intern administration | Content Onlines godkända administratör | Företagets kunder, användare, publicistregister och kundprodukttilldelningar. Interaktiv läsande demo finns; skrivande funktioner återstår. |
-| Kundscope för operatör | Content Online-personal med särskild tilldelning | Befintlig backendmodell ger bara åtkomst till uttryckligen tilldelade kunder. Inte global administration. |
+| Del | Primär användare | Ansvar |
+| --- | --- | --- |
+| Publik ingång och kundinloggning | Kundperson | `/` visar Content Online och öppnar kundlogin som overlay. `/login` är direkt fallback och `/registrera` hanterar kontoaktivering. |
+| Kundportal | Kundmedlem | `/portal/{slug}` visar endast den egna organisationens tillåtna portalskal och data. |
+| Intern administration | Content Online-personal | `/admin` hanterar kundorganisationer, portalmedlemmar, publicister, publicering och anslutningsstatus. |
+
+Kundadmin är en roll inne i en kundorganisation. Content
+Online-administratören är en separat intern roll och blir inte automatiskt
+medlem hos någon kund.
+
+Den kanoniska produktionsytan innehåller inga publika `/demo`-rutter,
+tenantkataloger eller äldre login-/portalalias. KTH är det enda publika
+undantaget: `/portal/kth` är en tydligt märkt syntetisk pilot. Några skyddade
+adminvyer använder ännu syntetiska platshållare; de ska ersättas av registerdata
+eller ärliga tomlägen och får inte beskrivas som live.
 
 ## Levererat
 
-- Hono-plattformen innehåller både portalval och den delade portalmallen utan att blanda kund- och adminbehörighet.
-- `/admin/login` och `/admin/registrera` använder Clerk JS/UI. Den nya rollen heter `content_admin`.
-- HTML-skalet på `/admin` är publikt men innehåller inga identitets- eller kunduppgifter. Personlig information hämtas från serverns skyddade `/admin/api/session` efter verifiering.
-- API accepterar endast Clerk-bearertoken med plattformens uttryckliga `azp`/origin. Signatur och livslängd kontrolleras av SDK:n; servern kontrollerar även aktiv session, spärrstatus samt verifierad primär e-post mot serverns allowlist.
-- En separat registreringsallowlist finns i Clerk. Testverifiering är avstängd. Ingen automatisk e-postinbjudan har skickats.
-- Äldre frontendvägar var migrationsbryggor till plattformens administration. KTH-demons cookies används aldrig som behörighetsbevis.
-- Den skyddade, interna arbetsytan visar nu ett serverlevererat och skrivskyddat pilotregister för kunder, publicister, produkt-/kundtilldelningar samt anslutningar/importstatus. `/admin/api/workspace` har samma Clerk- och allowlistkontroll som övriga admin-API:er.
-- Pilotregistret är uttryckligen syntetiskt. Alla skrivåtgärder är avstängda eftersom beständig lagring ännu saknas; inget sparas i serverminne, webbläsarlagring eller Git.
-- Den inbyggda portalmallen är den kanoniska publiceringsytan och återanvänder aldrig KTH-data för en annan kund.
-- Content Onlines admininloggning har en modern assistentbubbla. Efter verifierad admininloggning kan den svara från projektets dokumenterade kontext, visa den syntetiska kund-/rollbilden och starta allowlistade skrivskyddade kontrolljobb.
-- OpenAI-anrop görs server-side med minimerad kontext och `store: false`; personnamn, e-post, identitets-ID och kundnamn från arbetsytan skickas inte till modellen. Vid providerfel används ett begränsat lokalt faktasvar.
-- Den interna assistenten innehåller bara Content Onlines skyddade textchatt och adminverktyg. D-ID-agenten med video, egen chatt och valfri mikrofon ligger i den inbyggda portalmallen på publicerade kundadresser; ingen kund- eller admindata kopieras dit automatiskt.
-- Ett dagligt `platform-readiness`-jobb är konfigurerat för Vercel Cron. Endpointen kräver `CRON_SECRET`, och manuella körningar kräver samma adminbehörighet som arbetsytan. Jobbresultat sparas inte ännu.
+### Ingång och kundidentitet
 
-## Första kontot
+- `/` är den publika Content Online-ingången och öppnar kundinloggningen i en
+  modal utan att skicka användaren till en parallell sajt.
+- `/login` erbjuder samma kundflöde som direkt fallback. `/registrera` hanterar
+  aktivering av en förregistrerad kundmedlem.
+- En verifierad Clerk-session får anropa `/v1/portal-entries`. Servern returnerar
+  bara publicerade icke-syntetiska portaler som identiteten har aktivt medlemskap
+  i.
+- En väntande e-postadress binds vid första godkända inloggningen till Clerks
+  stabila användar-ID. En senare användare av samma adress ärver inte rollen.
+- Ett konto kan ha medlemskap i flera organisationer. Slug, queryparameter och
+  klientval är aldrig behörighetsbevis.
+- Kundportalen verifierar samma medlemskap innan den markerar åtkomsten som
+  verifierad. Utan medlemskap visas ingen verklig kunddata.
 
-Öppna `/admin/registrera` på plattformen och använd den överenskomna adressen. Skapa ett eget lösenord eller använd ett tillåtet verifierat inloggningssätt. Verifiera adressen hos Clerk. Därefter kontrollerar backend behörigheten; att bara registrera sig ger inte adminrättigheter.
+### Intern administration
 
-Ingen e-postadress, lösenord eller hemlig nyckel hör hemma i detta publika repository. Konfiguration:
+- `/admin/login` och `/admin/registrera` använder en separat Clerk-konfiguration
+  för Content Online-personal.
+- Servern kräver aktiv session, icke spärrat konto, verifierad primär e-post och
+  matchning mot Content Onlines serverkonfigurerade allowlist.
+- Det skyddade registret är beständigt och hanterar kunder, publicister,
+  portalinställningar, publiceringsstatus, medlemskap och domänstatus.
+- Kundposter kan skapas, ändras, publiceras, avpubliceras och arkiveras.
+  Permanent radering kräver en redan arkiverad icke-syntetisk kund och uttrycklig
+  bekräftelse; KTH är skyddad.
+- Portalmedlemmar hanteras inne i respektive kundorganisation. Det skapar inte
+  automatiskt ett Clerk-konto eller någon publisherbehörighet.
+- Publicering använder den gemensamma portalruntimen. Den skapar inte ett repo,
+  Vercel-projekt eller en deployment per kund.
+- Content Onlines interna textassistent är separerad från kundportalens valfria
+  D-ID-agent.
 
-- `CLERK_SECRET_KEY` och `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: tillförs av Vercel Marketplace.
-- `CONTENT_ONLINE_ADMIN_EMAIL`: server-only, satt som sensitive enbart i Vercels production-miljö.
-- `DID_AGENT_ID` och `DID_CLIENT_KEY`: gemensam demo-/webbläsarkonfiguration i **All Environments** för Vercel-projektet `content-online-platform`. Client key ska ha den delade portalens exakta origin i D-ID Allowed Domains. En egen kunddomän kräver att dess origin också tillåts eller en komplett kundunik override. D-ID API key används inte av applikationen och får aldrig behandlas som frontendkonfiguration.
-- `.env.example`: konfigurationsnamn och icke-hemliga standardvärden, aldrig credentials.
-- `scripts/configure-admin-auth.mjs`: explicit körd, idempotent registreringsallowlist för den konfigurerade adressen. Skickar inte e-post och skapar inte ett verifierat användarkonto.
+### Kundportal
 
-## Återstår / får inte beskrivas som klart
+- Samma template används för alla tenants och kan anpassas med namn, färger,
+  logotyp, publicister, ingress, valfri domän och D-ID-konfiguration.
+- KTH-portalen visar uttryckligt märkt presentationsdata. Den får inte användas
+  som fallback för en annan kund.
+- Icke-KTH-kunder får ett kundmärkt skal med låsta eller tomma lägen tills deras
+  verkliga källor har verifierats.
+- D-ID laddas först när användaren öppnar agenten. Agenten får bara använda
+  tillåten kundkontext och får inte påverka adminbehörighet.
 
-1. Databas: Neon Free föreslaget i Frankfurt; provisionering pausad på användarens begäran. Ingen ersättningsdatabas eller lagring i webbläsaren används.
-2. Skrivande administration: skapa/ändra/avaktivera kundkonton, organisationer, publicister och kundprodukttilldelningar samt beständig auditlogg. Den levererade överblicken är skrivskyddad.
-3. Kundauth: frontendens gamla demonstrationskonton och reservnyckel får inte användas med riktiga kunddata. Skyddat `/v1/*` är ännu inte anslutet till Clerk eller produktionsmedlemskap.
-4. Produktionsauth: nuvarande Clerk-nycklar är `pk_test_`/`sk_test_` trots att webbplatsen är publicerad på Vercel. Egen domän, DNS och Clerk-produktionsinstans krävs före skarp användning.
-5. Första administratören behöver själv slutföra e-postverifieringen. Automatiska tester kan inte ersätta denna kontroll.
-6. MPS/IEEE, övriga publishers, Salesforce, Fortnox och dokumentlagring: inga nya liveintegrationer i denna leverans.
-7. Assistenten indexerar ännu inte dokumenten automatiskt. Kunskapskontexten är en kodgranskad sammanfattning och måste uppdateras när styrande dokument ändras.
-8. Kontrolljobben är läsande pilotjobb. Riktiga importer kräver beständig jobbhistorik, idempotens, auditlogg och godkända källkopplingar.
+## Kanoniska adresser
+
+```text
+/                    publik landning + kundlogin-overlay
+/login               direkt fallback för kundinloggning
+/registrera           aktivering av kundkonto
+/admin                Content Online-personal
+/admin/login          personalinloggning
+/portal/{slug}        gemensam tenantportal
+/portal/kth           uttryckligen syntetisk KTH-pilot
+```
+
+Alla andra tidigare demo- och kompatibilitetsvägar ligger utanför
+produktionskontraktet och ska ge 404.
+
+## Konfiguration
+
+Hemligheter och känsliga värden ligger i Vercel eller respektive leverantör,
+aldrig i Git.
+
+- `CLERK_SECRET_KEY` och `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` konfigurerar
+  identitetsleverantören.
+- `CONTENT_ONLINE_ADMIN_EMAIL` är server-only och avgränsar den första interna
+  administratören.
+- `DID_AGENT_ID` och `DID_CLIENT_KEY` är portalens gemensamma
+  webbläsarkonfiguration. Client key ska begränsas till exakt tillåten origin.
+- `VERCEL_AUTOMATION_TOKEN` är server-only och används endast för explicit
+  domänautomation mot samma plattformsprojekt.
+- `.env.example` beskriver namn och ofarliga standardvärden, aldrig credentials.
+
+Den publicerade piloten använder fortfarande en Clerk-utvecklingsinstans.
+Produktionsinstans, domän- och leverantörskonfiguration måste verifieras innan
+verkliga kundkonton eller kunddata tas i drift.
+
+## Inte live ännu
+
+Följande får inte beskrivas som levererat produktionsdata:
+
+1. Verklig kundstatistik, kostnader, förnyelser eller verifierade
+   COUNTER-rapporter.
+2. Automatisk import från MPS/IEEE eller andra publicister.
+3. Operativa Salesforce-, Fortnox- eller dokumentflöden. Anslutnings- och
+   OAuth-grund kan finnas utan att någon liveimport är aktiv.
+4. Publisherprovisionering eller ändring av externa licenser och avtal.
+5. Beständig kundspecifik rapportkörning, cronjobb och rapportleverans. Sådana
+   kontroller ska visa ett ärligt ej anslutet läge tills serverflödet finns.
+6. Automatiskt indexerad dokumentkunskap för den interna assistenten.
+
+Produktionsadmin får inte fylla dessa luckor med testfixtures. Ett saknat flöde
+ska visas som ej anslutet eller otillgängligt.
 
 ## Verifiering
 
-`npm run check` testar tidigare tenant-/KPI-kontrakt och nya negativa adminfall: fel adress, sekundär adress, overifierad adress, spärrat konto, kundcookie, främmande origin, saknad konfiguration, providerfel och skydd på samtliga `/admin/api/*`-metoder.
+`npm run check` kör typkontroll och regressionstester för kund-, tenant- och
+adminavgränsning. Lokala webbläsartester och CI får använda egna syntetiska
+fixtures, men fixtures får inte exponeras via Production.
 
-Efter publicering kontrolleras `/health`, portalval, kundportalens fasta redirect, login/registrering och att ogiltiga eller saknade tokens nekas. Publicerad inloggning är en pilot, inte en färdig administrationsprodukt.
+Efter merge kontrolleras separat:
 
-Den återkörbara kontrollen är `node scripts/check-hosted-portals.mjs`. Den kontrollerar även att skrivförsök nekas och kräver inga användaruppgifter. Vid den visuella demoleveransen passerade 53 backendtester, 10 frontendtester, båda typkontrollerna, frontendbygget och publicerade HTTP-kontroller. Vercels produktionsdeployments var READY på respektive Git-commit. Interaktiv registrering/e-postverifiering för intern admin är inte verifierad i denna leverans.
+- att GitHub `main` innehåller den avsedda ändringen;
+- att Vercel Production är READY;
+- att Production-deploymentens Git-SHA exakt motsvarar `main`;
+- att `/`, kundlogin, `/admin` och `/portal/kth` fungerar;
+- att borttagna demo- och legacyvägar ger 404;
+- att skyddade API:er nekar ogiltiga eller felaktigt scopade sessioner.
 
-Webbläsarkontrollen omfattade den publicerade admin-demons sökning, publicistdialog och kundförhandsvisning (Norrvik Teknik fick exakt sina tre tilldelade produkter), samt kundportalens befintliga Hampus-demosession: periodval i graf, produktsökning, produktdialog och förhandsvisning av ett ej skickat kundserviceärende. Den verifierar presentationsflöden med syntetiska data, inte riktig kundidentitet, beständig lagring eller skarp licensisolering. Vercel rapporterade inga runtime-fel under kontrollintervallet.
-
-Assistent- och cronutökningen har före PR passerat repositoryts aktuella typkontroll och 65 backendtester. Den siffran är lokal/CI-verifiering av branchen, inte bevis på publicering eller lyckad produktionscron.
-
-Vercels TypeScript 7-kompilering behöver explicit `types: ["node"]` och projektets `typeRoots`. `@types/node` ingår därför i publiceringsberoendena. Testbibliotekets globala typer laddas inte av produktionskompileringen.
+En grön Preview, en lokal testkörning eller en lyckad build räcker inte ensam som
+bevis på produktionssättning.
 
 ## Källor
 
 - [Clerk request-verifiering](https://clerk.com/docs/reference/backend/authenticate-request)
 - [Clerk JavaScript-integration](https://clerk.com/docs/js-frontend/getting-started/quickstart)
 - [Clerk produktionskrav](https://clerk.com/docs/guides/development/deployment/production)
-
-
-## Visuell demoleverans 2026-09-05
-
-- `/demo` är en publik, interaktiv presentationsyta med ett separat läsande `/demo/workspace`. Den ger ingen session eller intern behörighet. POST/PUT/PATCH/DELETE är inte implementerade.
-- Endast `src/admin/demo-data.ts` får användas för denna publika yta. **Koppla aldrig detta endpoint till verkliga kundregister.** Det skyddade `/admin/api/workspace` använder i denna pilot samma syntetiska fixtures efter befintlig Clerk-verifiering.
-- Sex vyer: överblick, kundorganisationer, användare, publicister, produkter/tilldelningar och anslutningar. Sökning, detaljdialoger och förhandsvisning av kundens produkturval fungerar i demon.
-- KTH är pilotexemplet. Akademi Nord och Norrvik Teknik är uttryckligen fiktiva organisationer. Kundportföljerna härleds från produkt-ID:n; räknare och tilldelningar beräknas ur samma underlag.
-- Inga skrivningar, importer, externa licensåtgärder eller beständiga ärenden utförs. Källor, perioder och syntetisk status framgår.
-- Den äldre frontendens produktfilter, CSV-export och KTH-specifika vyer är migrationsunderlag, inte den kanoniska kundruntime. Det finns inga dokumentoriginal att ladda ned ännu.
-- Auth, allowlist, databasbeslut och `/v1/*`-spärren är oförändrade.
-
-
-## Uppdatering 2026-09-08: separata entréer och register
-
-Plattformens rot var intern inloggning i denna mellanversion. Aktuell lagring, kundadresser, arkivering och kundidentitet beskrivs i [PORTALSTRUKTUR.md](PORTALSTRUKTUR.md). Detta ersätter äldre uppgifter ovan om pausad Neon eller att alla kund-/publicistlistor saknar sparning. Statistik och demofixtures är fortfarande separata.
-
-Adminregistret skiljer nu på **Styr kundsajt**, **Granska kundsajt** och **Kundinloggning**. Inloggningen ligger på `/login?portal={slug}` och den serververifierade destinationen på `/portal/{slug}`. Publicerade icke-KTH-kunder får den aktuella gemensamma dashboarden med egen organisationsmärkning. Ytan innehåller bara offentlig metadata och tydliga tomlägen; KTH:s produkter, användare, mätvärden och demoinloggning återanvänds inte.
-
-## Uppdatering 2026-09-09: kundinloggning och medlemskap
-
-- `/` är den publika Content Online-ingången, `/login` är kundinloggningen och `/admin` samt `/admin/login` är fortsatt Content Onlines separata personalyta.
-- En verifierad Clerk-session får anropa `/v1/portal-entries`. Endpointen härleder svaret ur aktiva medlemskap och publicerade icke-demo-kunder i registret. URL-sluggen är aldrig ett behörighetsbevis.
-- E-postadressen är endast en väntande inbjudan. Första godkända inloggningen binder medlemskapet till Clerks stabila användar-ID; ett nytt konto som senare återanvänder adressen ärver inte rollen.
-- Portalanvändare skapas och inaktiveras inne i respektive kundpost. KTH är skyddad syntetisk demo och kan inte få riktiga medlemskonton.
-- Samma e-postadress kan ha medlemskap i flera kundorganisationer. Ett konto utan medlemskap ser ingen kundportal och får inte adminåtkomst av den anledningen.
-- Kundmedlemskap skapar inte automatiskt ett Clerk-konto och aktiverar inte verklig statistik. Produktionsinstans, avtal och verkliga kunddatakällor är separata driftsgrindar.
-- Vercel-konfigurationen anger `arn1` (Stockholm). Det räknas som live först när en READY Production-deployment har verifierats på samma SHA som GitHub `main`.
-- Medlemsfältets schema ska först driftsättas som en separat, inaktiv expand-fas. Kundfunktionen får mergas först när den fasen är Production READY, så att en normal rollback inte strippar medlemslistan vid nästa registerskrivning.

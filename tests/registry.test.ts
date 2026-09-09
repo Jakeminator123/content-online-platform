@@ -515,7 +515,7 @@ describe("Persistent registry domain", () => {
     expect(registryClient).toContain("availableSlug");
     expect(registryClient).toContain("configure_customer_site");
     expect(registryClient).toContain("D-ID Allowed Domains");
-    expect(registryClient).toContain("Plattformens demoagent är konfigurerad");
+    expect(registryClient).toContain("gemensamma D-ID-agenten är konfigurerad");
     expect(registryClient).toContain("Lämna båda fälten tomma");
     expect(registryClient).toContain("Egen domän (avancerat och valfritt)");
     expect(registryClient).not.toContain("VERCEL_AUTOMATION_TOKEN");
@@ -531,7 +531,7 @@ describe("Registry API boundary", () => {
     }
     expect(read).not.toHaveBeenCalled();
   });
-  it("persists with optimistic concurrency and never changes fixtures", async () => {
+  it("persists with optimistic concurrency without exposing legacy public metadata", async () => {
     const store = memoryStore();
     const app = createAdminPortal({ authenticate: async () => ({ status: "authenticated", identity: { id: actor, email: cfg.allowedEmail, role: "content_admin" } }) }, cfg, { registryStore: store });
     const result = await app.request("/admin/api/registry", { method: "POST", body: JSON.stringify({ version: 1, command: { action: "add_customer", name: "New org", slug: "new-org" } }) });
@@ -540,17 +540,12 @@ describe("Registry API boundary", () => {
     expect((await store.read()).data.customers).toHaveLength(2);
     const stale = await app.request("/admin/api/registry", { method: "POST", body: JSON.stringify({ version: 1, command: { action: "add_publisher", name: "Stale" } }) });
     expect(stale.status).toBe(409);
-    const fixture = await (await app.request("/demo/workspace")).text();
-    expect(fixture).not.toContain("New org");
-    const unknown = await app.request("/portal-directory/new-org");
-    expect(unknown.status).toBe(404);
-    expect((await app.request("/portal-directory/kth")).headers.get("cache-control")).toBe("no-store");
-    expect(await (await app.request("/portal-directory/kth")).json()).toMatchObject({
-      name: "KTH",
-      slug: "kth",
-      mode: "demo",
-      brand: { heading: "Kunskap i användning" },
-    });
+    expect((await app.request("/demo/workspace")).status).toBe(404);
+    expect((await app.request("/portal-directory/new-org")).status).toBe(404);
+    expect((await app.request("/portal-directory/kth")).status).toBe(404);
+    const kthPortal = await app.request("/portal/kth");
+    expect(kthPortal.status).toBe(200);
+    expect(await kthPortal.text()).toContain("Kunskap i användning");
     expect((await app.request("/admin/api/registry", { method: "POST", body: "{" })).status).toBe(422);
     expect((await app.request("/admin/api/registry", { method: "POST", body: JSON.stringify({ version: 2, command: { action: "delete_everything" } }) })).status).toBe(422);
     expect((await app.request("/admin/api/registry", { method: "POST", headers: { origin: "https://evil.example" }, body: "{}" })).status).toBe(403);
@@ -580,7 +575,7 @@ describe("Registry API boundary", () => {
   it("fails closed instead of returning fabricated successful empty data", async () => {
     const store = { read: async () => { throw new Error("private-db-credentials"); }, write: vi.fn() };
     const app = createAdminPortal({ authenticate: async () => ({ status: "authenticated", identity: { id: actor, email: cfg.allowedEmail, role: "content_admin" } }) }, cfg, { registryStore: store });
-    for (const path of ["/portal-directory/kth", "/admin/api/registry"]) {
+    for (const path of ["/portal/kth", "/admin/api/registry"]) {
       const result = await app.request(path);
       expect(result.status).toBe(503); expect(await result.text()).not.toContain("private-db");
     }

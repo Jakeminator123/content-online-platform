@@ -11,9 +11,11 @@ export const customerAccessClient = String.raw`
   const signOut = document.getElementById('customer-sign-out');
   const mode = root.dataset.customerAccessMode || document.body.dataset.customerAccessMode || 'login';
   const deferred = root.dataset.customerAccessAutostart === 'false';
-  const requestedPortal = new URL(location.href).searchParams.get('portal') || '';
+  const rawRequestedPortal = new URL(location.href).searchParams.get('portal') || '';
+  const requestedPortal = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(rawRequestedPortal) && rawRequestedPortal.length <= 63 ? rawRequestedPortal : '';
   const configuredReturnUrl = root.dataset.customerAccessReturnUrl || '';
-  const returnUrl = /^\/(?!\/)/.test(configuredReturnUrl) ? configuredReturnUrl : location.pathname + location.search;
+  const portalReturnUrl = deferred && requestedPortal ? '/?login=1&portal=' + encodeURIComponent(requestedPortal) : '';
+  const returnUrl = portalReturnUrl || (/^\/(?!\/)/.test(configuredReturnUrl) ? configuredReturnUrl : location.pathname + location.search);
   const customerAppearance = {
     elements: {
       headerTitle: { display: 'none' },

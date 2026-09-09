@@ -545,7 +545,10 @@ export const customerLandingClient = String.raw`
     if (!window.history || typeof window.history.replaceState !== 'function') return;
     const url = new URL(location.href);
     if (open) url.searchParams.set('login', '1');
-    else url.searchParams.delete('login');
+    else {
+      url.searchParams.delete('login');
+      url.searchParams.delete('portal');
+    }
     window.history.replaceState(null, '', url.pathname + url.search + url.hash);
   };
   const openCustomerLogin = (trigger, updateUrl) => {
@@ -576,7 +579,9 @@ export const customerLandingClient = String.raw`
       if (loginTrigger && typeof loginTrigger.focus === 'function') loginTrigger.focus();
       loginTrigger = null;
     });
-    if (new URL(location.href).searchParams.get('login') === '1') {
+    const entryParams = new URL(location.href).searchParams;
+    const portalPreference = entryParams.get('portal') || '';
+    if (entryParams.get('login') === '1' || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(portalPreference)) {
       window.addEventListener('load', () => openCustomerLogin(null, false), { once: true });
     }
   }

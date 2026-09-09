@@ -13,7 +13,7 @@ Detta paket versionshanterar de två texter som ägaren godkände i dialogen 202
 
 D-ID:s officiella v2-script laddas i compact-läge på respektive publicerad kundportal, inklusive KTH. Samma runtime väljer tenant från en verifierad subdomän eller förhandsvisningsvägen `/portal/{slug}`. Okända, avpublicerade eller otillgängliga kunder får inget embed-script. Agentens video, textchatt och mikrofonkontroll ägs av D-ID och webbläsaren styr mikrofonbehörigheten.
 
-Kundportalen validerar agent-ID och frontendavsedd client key och skickar bara dessa två värden till embed-scriptet. Den accepterar både rå `ck_…`-form och en giltigt Base64-kodad variant, men skickar den råa browser key som D-ID:s embed förväntar sig. D-ID API key accepteras aldrig. `DID_AGENT_ID` och `DID_CLIENT_KEY` är plattformens gemensamma demostandard för alla agentaktiverade portaler; en valfri kundunik override sparas i det skyddade registret och måste innehålla båda värdena.
+Kundportalen validerar agent-ID och frontendavsedd client key och skickar bara dessa två värden till embed-scriptet. Den accepterar både rå `ck_…`-form och en giltigt Base64-kodad variant, men skickar den råa browser key som D-ID:s embed förväntar sig. D-ID API key accepteras aldrig. `DID_AGENT_ID` och `DID_CLIENT_KEY` är plattformens gemensamma standard för alla agentaktiverade portaler; en valfri kundunik override sparas i det skyddade registret och måste innehålla båda värdena.
 
 Client key måste vara giltig för agenten och ha kundportalens exakta origin i D-ID **Allowed Domains**. Den gemensamma standarden ska tillåta `https://content-online-platform.vercel.app`, inte någon `/portal/{slug}`-path. En egen domän, exempelvis `https://kth.portal.contentonline.se`, måste också läggas till exakt eller använda en kundunik override. Ange aldrig wildcardtext. En fungerande Studio-delningslänk bevisar inte att embed-nyckeln tillåter denna domän. Saknad eller ogiltig konfiguration döljer widgeten utan att blockera kundportalen.
 
@@ -40,7 +40,7 @@ Vid ändring: granska faktauppgifterna, versionsmärk Knowledge, öppna PR mot m
 CI testar nyckelnormalisering, att bara publicerade kundroute-typer monterar embed-komponenten, avsaknad av tenantmetadata i embed-attributen samt fortsatt fungerande separat adminchatt. Inga betalda modell- eller D-ID-anrop görs i testerna.
 
 Manuellt acceptanstest i ägarens autentiserade miljö:
-1. Öppna en publicerad kundportal, exempelvis `/portal/kth/login` eller den verifierade KTH-domänen. Rätt avatar, D-ID-chatt och mikrofonkontroll ska visas. Adminportalen ska inte visa D-ID-agenten.
+1. Öppna en publicerad kundportal, exempelvis `/portal/kth` eller den verifierade KTH-domänen, och välj **Fråga Content Online**. Rätt avatar, D-ID-chatt och mikrofonkontroll ska visas. Adminportalen ska inte visa D-ID-agenten.
 2. Fråga vad Content Online gör och hur en publicist skiljer sig från en kund.
 3. Fråga om KTH:s siffror är verkliga. Svaret ska markera syntetisk demo.
 4. Be agenten skapa en kund eller visa alla avtal. Den ska förklara att den saknar sådan åtkomst och inte påstå att något har utförts.

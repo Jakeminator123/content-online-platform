@@ -18,8 +18,8 @@ assert(!start.body.includes('href="/kundportal"'));
 assert(start.body.includes('data-page="customer-landing"'));
 assert(start.body.includes('data-customer-login'));
 assert(start.body.includes('href="/login"'));
-assert(!start.body.includes('id="customer-auth-widget"'));
-assert(!start.body.includes('clerk.browser.js'));
+assert(start.body.includes('id="customer-auth-widget"'));
+assert(start.body.includes('clerk.browser.js'));
 const customerLogin = await check(`${platform}/login`, 200);
 assert(customerLogin.body.includes('data-customer-access-mode="login"'));
 assert(customerLogin.body.includes('id="customer-auth-widget"'));
@@ -33,11 +33,20 @@ for (const path of ['/admin/login', '/admin/registrera', '/admin']) {
   assert(!body.includes('agent.d-id.com/v2/index.js'));
   for (const [, script] of body.matchAll(/<script>([\s\S]*?)<\/script>/g)) new Script(script);
 }
-const portal = await check(`${platform}/kundportal`, 302);
-assert.equal(portal.response.headers.get('location'), '/login');
-assert.equal(portal.response.headers.get('set-cookie'), null);
-const preferredPortal = await check(`${platform}/?portal=kth`, 302);
-assert.equal(preferredPortal.response.headers.get('location'), '/login?portal=kth');
+for (const path of [
+  '/kundportal',
+  '/portal/login',
+  '/portal/kth/login',
+  '/portal-directory/kth',
+  '/content-online',
+  '/content-online/login',
+  '/demo',
+  '/demo/workspace',
+  '/demo/customer/kth',
+]) await check(`${platform}${path}`, 404);
+const preferredPortal = await check(`${platform}/?portal=kth`, 200);
+assert(preferredPortal.body.includes('data-page="customer-landing"'));
+assert(preferredPortal.body.includes('id="customer-login-dialog"'));
 assert.equal(preferredPortal.response.headers.get('set-cookie'), null);
 const invalidPortal = await check(`${platform}/?portal=%2F%2Fevil.example`, 200);
 assert(invalidPortal.body.includes('data-page="customer-landing"'));
@@ -54,27 +63,13 @@ await check(`${platform}/admin/api/session`, 401, { headers: { cookie: 'session=
 await check(`${platform}/admin/api/session`, 401, { headers: { authorization: 'Bearer invalid-token' } });
 await check(`${platform}/admin/api/session`, 403, { headers: { authorization: 'Bearer invalid-token', origin: customerOrigin } });
 await check(`${platform}/v1/me`, 503);
-const demo = await check(`${platform}/demo`, 200);
-assert(demo.body.includes('data-mode="demo"'));
-assert.equal(demo.response.headers.get('set-cookie'), null);
-const fixtures = await check(`${platform}/demo/workspace`, 200);
-assert.equal(fixtures.response.headers.get('set-cookie'), null);
-const workspace = JSON.parse(fixtures.body);
-assert.equal(workspace.customers.length, 3);
-assert.equal(workspace.products.length, 8);
-assert.equal(workspace.assignments.length, 14);
-for (const organization of workspace.customers) {
-  assert.deepEqual(workspace.assignments.filter(a => a.customerId === organization.id).map(a => a.productId), organization.productIds);
-}
-await check(`${platform}/demo/workspace`, 404, { method: 'POST' });
 const client = await check(`${platform}/admin/assets/workspace.js`, 200);
 new Script(client.body);
 const accessClient = await check(`${platform}/customer-portal/assets/access.js`, 200);
 new Script(accessClient.body);
 const customerPortal = await check(`${platform}/portal/kth`, 200);
-assert(customerPortal.body.includes('SYNTETISK KUNDBILD'));
+assert(customerPortal.body.includes('Syntetisk visningsdata'));
 assert(customerPortal.body.includes('Kunskap i användning'));
-await check(`${platform}/portal/kth/login`, 200);
 const agentContext = await check(`${platform}/portal/kth/api/agent-context`, 200);
 assert.equal(JSON.parse(agentContext.body).usage.status, 'synthetic_demo');
 await check(`${platform}/portal/unknown`, 404);
