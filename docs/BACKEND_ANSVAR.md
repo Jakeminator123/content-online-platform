@@ -8,9 +8,9 @@
 
 ## Ansvarsgräns
 
-Detta repository äger backend, API-kontrakt, användare, autentiseringsintegration, behörighet, tenantisolering, usage-konvertering, affärsregler, tickets, persistence och tester.
+Detta repository äger backend, API-kontrakt, användare, autentiseringsintegration, behörighet, tenantisolering, usage-konvertering, affärsregler, tickets, persistence, tester och den delade kundportalens runtime.
 
-Frontend byggs separat och kopplas in senare. Detta repo innehåller därför inte kundportalens visuella komponenter, frontend-routing eller design. Backend levererar ett stabilt, dokumenterat och testbart HTTP-API.
+Målbilden är att `/` är kundinloggningen och att `/admin` förblir en separat personaladministration. Den äldre login-sajten får endast länka eller omdirigera hit för kompatibilitet; den är inte en parallell portalruntime eller behörighetskälla.
 
 ## Backend äger
 
@@ -40,6 +40,7 @@ Frontend får visa eller dölja knappar för användbarhet, men backend gör all
 
 ```text
 GET    /v1/me
+GET    /v1/portal-entries
 GET    /v1/organizations/{organizationId}/overview
 GET    /v1/organizations/{organizationId}/portfolio
 GET    /v1/organizations/{organizationId}/usage
@@ -52,6 +53,8 @@ POST   /v1/organizations/{organizationId}/member-change-requests
 
 Interna operationer får en separat `/v1/internal/*`-yta och policy. De blandas inte in i kund-API:t.
 
+`/v1/portal-entries` är den planerade bryggan mellan verifierad identitet och publicerad kundportal. E-post används bara för en väntande inbjudan; vid första godkända inloggningen binds medlemskapet till identitetsleverantörens stabila användar-ID. Serverägda medlemskap avgör vilka poster som returneras. Klienten får välja en slug endast bland dessa poster; en slug i URL eller request ger aldrig behörighet.
+
 ## Första vertikala backendresa
 
 1. Två syntetiska kundorganisationer skapas.
@@ -63,4 +66,4 @@ Interna operationer får en separat `/v1/internal/*`-yta och policy. De blandas 
 7. Båda nekas all data från organisation B.
 8. Samma fixture importeras igen utan dubbletter och audit/provenance verifieras.
 
-Resan är nu implementerad med in-memory/testadapters, syntetiska data och ett maskinläsbart OpenAPI-kontrakt. Extern databas och riktig identitetsleverantör kopplas bakom kontrakt när beslut och credentials finns. Dokument- och medlemsändringsroutes i listan ovan är planerade men ännu inte implementerade.
+Den tidigare backendresan finns med in-memory/testadapters, syntetiska data och ett maskinläsbart OpenAPI-kontrakt. Produktionskoppling för kundidentitet, beständiga medlemskap och portalposter är en målbild tills den har mergats, driftsatts och verifierats. Dokument- och medlemsändringsroutes i listan ovan är planerade men ännu inte implementerade.

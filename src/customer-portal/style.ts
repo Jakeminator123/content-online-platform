@@ -160,6 +160,10 @@ svg { width: 1.1em; height: 1.1em; flex: none; }
   background: #87b8ae;
   box-shadow: 0 0 0 4px #87b8ae16;
 }
+.sidebar-footer[data-portal-access="authenticated"] .data-dot {
+  background: #75c7a7;
+  box-shadow: 0 0 0 4px #75c7a724;
+}
 .mobile-scrim { display: none; }
 .portal-nav-open .didagent_target { visibility: hidden !important; pointer-events: none !important; }
 
@@ -496,6 +500,7 @@ svg { width: 1.1em; height: 1.1em; flex: none; }
 }
 .activation-card h2 { max-width: 680px; margin-top: 13px; font-size: clamp(29px, 4vw, 44px); }
 .activation-card p { max-width: 630px; margin: 13px 0 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.authenticated-state { border-color: #b9d6cd; background: linear-gradient(135deg, #fff, #f0f7f4); }
 .assistant-brief {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -568,6 +573,40 @@ svg { width: 1.1em; height: 1.1em; flex: none; }
   letter-spacing: -.03em;
 }
 .login-card > p { margin: 13px 0 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.customer-access-message { min-height: 22px; }
+.customer-account { margin-top: 18px; }
+.customer-access-switch {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin-top: 22px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.customer-access-switch a { color: var(--teal); text-underline-offset: 3px; }
+.portal-chooser { margin-top: 24px; }
+.portal-chooser h3 {
+  margin: 0 0 11px;
+  font-family: Charter, "Bitstream Charter", Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+}
+.portal-entry-list { display: grid; gap: 8px; }
+.portal-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: #f8faf9;
+  text-decoration: none;
+}
+.portal-entry:hover { border-color: var(--teal); background: #f2f7f5; }
+.portal-entry strong { font-size: 13px; }
+.portal-entry span { color: var(--muted); font-size: 11px; }
 .login-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 25px; }
 .trust-line {
   display: grid;

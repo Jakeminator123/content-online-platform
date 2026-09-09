@@ -16,7 +16,7 @@ export const registryClient = String.raw`
   const slugify=value=>value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,63).replace(/-+$/g,'');
   const availableSlug=value=>{const base=slugify(value);if(!base)return '';const taken=new Set(snapshot?.data?.customers?.map(customer=>customer.slug)||[]);if(!taken.has(base))return base;for(let number=2;number<1000;number++){const suffix='-'+number,candidate=base.slice(0,63-suffix.length).replace(/-+$/g,'')+suffix;if(!taken.has(candidate))return candidate;}return base;};
   const view=()=>location.hash.slice(1)||'overview';
-  const label={draft:'Utkast',published:'Publicerad',archived:'Arkiverad',active:'Aktiv',not_configured:'Inte konfigurerad',pending:'DNS väntar',ready:'Klar'};
+  const label={draft:'Utkast',published:'Publicerad',archived:'Arkiverad',active:'Aktiv',inactive:'Inaktiv',not_configured:'Inte konfigurerad',pending:'DNS väntar',ready:'Klar'};
   const toolLabels={portal_context:'Portalkontext och tonalitet',portal_navigation:'Navigera mellan tillåtna sektioner',portfolio_summary:'Sammanfatta portfölj',usage_summary:'Sammanfatta verifierad användning'};
   const button=(text,action,id,className='button secondary')=>'<button class="'+className+'" type="button" data-reg="'+action+'" data-id="'+esc(id||'')+'">'+esc(text)+'</button>';
   const field=(name,title,value='',maxlength=120,type='text',hint='')=>'<label>'+esc(title)+'<input class="registry-input" type="'+type+'" name="'+name+'" value="'+esc(value)+'" maxlength="'+maxlength+'" '+(type==='password'?'autocomplete="off"':'')+' required>'+(hint?'<small class="registry-hint">'+esc(hint)+'</small>':'')+'</label>';
@@ -54,7 +54,23 @@ export const registryClient = String.raw`
     const preset='<label>Portal-mall<select class="registry-input" name="preset"><option value="insight" '+(site.preset==='insight'?'selected':'')+'>Standard · komplett</option><option value="library" '+(site.preset==='library'?'selected':'')+'>Library · kunskapsfokus</option><option value="minimal" '+(site.preset==='minimal'?'selected':'')+'>Minimal · avskalad</option></select></label>';
     const colors='<div class="registry-color-row"><label>Primärfärg<input class="registry-input registry-color" type="color" name="primaryColor" value="'+esc(site.primaryColor)+'"></label><label>Accentfärg<input class="registry-input registry-color" type="color" name="accentColor" value="'+esc(site.accentColor)+'"></label></div>';
     const tools=Object.keys(toolLabels).map(tool=>'<label class="registry-check"><input type="checkbox" name="agentTools" value="'+tool+'" '+(agent.tools.includes(tool)?'checked':'')+'>'+esc(toolLabels[tool])+'</label>').join('');
-    return '<section class="registry-editor-card"><div class="registry-editor-head"><div><div class="eyebrow">STYR KUNDSAJT</div><h3>'+esc(customer.name)+'</h3><p>'+esc(url(customer))+'</p></div>'+button('Stäng','close_editor')+'</div><form class="registry-form registry-editor-form" data-reg-form="update_customer" data-id="'+esc(customer.id)+'"><h4>Organisation & publicister</h4>'+field('name','Organisationsnamn',customer.name)+'<fieldset><legend>Publicister i kundens portal</legend>'+publishers.map(publisher=>'<label class="registry-check"><input type="checkbox" name="publisherIds" value="'+esc(publisher.id)+'" '+(customer.publisherIds.includes(publisher.id)?'checked':'')+'>'+esc(publisher.name)+(publisher.status==='archived'?' (arkiverad)':'')+'</label>').join('')+'</fieldset><button class="button teal" type="submit">Spara organisation</button></form><form class="registry-form registry-editor-form" data-reg-form="configure_customer_site" data-id="'+esc(customer.id)+'"><h4>Varumärke & portal</h4>'+preset+optionalField('domain','Kunddomän',site.domain,253,'text','Endast hostname, utan https:// eller sökväg')+optionalField('logoUrl','Logotyp (publik HTTPS-adress)',site.logoUrl,500,'url','Tomt fält använder kundens initialer')+colors+field('heading','Portalrubrik',site.heading,120)+field('tagline','Ingress',site.tagline,240)+'<fieldset class="registry-agent"><legend>D-ID-agent för '+esc(customer.name)+'</legend><label class="registry-switch"><input type="checkbox" name="agentEnabled" '+(agent.enabled?'checked':'')+'> Visa agenten på kundens portal</label>'+optionalField('agentId','Agent ID',agent.agentId,128,'text','Exempel: v2_agt_...')+optionalField('clientKey','Client key från D-ID Embed',agent.clientKey,2048,'password','Browser key – inte D-ID API-nyckeln')+field('greeting','Agentens hälsning',agent.greeting,240)+'<label>Positivitet: <output data-positivity-output>'+agent.positivity+'</output>/10<input class="registry-input registry-range" type="range" name="positivity" min="1" max="10" step="1" value="'+agent.positivity+'"></label><p class="registry-hint">Nivån styr ton, aldrig fakta. Agenten får inte dölja kostnader, nedgångar eller osäkerhet.</p><div class="registry-tools"><strong>Tillåtna klientverktyg</strong>'+tools+'</div><p class="registry-domain-note"><strong>D-ID Allowed Domains:</strong> '+esc(allowedDomain(customer))+'</p></fieldset><button class="button teal" type="submit">Spara kundsajt</button></form></section>';
+    return '<section class="registry-editor-card"><div class="registry-editor-head"><div><div class="eyebrow">STYR KUNDSAJT</div><h3>'+esc(customer.name)+'</h3><p>'+esc(url(customer))+'</p></div>'+button('Stäng','close_editor')+'</div><form class="registry-form registry-editor-form" data-reg-form="update_customer" data-id="'+esc(customer.id)+'"><h4>Organisation & publicister</h4>'+field('name','Organisationsnamn',customer.name)+'<fieldset><legend>Publicister i kundens portal</legend>'+publishers.map(publisher=>'<label class="registry-check"><input type="checkbox" name="publisherIds" value="'+esc(publisher.id)+'" '+(customer.publisherIds.includes(publisher.id)?'checked':'')+'>'+esc(publisher.name)+(publisher.status==='archived'?' (arkiverad)':'')+'</label>').join('')+'</fieldset><button class="button teal" type="submit">Spara organisation</button></form><form class="registry-form registry-editor-form" data-reg-form="configure_customer_site" data-id="'+esc(customer.id)+'"><h4>Varumärke & portal</h4>'+preset+optionalField('domain','Kunddomän',site.domain,253,'text','Endast hostname, utan https:// eller sökväg')+optionalField('logoUrl','Logotyp (publik HTTPS-adress)',site.logoUrl,500,'url','Tomt fält använder kundens initialer')+colors+field('heading','Portalrubrik',site.heading,120)+field('tagline','Ingress',site.tagline,240)+'<fieldset class="registry-agent"><legend>D-ID-agent för '+esc(customer.name)+'</legend><label class="registry-switch"><input type="checkbox" name="agentEnabled" '+(agent.enabled?'checked':'')+'> Visa agenten på kundens portal</label>'+optionalField('agentId','Agent ID',agent.agentId,128,'text','Exempel: v2_agt_...')+optionalField('clientKey','Client key från D-ID Embed',agent.clientKey,2048,'password','Browser key – inte D-ID API-nyckeln')+field('greeting','Agentens hälsning',agent.greeting,240)+'<label>Positivitet: <output data-positivity-output>'+agent.positivity+'</output>/10<input class="registry-input registry-range" type="range" name="positivity" min="1" max="10" step="1" value="'+agent.positivity+'"></label><p class="registry-hint">Nivån styr ton, aldrig fakta. Agenten får inte dölja kostnader, nedgångar eller osäkerhet.</p><div class="registry-tools"><strong>Tillåtna klientverktyg</strong>'+tools+'</div><p class="registry-domain-note"><strong>D-ID Allowed Domains:</strong> '+esc(allowedDomain(customer))+'</p></fieldset><button class="button teal" type="submit">Spara kundsajt</button></form>'+portalMembersEditor(customer)+'</section>';
+  }
+
+  const memberRoleOptions=role=>'<option value="customer_reader" '+(role==='customer_reader'?'selected':'')+'>Läsare</option><option value="customer_admin" '+(role==='customer_admin'?'selected':'')+'>Kundadmin</option>';
+  const memberStatusOptions=status=>'<option value="active" '+(status==='active'?'selected':'')+'>Aktiv</option><option value="inactive" '+(status==='inactive'?'selected':'')+'>Inaktiv</option>';
+  const roleField=role=>'<label>Roll<select class="registry-input" name="role">'+memberRoleOptions(role)+'</select></label>';
+  function portalMembersEditor(customer){
+    if(customer.kind==='demo')return '<div class="registry-form registry-editor-form" aria-labelledby="portal-members-heading"><h4 id="portal-members-heading">Portalanvändare</h4><p class="registry-hint">KTH är en syntetisk visningsdemo. Inga riktiga medlemskonton eller verifierade e-postadresser kan läggas till här.</p></div>';
+    const members=(snapshot.data.portalMembers||[]).filter(member=>member.customerId===customer.id);
+    const heading='<div class="registry-form registry-editor-form" aria-labelledby="portal-members-heading"><h4 id="portal-members-heading">Portalanvändare</h4><p class="registry-hint">Tillåt endast en e-postadress som kundens identitetsleverantör har verifierat. Behörigheten knyts server-side till denna kundorganisation.</p></div>';
+    const existing=members.length?members.map(member=>'<form class="registry-form registry-editor-form" data-reg-form="update_portal_member" data-id="'+esc(member.id)+'" aria-label="Redigera portalanvändare '+esc(member.displayName)+'"><h4>'+esc(member.displayName)+' · '+esc(label[member.status])+'</h4>'+field('verifiedEmail','Verifierad e-postadress',member.verifiedEmail,254,'email')+field('displayName','Visningsnamn',member.displayName)+roleField(member.role)+'<label>Status<select class="registry-input" name="status">'+memberStatusOptions(member.status)+'</select></label><button class="button teal" type="submit">Spara portalanvändare</button></form>').join(''):'<p class="registry-hint">Inga riktiga portalanvändare är tillåtna ännu.</p>';
+    const add='<form class="registry-form registry-editor-form" data-reg-form="add_portal_member" data-customer-id="'+esc(customer.id)+'"><h4>Lägg till portalanvändare</h4>'+field('verifiedEmail','Verifierad e-postadress','',254,'email','Adressen måste vara verifierad vid inloggningen och matchas exakt efter normalisering.')+field('displayName','Visningsnamn')+roleField('customer_reader')+'<button class="button teal" type="submit">Lägg till portalanvändare</button></form>';
+    return heading+existing+add;
+  }
+
+  function deleteCustomerEditor(customer){
+    return '<section class="registry-editor-card" aria-labelledby="registry-delete-title"><div class="registry-editor-head"><div><div class="eyebrow">PERMANENT RADERING</div><h3 id="registry-delete-title">Radera '+esc(customer.name)+'</h3></div>'+button('Avbryt','close_editor')+'</div><form class="registry-form registry-editor-form" data-reg-form="delete_customer" data-id="'+esc(customer.id)+'" aria-describedby="registry-delete-help"><h4>Bekräfta permanent radering</h4><p class="registry-hint" id="registry-delete-help">Åtgärden kan inte ångras. Skriv exakt kundnamnet &quot;'+esc(customer.name)+'&quot; eller URL-namnet &quot;'+esc(customer.slug)+'&quot;.</p><label>Exakt kundnamn eller URL-namn<input class="registry-input" type="text" name="confirmation" maxlength="120" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="registry-delete-help" required></label><button class="button secondary" type="submit">Radera permanent</button></form></section>';
   }
 
   async function request(body){
@@ -62,8 +78,8 @@ export const registryClient = String.raw`
     if(!token)throw new Error('Du behöver logga in igen.');
     const response=await fetch('/admin/api/registry',{method:body?'POST':'GET',credentials:'omit',cache:'no-store',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
     if(!response.ok){
-      if(response.status===409)throw new Error('Registret har ändrats eller URL/domän/namn är upptaget. Uppdatera listan innan du försöker igen.');
-      if(response.status===422)throw new Error('Kontrollera fälten. URL-namn, domän, färger eller agentinställningar är ogiltiga.');
+      if(response.status===409)throw new Error('Registret har ändrats eller URL, domän, namn eller verifierad e-postadress är upptagen. Uppdatera listan innan du försöker igen.');
+      if(response.status===422)throw new Error('Kontrollera fälten. URL-namn, domän, medlemsuppgifter, färger eller agentinställningar är ogiltiga.');
       throw new Error('Ändringen kunde inte bekräftas. Uppdatera registret för att kontrollera status. Ingen lyckad sparning antas.');
     }
     return response.json();
@@ -97,11 +113,9 @@ export const registryClient = String.raw`
     if(action==='archive_customer'&&!confirm('Arkivera kundsajten för '+item.name+'? Portalen blir omedelbart otillgänglig, men kundpost och inställningar bevaras så att sajten kan återställas.'))return;
     if(action==='delete_customer'){
       if(!customer)return;
-      const confirmation=prompt('Raderingen kan inte ångras. Skriv kundnamnet "'+customer.name+'" eller URL-namnet "'+customer.slug+'" för att radera permanent.');
-      if(confirmation===null)return;
-      const value=confirmation.trim();
-      if(value!==customer.name&&value!==customer.slug){state('Raderingen avbröts: bekräftelsen matchade inte kundnamnet eller URL-namnet.');return;}
-      mutate({action,id,confirmation:value});return;
+      const editor=document.getElementById('registry-editor');if(!editor)return;
+      editor.innerHTML=deleteCustomerEditor(customer);editor.scrollIntoView({block:'start',behavior:'smooth'});
+      const confirmation=editor.querySelector('[name="confirmation"]');if(confirmation instanceof HTMLInputElement)confirmation.focus();return;
     }
     if(action==='archive_publisher'&&!confirm('Arkivera '+item.name+'? Befintliga kopplingar bevaras och posten kan återställas.'))return;
     mutate({action,id});
@@ -110,12 +124,26 @@ export const registryClient = String.raw`
     const addForm=event.target instanceof Element?event.target.closest('[data-reg-form="add_customer"]'):null;
     if(addForm){const name=addForm.querySelector('[name="name"]'),slug=addForm.querySelector('[name="slug"]');if(name&&slug){if(event.target===slug)addForm.dataset.slugManual=slug.value.trim()?'true':'false';else if(event.target===name&&addForm.dataset.slugManual!=='true')slug.value=availableSlug(name.value);}}
     if(event.target instanceof HTMLInputElement&&event.target.name==='positivity'){const output=event.target.closest('form')?.querySelector('[data-positivity-output]');if(output)output.textContent=event.target.value;}
+    if(event.target instanceof HTMLInputElement&&event.target.name==='confirmation')event.target.setCustomValidity('');
   });
   root.addEventListener('submit',event=>{
     const form=event.target instanceof Element?event.target.closest('[data-reg-form]'):null;if(!form)return;event.preventDefault();
     const data=new FormData(form),action=form.dataset.regForm;
     if(action==='configure_customer_site'){
       mutate({action,id:form.dataset.id,site:{preset:String(data.get('preset')||'insight'),domain:String(data.get('domain')||'').trim().toLowerCase(),logoUrl:String(data.get('logoUrl')||'').trim(),primaryColor:String(data.get('primaryColor')||''),accentColor:String(data.get('accentColor')||''),heading:String(data.get('heading')||'').trim(),tagline:String(data.get('tagline')||'').trim(),agent:{enabled:data.get('agentEnabled')==='on',agentId:String(data.get('agentId')||'').trim(),clientKey:String(data.get('clientKey')||'').trim(),greeting:String(data.get('greeting')||'').trim(),positivity:Number(data.get('positivity')||5),tools:data.getAll('agentTools')}}});return;
+    }
+    if(action==='add_portal_member'){
+      mutate({action,customerId:form.dataset.customerId,verifiedEmail:String(data.get('verifiedEmail')||'').trim().toLowerCase(),displayName:String(data.get('displayName')||'').trim(),role:String(data.get('role')||'customer_reader')});return;
+    }
+    if(action==='update_portal_member'){
+      mutate({action,id:form.dataset.id,verifiedEmail:String(data.get('verifiedEmail')||'').trim().toLowerCase(),displayName:String(data.get('displayName')||'').trim(),role:String(data.get('role')||'customer_reader'),status:String(data.get('status')||'inactive')});return;
+    }
+    if(action==='delete_customer'){
+      const customer=snapshot?.data?.customers?.find(customer=>customer.id===form.dataset.id);if(!customer)return;
+      const input=form.querySelector('[name="confirmation"]');if(!(input instanceof HTMLInputElement))return;
+      const confirmation=String(data.get('confirmation')||'').trim();
+      if(confirmation!==customer.name&&confirmation!==customer.slug){input.setCustomValidity('Skriv exakt kundnamnet eller URL-namnet.');input.reportValidity();state('Raderingen avbröts: bekräftelsen matchade inte kundnamnet eller URL-namnet.');return;}
+      input.setCustomValidity('');mutate({action,id:form.dataset.id,confirmation});return;
     }
     const command={action,name:String(data.get('name')||'').trim()};if(form.dataset.id)command.id=form.dataset.id;if(action==='add_customer')command.slug=String(data.get('slug')||'').trim();if(action==='update_customer')command.publisherIds=data.getAll('publisherIds');mutate(command);
   });

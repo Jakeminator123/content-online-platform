@@ -383,6 +383,10 @@ export function createApp(dependencies: BackendDependencies) {
   );
 
   app.use("/v1/*", async (c, next) => {
+    // The customer portal entry point has its own Clerk identity boundary in the
+    // shared portal runtime. It must not pass through the legacy API adapter,
+    // which intentionally remains unconfigured in production.
+    if (c.req.path === "/v1/portal-entries") return next();
     try {
       const identity = await dependencies.identityProvider.authenticate(c.req.raw);
 

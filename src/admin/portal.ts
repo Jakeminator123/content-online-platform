@@ -12,7 +12,7 @@ import { PLATFORM_ORIGIN } from "./identity.js";
 import type { AdminAuthenticator, AdminConfig, AdminIdentity } from "./identity.js";
 import { adminJobs, runAdminJob } from "./jobs.js";
 import { z } from "zod";
-import { applyRegistryCommand, commandSchema, initialRegistry, publicPortal, publishedCustomer, RegistryError, type Registry, type RegistrySnapshot, type RegistryStore } from "./registry.js";
+import { applyRegistryCommand, bindPortalIdentity, commandSchema, initialRegistry, publicPortal, publishedCustomer, resolvePortalEntries, RegistryError, type Registry, type RegistrySnapshot, type RegistryStore } from "./registry.js";
 import { registryStoreFromEnvironment } from "./registry-store.js";
 import { registryClient } from "./registry-client.js";
 import {
@@ -28,14 +28,18 @@ import {
 import { workspaceClient } from "./workspace-client.js";
 import { workspaceCss } from "./workspace-style.js";
 import { didEmbedConfiguration, resolveCustomerAgent } from "../customer-portal/agent.js";
+import { customerAccessClient } from "../customer-portal/access-client.js";
 import { customerPortalClient } from "../customer-portal/client.js";
 import { CustomerDomainError, customerDomainServiceFromEnvironment, type CustomerDomainService } from "../customer-portal/domains.js";
+import { ClerkCustomerAuthenticator, type CustomerAuthenticator } from "../customer-portal/identity.js";
 import { customerSlugFromHostname, isCustomerSlug } from "../customer-portal/routing.js";
+import { customerSessionClient } from "../customer-portal/session-client.js";
 import { customerPortalCss } from "../customer-portal/style.js";
 import { customerPortalContext, renderCustomerPortal, type CustomerPortalPage } from "../customer-portal/template.js";
 
 type AdminPortalOptions = {
   registryStore?: RegistryStore;
+  customerAuthenticator?: CustomerAuthenticator;
   salesforceConfig?: SalesforceConfiguration | null;
   salesforceStore?: SalesforceConnectionStore;
   assistantApiKey?: string;
@@ -66,6 +70,8 @@ export function createAdminPortal(
   const app = new Hono<AdminPortalEnvironment>();
   const host = clerkFrontendHost(config.publishableKey);
   const configured = !!(host && config.secretKey && config.allowedEmail);
+  const customerConfigured = !!(host && config.secretKey);
+  const customerAuthenticator = options.customerAuthenticator ?? new ClerkCustomerAuthenticator(config);
   const portalRootDomain = options.portalRootDomain ?? process.env.CUSTOMER_PORTAL_ROOT_DOMAIN ?? "portal.contentonline.se";
   const portalWildcardReady = options.portalWildcardReady ?? ["1", "true"].includes((process.env.CUSTOMER_PORTAL_WILDCARD_READY ?? "").toLowerCase());
   const fallbackDidAgent = {
@@ -98,6 +104,10 @@ export function createAdminPortal(
 
   const registry = () => options.registryStore ?? registryStoreFromEnvironment();
   const domainService = () => options.domainService ?? customerDomainServiceFromEnvironment(options.fetchImpl);
+  const customerAccessLocation = (requestUrl: string) => {
+    const preference = new URL(requestUrl).searchParams.get("portal") ?? "";
+    return isCustomerSlug(preference) ? `/?portal=${encodeURIComponent(preference)}` : "/";
+  };
   const adminRegistrySnapshot = (snapshot: RegistrySnapshot) => ({
     ...snapshot,
     runtime: {
@@ -128,12 +138,23 @@ export function createAdminPortal(
       if (!portal) return c.text("Kundportalen finns inte eller är inte publicerad.", 404);
       const didAgent = resolveCustomerAgent(portal.customer, fallbackDidAgent);
       const contextUrl = basePath ? `${basePath}/api/agent-context` : "/api/agent-context";
-      return c.html(renderCustomerPortal(portal.customer, portal.registry, { basePath, contextUrl, page, didAgent }));
+      const customerAuth = page === "portal" && basePath && customerConfigured && host
+        ? { host, publishableKey: config.publishableKey }
+        : undefined;
+      return c.html(renderCustomerPortal(portal.customer, portal.registry, {
+        basePath,
+        contextUrl,
+        page,
+        didAgent,
+        ...(customerAuth ? { customerAuth } : {}),
+      }));
     } catch { return c.text("Kundportalen är tillfälligt otillgänglig.", 503); }
   };
 
   app.get("/customer-portal/assets/style.css", (c) => c.body(customerPortalCss, 200, { "content-type": "text/css; charset=utf-8" }));
   app.get("/customer-portal/assets/client.js", (c) => c.body(customerPortalClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
+  app.get("/customer-portal/assets/access.js", (c) => c.body(customerAccessClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
+  app.get("/customer-portal/assets/session.js", (c) => c.body(customerSessionClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   // A verified wildcard domain maps the first host label to one published tenant.
   app.use("*", async (c, next) => {
     const slug = customerSlugFromHostname(new URL(c.req.url).hostname, portalRootDomain);
@@ -148,6 +169,39 @@ export function createAdminPortal(
     }
     return c.text("Sidan finns inte i kundportalen.", 404);
   });
+  app.get("/v1/portal-entries", async (c) => {
+    let authentication;
+    try {
+      authentication = await customerAuthenticator.authenticate(c.req.raw);
+    } catch {
+      return c.json({ error: "authentication_temporarily_unavailable" }, 503);
+    }
+    if (authentication.status !== "authenticated") {
+      const status = authentication.status === "unconfigured" ? 503 : authentication.status === "forbidden" ? 403 : 401;
+      return c.json({ error: authentication.status }, status);
+    }
+    try {
+      const store = registry();
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const snapshot = await store.read();
+        const binding = bindPortalIdentity(snapshot.data, authentication.identity, options.now?.() ?? new Date());
+        if (!binding.changed) {
+          return c.json({ entries: resolvePortalEntries(snapshot.data, authentication.identity) });
+        }
+        try {
+          const saved = await store.write(snapshot.version, binding.data);
+          return c.json({ entries: resolvePortalEntries(saved.data, authentication.identity) });
+        } catch (error) {
+          if (error instanceof RegistryError && error.code === "version_conflict" && attempt === 0) continue;
+          throw error;
+        }
+      }
+      return c.json({ error: "portal_directory_unavailable" }, 503);
+    } catch {
+      return c.json({ error: "portal_directory_unavailable" }, 503);
+    }
+  });
+  app.get("/portal/login", (c) => c.redirect(customerAccessLocation(c.req.url), 302));
   app.get("/portal/:slug", (c) => portalPageResponse(c, c.req.param("slug"), "portal", `/portal/${c.req.param("slug")}`));
   app.get("/portal/:slug/login", (c) => portalPageResponse(c, c.req.param("slug"), "login", `/portal/${c.req.param("slug")}`));
   app.get("/portal/:slug/api/agent-context", async (c) => {
@@ -202,9 +256,9 @@ export function createAdminPortal(
     return customer ? c.json(customerPortalContext(customer, data)) : c.json({ error: "not_found" }, 404);
   });
   app.get("/demo", (c) => c.html(page("demo", null, "", false)));
-  app.get("/", (c) => c.html(page("login", host, config.publishableKey, configured)));
-  // Staff choose the customer inside their own workspace; never default to KTH.
-  app.get("/kundportal", (c) => c.redirect("/admin#customers", 302));
+  app.get("/", (c) => c.html(customerAccessPage("login", host, config.publishableKey, customerConfigured)));
+  app.get("/registrera", (c) => c.html(customerAccessPage("register", host, config.publishableKey, customerConfigured)));
+  app.get("/kundportal", (c) => c.redirect(customerAccessLocation(c.req.url), 302));
   app.get("/content-online", (c) => c.redirect("/admin", 302));
   app.get("/content-online/login", (c) => c.redirect("/admin/login", 302));
   app.get("/admin/login", (c) => c.html(page("login", host, config.publishableKey, configured)));
@@ -474,7 +528,24 @@ function icon(name: string) {
   };
   return html`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${paths[name] || paths.grid}"/></svg>`;
 }
-function brand() { return html`<a class="brand portal-brand" href="/" aria-label="Content Online · intern arbetsyta"><span class="brand-logo"><img src="/admin/assets/co-logo.png" alt="" width="96" height="96"></span><span class="portal-brand-copy"><strong>Content Online</strong><small>INTERN ARBETSYTA</small></span></a>`; }
+function brand() { return html`<a class="brand portal-brand" href="/admin" aria-label="Content Online · intern arbetsyta"><span class="brand-logo"><img src="/admin/assets/co-logo.png" alt="" width="96" height="96"></span><span class="portal-brand-copy"><strong>Content Online</strong><small>INTERN ARBETSYTA</small></span></a>`; }
+function customerAccessPage(mode: "login" | "register", host: string | null, key: string, configured: boolean) {
+  return html`<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${mode === "register" ? "Aktivera kundkonto" : "Kundinloggning"} · Content Online</title>
+  <meta name="description" content="Säker ingång till Content Onlines kundportaler."><meta name="robots" content="noindex,nofollow">
+  <link rel="stylesheet" href="/customer-portal/assets/style.css">
+  ${configured && host ? html`<script defer crossorigin="anonymous" src="https://${host}/npm/@clerk/ui@1/dist/ui.browser.js"></script><script defer crossorigin="anonymous" data-clerk-publishable-key="${key}" src="https://${host}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script><script defer src="/customer-portal/assets/access.js"></script>` : ""}
+  </head><body data-preset="academic" data-data-mode="customer-access" data-customer-access-mode="${mode}" style="--portal-primary:#285b70;--portal-accent:#338578;--portal-on-primary:#ffffff">
+  <div class="login-shell"><section class="login-brand"><a class="co-brand" href="/" aria-label="Content Online"><span class="co-mark"><img src="/admin/assets/co-logo.png" alt=""></span><span><strong>Content Online</strong><small>KNOWLEDGE. CONNECTED.</small></span></a>
+  <div class="login-identity"><span class="section-kicker">KUNDPORTAL</span><h1>Kunskap, samlad för er.</h1><p>En säker ingång till organisationens produkter, analys och rapporter. Vilken portal du får öppna avgörs av ditt verifierade medlemskap.</p></div><small>Content Online · Kundåtkomst</small></section>
+  <main class="login-panel" id="customer-access"><section class="login-card"><span class="section-kicker">${mode === "register" ? "AKTIVERA KONTO" : "LOGGA IN"}</span><h2>${mode === "register" ? "Skapa ditt kundkonto." : "Välkommen tillbaka."}</h2><p>${mode === "register" ? "Använd den verifierade e-postadress som Content Online har kopplat till er organisation." : "Logga in med organisationens aktiverade konto."}</p>
+  <p class="customer-access-message" id="customer-access-message" role="status">${configured ? "Laddar säker inloggning…" : "Kundinloggningen är inte konfigurerad."}</p>${configured ? html`<div id="customer-auth-widget"></div>` : ""}
+  <section class="portal-chooser" id="portal-chooser" aria-labelledby="portal-chooser-title" hidden><h3 id="portal-chooser-title">Era kundportaler</h3><div class="portal-entry-list" id="portal-entry-list"></div></section>
+  <div class="customer-account" id="customer-account" hidden><button class="button secondary" id="customer-sign-out" type="button" hidden>Logga ut och byt konto</button></div>
+  <div class="customer-access-switch"><a href="${mode === "register" ? "/" : "/registrera"}">${mode === "register" ? "Har du redan ett konto? Logga in" : "Aktivera ditt kundkonto"}</a><a href="/admin/login">Content Online-personal →</a></div>
+  <div class="trust-line"><span>${icon("info")}</span><p>En kundadress eller slug ger aldrig behörighet. Åtkomsten kontrolleras på servern för varje konto.</p></div></section></main></div>
+  <noscript><p>Aktivera JavaScript för att logga in.</p></noscript></body></html>`;
+}
 function page(mode: "login" | "register" | "admin" | "demo", host: string | null, key: string, configured: boolean) {
   const workspace = mode === "admin" || mode === "demo";
   const demo = mode === "demo";
@@ -489,7 +560,7 @@ function page(mode: "login" | "register" | "admin" | "demo", host: string | null
   ${workspace ? html`<div class="shell">
     <aside class="sidebar" id="sidebar">${brand()}<div class="nav-label">ARBETSYTA</div><nav class="nav" aria-label="Content Online">
       <button data-action="navigate" data-id="overview" aria-current="page">${icon("grid")}Översikt</button>
-      <div class="nav-section" data-nav-group="customers"><button data-action="navigate" data-id="customers" aria-current="false">${icon("customers")}Kundorganisationer</button><div class="nav-sub" role="group" aria-label="Kundorganisationer"><button type="button" disabled title="Välj en kundorganisation först">Användare <small>Välj kund</small></button><button type="button" disabled title="Välj en kundorganisation först">Cronjobb <small>Välj kund</small></button><button type="button" disabled title="Välj en kundorganisation först">Rapportflöde <small>Välj kund</small></button></div></div>
+      <div class="nav-section" data-nav-group="customers"><button data-action="navigate" data-id="customers" aria-current="false">${icon("customers")}Kundorganisationer</button><div class="nav-sub" role="group" aria-label="Kundorganisationer"><button type="button" disabled title="Välj en kundorganisation först">Cronjobb <small>Välj kund</small></button><button type="button" disabled title="Välj en kundorganisation först">Rapportflöde <small>Välj kund</small></button></div></div>
       <div class="nav-section" data-nav-group="connections"><button data-action="navigate" data-id="connections" aria-current="false">${icon("link")}Anslutningar</button><div class="nav-sub" role="group" aria-label="Anslutningar"><button data-action="navigate" data-id="salesforce" aria-current="false">Salesforce</button><button data-action="navigate" data-id="publishers" aria-current="false">Publicister</button><button data-action="navigate" data-id="products" aria-current="false">Produkter & tilldelningar</button></div></div>
     </nav></aside>
     <button class="mobile-scrim" id="scrim" aria-label="Stäng navigering"></button>

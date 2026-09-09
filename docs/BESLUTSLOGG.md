@@ -1,7 +1,7 @@
 # Besluts- och faktalogg
 
 **Version:** 0.1
-**Senast uppdaterad:** 2026-09-04
+**Senast uppdaterad:** 2026-09-09
 
 Loggen skiljer mellan bekräftad verksamhetsinformation, arbetsbeslut och sådant som fortfarande kräver verifiering.
 
@@ -28,7 +28,9 @@ Loggen skiljer mellan bekräftad verksamhetsinformation, arbetsbeslut och sådan
 | `DEC-010` | Vercel är villkorad kandidat för demo/låg-risk-pilot på minst Pro. Full EU-residency eller reglerad produktion är inte godkänd. | Teknikbedömning, inte driftgodkännande |
 | `DEC-011` | Ett Vercel-projekt skapas först när en körbar backend/API-tjänst finns och demo-/pilotnivå är vald. | Arbetsbeslut |
 | `DEC-012` | Kundportalen har två kundroller: Kundadmin och Läsare. Bibliotekarien är Kundadmin. Content Online-operatör är en separat intern säkerhetsdomän. | Arbetsbeslut |
-| `DEC-013` | Detta repo äger backend, auth-/användarmodell, tenantisolering, API-kontrakt, integrationer och tester. Frontend byggs separat och kopplas in senare. | Bekräftad leveransgräns |
+| `DEC-013` | Detta repo äger backend, auth-/användarmodell, tenantisolering, API-kontrakt, integrationer och tester. Frontend byggs separat och kopplas in senare. | Historiskt beslut, ersatt av `DEC-014` |
+| `DEC-014` | `content-online-platform` är den enda kundportalruntimen. Den äldre login-sajten är endast en kompatibilitetslänk till plattformen, inte en parallell runtime. | Arkitekturmål |
+| `DEC-015` | `/` är kundinloggning och `/admin` separat personaladmin. Serverägda medlemskap binds efter verifierad e-postinbjudan till ett stabilt provider-ID; slug får endast väljas bland poster som servern returnerat och ger aldrig i sig behörighet. | Arkitekturmål |
 
 ## Kräver nästa verifiering
 
@@ -38,5 +40,5 @@ Loggen skiljer mellan bekräftad verksamhetsinformation, arbetsbeslut och sådan
 - Vilka Salesforce- respektive Fortnoxfält som ska visas.
 - Vilka öppna källor som får användas i en extern demo.
 - KTH-personans exakta behov och om verklig KTH-data eller en syntetisk KTH-lik organisation ska användas.
-- B2B-loginmetod, medlemslivscykel och detaljerade rollrättigheter.
-- Godkänt hosting-, region- och säkerhetsupplägg.
+- Produktionskonfiguration för B2B-identitet, medlemslivscykel och detaljerade rollrättigheter.
+- Verifiera en READY-deployment i `arn1` och godkänn det samlade hosting- och säkerhetsupplägget.

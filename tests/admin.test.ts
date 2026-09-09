@@ -4,7 +4,9 @@ import type { AdminAuthentication, AdminAuthenticator } from "../src/admin/ident
 import { clerkFrontendHost, createAdminPortal } from "../src/admin/portal.js";
 import { assistantClient } from "../src/admin/assistant-client.js";
 import { demoWorkspace } from "../src/admin/demo-data.js";
+import { initialRegistry, registrySchema, type Registry, type RegistryStore } from "../src/admin/registry.js";
 import { workspaceClient } from "../src/admin/workspace-client.js";
+import type { CustomerAuthentication, CustomerAuthenticator } from "../src/customer-portal/identity.js";
 import { Script } from "node:vm";
 
 const email = "admin@example.test";
@@ -15,6 +17,38 @@ const profile = {
 const config = { allowedEmail: email, secretKey: "test-not-a-secret", publishableKey: `pk_test_${Buffer.from("example.clerk.accounts.dev$").toString("base64")}` };
 const appFor = (result: AdminAuthentication, options: Parameters<typeof createAdminPortal>[2] = {}) =>
   createAdminPortal({ authenticate: async () => result }, config, options);
+
+const customerAuthenticatorFor = (result: CustomerAuthentication): CustomerAuthenticator => ({
+  authenticate: async () => result,
+});
+
+const readOnlyRegistryStore = (data: Registry): RegistryStore => ({
+  read: async () => ({ version: 1, data }),
+  write: async () => { throw new Error("read-only test store"); },
+});
+
+function portalAccessRegistry(): Registry {
+  const base = initialRegistry();
+  return registrySchema.parse({
+    ...base,
+    customers: [
+      ...base.customers,
+      { id: "customer-alpha", name: "Alpha University", slug: "alpha", status: "published", kind: "customer", publisherIds: [] },
+      { id: "customer-beta", name: "Beta Institute", slug: "beta", status: "published", kind: "customer", publisherIds: [] },
+      { id: "customer-draft", name: "Draft College", slug: "draft", status: "draft", kind: "customer", publisherIds: [] },
+      { id: "customer-archived", name: "Archived Academy", slug: "archived", status: "archived", kind: "customer", publisherIds: [] },
+      { id: "customer-inactive", name: "Inactive School", slug: "inactive", status: "published", kind: "customer", publisherIds: [] },
+    ],
+    portalMembers: [
+      { id: "member-one-alpha", customerId: "customer-alpha", verifiedEmail: "one@example.test", externalUserId: "customer-one", displayName: "One Alpha", role: "customer_admin", status: "active" },
+      { id: "member-many-alpha", customerId: "customer-alpha", verifiedEmail: "many@example.test", externalUserId: "customer-many", displayName: "Many Alpha", role: "customer_reader", status: "active" },
+      { id: "member-many-beta", customerId: "customer-beta", verifiedEmail: "many@example.test", externalUserId: "customer-many", displayName: "Many Beta", role: "customer_admin", status: "active" },
+      { id: "member-many-draft", customerId: "customer-draft", verifiedEmail: "many@example.test", externalUserId: "customer-many", displayName: "Many Draft", role: "customer_admin", status: "active" },
+      { id: "member-many-archived", customerId: "customer-archived", verifiedEmail: "many@example.test", externalUserId: "customer-many", displayName: "Many Archived", role: "customer_admin", status: "active" },
+      { id: "member-many-inactive", customerId: "customer-inactive", verifiedEmail: "many@example.test", externalUserId: "customer-many", displayName: "Many Inactive", role: "customer_admin", status: "inactive" },
+    ],
+  });
+}
 
 describe("Content Online admin identity boundary", () => {
   it("grants only the verified primary allowlisted email a distinct internal admin role", () => {
@@ -59,6 +93,153 @@ describe("Content Online admin identity boundary", () => {
 });
 
 describe("Hosted portal entry and guarded admin API", () => {
+  it.each([
+    ["unauthenticated", 401],
+    ["forbidden", 403],
+    ["unconfigured", 503],
+  ] as const)("maps customer authentication status %s without invoking admin authorization", async (status, expectedStatus) => {
+    const adminAuthenticator: AdminAuthenticator = {
+      authenticate: vi.fn(async () => ({ status: "forbidden" as const })),
+    };
+    const app = createAdminPortal(adminAuthenticator, config, {
+      customerAuthenticator: customerAuthenticatorFor({ status }),
+      registryStore: readOnlyRegistryStore(portalAccessRegistry()),
+    });
+
+    const response = await app.request("/v1/portal-entries");
+    expect(response.status).toBe(expectedStatus);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({ error: status });
+    expect(adminAuthenticator.authenticate).not.toHaveBeenCalled();
+  });
+
+  it("returns no portal entries for an authenticated identity without active membership", async () => {
+    const app = appFor({ status: "unauthenticated" }, {
+      customerAuthenticator: customerAuthenticatorFor({
+        status: "authenticated",
+        identity: { id: "customer-zero", email: "zero@example.test" },
+      }),
+      registryStore: readOnlyRegistryStore(portalAccessRegistry()),
+    });
+
+    const response = await app.request("/v1/portal-entries");
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ entries: [] });
+  });
+
+  it("claims a pending verified-email invitation once and then requires the bound provider identity", async () => {
+    let data = portalAccessRegistry();
+    data.portalMembers.find(member => member.id === "member-one-alpha")!.externalUserId = null;
+    let version = 1;
+    const write = vi.fn(async (expectedVersion: number, next: Registry) => {
+      expect(expectedVersion).toBe(version);
+      version += 1;
+      data = next;
+      return { version, data };
+    });
+    const store: RegistryStore = { read: async () => ({ version, data }), write };
+    const app = appFor({ status: "unauthenticated" }, {
+      customerAuthenticator: customerAuthenticatorFor({
+        status: "authenticated",
+        identity: { id: "customer-one", email: "one@example.test" },
+      }),
+      registryStore: store,
+      now: () => new Date("2026-09-09T12:00:00Z"),
+    });
+
+    expect((await app.request("/v1/portal-entries")).status).toBe(200);
+    expect(write).toHaveBeenCalledOnce();
+    expect(data.portalMembers.find(member => member.id === "member-one-alpha")?.externalUserId).toBe("customer-one");
+    expect(data.events.at(-1)).toMatchObject({ action: "bind_portal_identity", actor: "customer-one" });
+    expect((await app.request("/v1/portal-entries")).status).toBe(200);
+    expect(write).toHaveBeenCalledOnce();
+
+    const recreated = appFor({ status: "unauthenticated" }, {
+      customerAuthenticator: customerAuthenticatorFor({
+        status: "authenticated",
+        identity: { id: "replacement-account", email: "one@example.test" },
+      }),
+      registryStore: store,
+    });
+    await expect((await recreated.request("/v1/portal-entries")).json()).resolves.toEqual({ entries: [] });
+    expect(write).toHaveBeenCalledOnce();
+  });
+
+  it("returns one server-owned published portal entry without exposing identity or request input", async () => {
+    const requestedSlug = "private-unlisted-slug";
+    const app = appFor({ status: "unauthenticated" }, {
+      customerAuthenticator: customerAuthenticatorFor({
+        status: "authenticated",
+        identity: { id: "customer-one", email: "ONE@EXAMPLE.TEST" },
+      }),
+      registryStore: readOnlyRegistryStore(portalAccessRegistry()),
+    });
+
+    const response = await app.request(`/v1/portal-entries?portal=${requestedSlug}&token=browser-secret`);
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(JSON.parse(body)).toEqual({
+      entries: [{
+        organizationId: "customer-alpha",
+        organizationName: "Alpha University",
+        slug: "alpha",
+        displayName: "One Alpha",
+        role: "customer_admin",
+      }],
+    });
+    for (const privateValue of [requestedSlug, "browser-secret", "ONE@EXAMPLE.TEST", config.secretKey]) {
+      expect(body).not.toContain(privateValue);
+    }
+  });
+
+  it("returns all and only active memberships for published non-demo customers", async () => {
+    const app = appFor({ status: "unauthenticated" }, {
+      customerAuthenticator: customerAuthenticatorFor({
+        status: "authenticated",
+        identity: { id: "customer-many", email: "many@example.test" },
+      }),
+      registryStore: readOnlyRegistryStore(portalAccessRegistry()),
+    });
+
+    const response = await app.request("/v1/portal-entries");
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.entries).toEqual([
+      expect.objectContaining({ organizationId: "customer-alpha", slug: "alpha", role: "customer_reader" }),
+      expect.objectContaining({ organizationId: "customer-beta", slug: "beta", role: "customer_admin" }),
+    ]);
+    expect(JSON.stringify(body)).not.toMatch(/draft|archived|inactive|customer-kth-demo/i);
+  });
+
+  it("fails closed when customer identity or registry lookup throws and never reflects provider details", async () => {
+    const providerSecret = "provider-secret-payload";
+    const unavailableAuthenticator: CustomerAuthenticator = {
+      authenticate: async () => { throw new Error(providerSecret); },
+    };
+    const authenticationFailure = await appFor({ status: "unauthenticated" }, {
+      customerAuthenticator: unavailableAuthenticator,
+      registryStore: readOnlyRegistryStore(portalAccessRegistry()),
+    }).request("/v1/portal-entries");
+    expect(authenticationFailure.status).toBe(503);
+    const authenticationFailureBody = await authenticationFailure.text();
+    expect(authenticationFailureBody).toBe('{"error":"authentication_temporarily_unavailable"}');
+
+    const storageFailure = await appFor({ status: "unauthenticated" }, {
+      customerAuthenticator: customerAuthenticatorFor({
+        status: "authenticated",
+        identity: { id: "customer", email: "one@example.test" },
+      }),
+      registryStore: {
+        read: async () => { throw new Error(providerSecret); },
+        write: async () => { throw new Error("unreachable"); },
+      },
+    }).request("/v1/portal-entries");
+    expect(storageFailure.status).toBe(503);
+    const storageFailureBody = await storageFailure.text();
+    expect(storageFailureBody).toBe('{"error":"portal_directory_unavailable"}');
+    expect(authenticationFailureBody + storageFailureBody).not.toContain(providerSecret);
+  });
+
   it.each(["unauthenticated", "forbidden", "unconfigured"] as const)("denies %s on every admin API path", async (status) => {
     const app = appFor({ status });
     for (const path of ["/admin/api/session", "/admin/api/workspace", "/admin/api/assistant/message", "/admin/api/jobs", "/admin/api/jobs/platform-readiness/run", "/admin/api/publishers", "/admin/api/users"]) {
@@ -199,7 +380,7 @@ describe("Hosted portal entry and guarded admin API", () => {
       expect(body).toContain('INTERN ARBETSYTA');
       expect(body).toContain('data-nav-group="customers"');
       expect(body).toContain('data-nav-group="connections"');
-      expect(body).toContain('Användare <small>Välj kund</small>');
+      expect(body).not.toContain('Användare <small>Välj kund</small>');
       expect(body).toContain('Cronjobb <small>Välj kund</small>');
       expect(body).toContain('Rapportflöde <small>Välj kund</small>');
       for (const id of ["overview", "customers", "publishers", "products", "connections", "salesforce"]) {
@@ -218,11 +399,17 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(admin).not.toContain('id="assistant-customers"');
     expect(admin).not.toContain('id="assistant-jobs"');
     const start = await (await app.request("/")).text();
-    expect(start).toContain('data-mode="login"');
-    expect(start).toContain('id="auth-widget"');
-    expect(start).not.toContain("Öppna kundportalen");
-    expect(start).not.toContain("FÖR KUNDORGANISATIONER");
+    expect(start).toContain('data-customer-access-mode="login"');
+    expect(start).toContain('id="customer-auth-widget"');
+    expect(start).toContain('href="/admin/login"');
+    expect(start).toContain("Kundåtkomst");
+    expect(start).not.toContain("INTERN ÅTKOMST");
     expect(start).not.toContain("KTH");
+    const staffLogin = await (await app.request("/admin/login")).text();
+    expect(staffLogin).toContain('data-mode="login"');
+    expect(staffLogin).toContain('id="auth-widget"');
+    expect(staffLogin).toContain("INTERN ÅTKOMST");
+    expect(staffLogin).not.toContain('id="customer-auth-widget"');
   });
 
   it("does not treat a transient Clerk reconnect as a signed-out session", () => {
@@ -294,11 +481,20 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(admin).not.toContain("D-ID-agenten finns i kundportalen");
   });
 
-  it("routes the legacy selector to the internal customer register without credentials", async () => {
-    const response = await appFor({ status: "unauthenticated" }).request("/kundportal?redirect=https://evil.example");
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/admin#customers");
-    expect(response.headers.get("set-cookie")).toBeNull();
+  it("routes legacy customer selectors to customer login and preserves only a valid portal slug", async () => {
+    const app = appFor({ status: "unauthenticated" });
+    for (const path of ["/kundportal?redirect=https://evil.example", "/portal/login?portal=%2F%2Fevil.example"]) {
+      const response = await app.request(path);
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe("/");
+      expect(response.headers.get("set-cookie")).toBeNull();
+    }
+    for (const path of ["/kundportal?portal=alpha", "/portal/login?portal=alpha"]) {
+      const response = await app.request(path);
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe("/?portal=alpha");
+      expect(response.headers.get("set-cookie")).toBeNull();
+    }
   });
 
   it("validates the Clerk frontend host before putting it in HTML", () => {

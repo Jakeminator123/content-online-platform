@@ -105,19 +105,25 @@ const customerSchema = z.object({
     : defaultCustomerSite()),
 }));
 const publisherSchema = z.object({ id, name, status: z.enum(["active", "archived"]) });
+const portalMemberRoleSchema = z.enum(["customer_reader", "customer_admin"]);
+const portalMemberStatusSchema = z.enum(["active", "inactive"]);
 const portalMemberSchema = z.object({
   id,
   customerId: id,
   verifiedEmail,
+  // Email identifies a pending invitation. The first eligible Clerk session
+  // binds it to one immutable provider subject, which then remains required.
   externalUserId: id.nullable().default(null),
   displayName,
-  role: z.enum(["customer_reader", "customer_admin"]),
-  status: z.enum(["active", "inactive"]),
+  role: portalMemberRoleSchema,
+  status: portalMemberStatusSchema,
 });
 const eventSchema = z.object({ at: z.string(), actor: id, action: z.string(), entityId: id });
 export const registrySchema = z.object({
   customers: z.array(customerSchema).max(1000),
   publishers: z.array(publisherSchema).max(100),
+  // Registry snapshots created before customer authentication did not contain
+  // this property. Defaulting at the schema boundary keeps those rows readable.
   portalMembers: z.array(portalMemberSchema).max(10000).default([]),
   events: z.array(eventSchema).max(500),
 }).superRefine((registry, context) => {
@@ -137,10 +143,34 @@ export const registrySchema = z.object({
 export type Registry = z.infer<typeof registrySchema>;
 export type RegistryCustomer = Registry["customers"][number];
 export type PortalMember = Registry["portalMembers"][number];
+export type PortalMemberRole = PortalMember["role"];
+export type PortalEntry = {
+  organizationId: string;
+  organizationName: string;
+  slug: string;
+  displayName: string;
+  role: PortalMemberRole;
+};
+export type PortalIdentity = { id: string; email: string };
 export type RegistrySnapshot = { version: number; data: Registry };
 export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("add_customer"), name, slug }),
   z.object({ action: z.literal("update_customer"), id, name, publisherIds: z.array(id).max(100) }),
+  z.object({
+    action: z.literal("add_portal_member"),
+    customerId: id,
+    verifiedEmail,
+    displayName,
+    role: portalMemberRoleSchema,
+  }),
+  z.object({
+    action: z.literal("update_portal_member"),
+    id,
+    verifiedEmail,
+    displayName,
+    role: portalMemberRoleSchema,
+    status: portalMemberStatusSchema,
+  }),
   z.object({ action: z.literal("configure_customer_site"), id, site: customerSiteInputSchema }),
   z.object({ action: z.literal("set_customer_domain_status"), id, domainStatus: z.enum(["pending", "ready"]) }),
   z.object({ action: z.literal("publish_customer"), id }),
@@ -207,6 +237,45 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
       salesforceAccountId: null,
       salesforceAccountName: null,
     });
+  } else if (command.action === "add_portal_member") {
+    const customer = next.customers.find(customer => customer.id === command.customerId);
+    if (!customer) throw new RegistryError("not_found", 404);
+    if (customer.kind === "demo") throw new RegistryError("demo_customer_protected", 409);
+    if (next.portalMembers.length >= 10000) throw new RegistryError("portal_member_limit");
+    const normalizedEmail = verifiedEmail.parse(command.verifiedEmail);
+    if (next.portalMembers.some(member => member.customerId === customer.id && member.verifiedEmail === normalizedEmail)) {
+      throw new RegistryError("portal_member_email_exists", 409);
+    }
+    entityId = randomUUID();
+    next.portalMembers.push({
+      id: entityId,
+      customerId: customer.id,
+      verifiedEmail: normalizedEmail,
+      externalUserId: null,
+      displayName: command.displayName,
+      role: command.role,
+      status: "active",
+    });
+  } else if (command.action === "update_portal_member") {
+    const member = next.portalMembers.find(member => member.id === command.id);
+    if (!member) throw new RegistryError("not_found", 404);
+    entityId = member.id;
+    const customer = next.customers.find(customer => customer.id === member.customerId);
+    if (!customer) throw new RegistryError("not_found", 404);
+    if (customer.kind === "demo") throw new RegistryError("demo_customer_protected", 409);
+    const normalizedEmail = verifiedEmail.parse(command.verifiedEmail);
+    if (next.portalMembers.some(other =>
+      other.id !== member.id
+      && other.customerId === member.customerId
+      && other.verifiedEmail === normalizedEmail
+    )) {
+      throw new RegistryError("portal_member_email_exists", 409);
+    }
+    if (member.verifiedEmail !== normalizedEmail) member.externalUserId = null;
+    member.verifiedEmail = normalizedEmail;
+    member.displayName = command.displayName;
+    member.role = command.role;
+    member.status = command.status;
   } else if (command.action === "add_publisher") {
     if (next.publishers.some(p => p.name.toLocaleLowerCase() === command.name.toLocaleLowerCase())) throw new RegistryError("publisher_exists", 409);
     if (next.publishers.length >= 100) throw new RegistryError("publisher_limit");
@@ -231,6 +300,7 @@ export function applyRegistryCommand(data: Registry, command: RegistryCommand, a
         if (command.confirmation !== c.name && command.confirmation !== c.slug) {
           throw new RegistryError("delete_confirmation_mismatch", 422);
         }
+        next.portalMembers = next.portalMembers.filter(member => member.customerId !== c.id);
         next.customers.splice(customerIndex, 1);
       } else if (command.action === "update_customer") {
         const unique = [...new Set(command.publisherIds)];
@@ -288,6 +358,66 @@ export function publicPortal(data: Registry, requestedSlug: string) {
 
 export function publishedCustomer(data: Registry, requestedSlug: string): RegistryCustomer | null {
   return data.customers.find(c => c.slug === requestedSlug && c.status === "published") ?? null;
+}
+
+/**
+ * Resolves a verified identity to the customer portals it may enter.
+ * `organizationId` is the stable authorization key. The slug is returned only
+ * so the caller can present or navigate to the branded portal URL.
+ */
+export function bindPortalIdentity(
+  data: Registry,
+  identity: PortalIdentity,
+  now = new Date(),
+): { data: Registry; changed: boolean } {
+  const parsedIdentity = z.object({ id, email: verifiedEmail }).safeParse(identity);
+  if (!parsedIdentity.success) return { data, changed: false };
+  const next = registrySchema.parse(structuredClone(data));
+  const eligibleCustomers = new Set(next.customers
+    .filter(customer => customer.kind === "customer" && customer.status === "published")
+    .map(customer => customer.id));
+  const boundMembers = next.portalMembers.filter(member =>
+    member.status === "active"
+    && member.externalUserId === null
+    && member.verifiedEmail === parsedIdentity.data.email
+    && eligibleCustomers.has(member.customerId));
+  if (!boundMembers.length) return { data, changed: false };
+  for (const member of boundMembers) {
+    member.externalUserId = parsedIdentity.data.id;
+    next.events.push({
+      at: now.toISOString(),
+      actor: parsedIdentity.data.id,
+      action: "bind_portal_identity",
+      entityId: member.id,
+    });
+  }
+  next.events = next.events.slice(-500);
+  return { data: registrySchema.parse(next), changed: true };
+}
+
+export function resolvePortalEntries(data: Registry, identity: PortalIdentity): PortalEntry[] {
+  const parsedIdentity = z.object({ id, email: verifiedEmail }).safeParse(identity);
+  if (!parsedIdentity.success) return [];
+
+  const memberships = new Map(
+    data.portalMembers
+      .filter(member => member.status === "active"
+        && member.externalUserId === parsedIdentity.data.id
+        && member.verifiedEmail === parsedIdentity.data.email)
+      .map(member => [member.customerId, member] as const),
+  );
+
+  return data.customers.flatMap((customer) => {
+    const member = memberships.get(customer.id);
+    if (!member || customer.kind !== "customer" || customer.status !== "published") return [];
+    return [{
+      organizationId: customer.id,
+      organizationName: customer.name,
+      slug: customer.slug,
+      displayName: member.displayName,
+      role: member.role,
+    }];
+  });
 }
 
 export interface RegistryStore {

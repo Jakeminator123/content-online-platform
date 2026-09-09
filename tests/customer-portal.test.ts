@@ -13,6 +13,7 @@ import { customerPortalClient } from "../src/customer-portal/client.js";
 import { customerSlugFromHostname } from "../src/customer-portal/routing.js";
 
 const cfg = { allowedEmail: "admin@example.test", secretKey: "fixture", publishableKey: "" };
+const configuredCfg = { ...cfg, publishableKey: `pk_test_${Buffer.from("example.clerk.accounts.dev$").toString("base64")}` };
 const admin = { status: "authenticated" as const, identity: { id: "admin", email: cfg.allowedEmail, role: "content_admin" as const } };
 
 function storeFor(data = initialRegistry()): RegistryStore {
@@ -114,7 +115,7 @@ describe("shared multi-tenant customer portal", () => {
 
   it("renders a new customer's own brand and keeps protected data behind authentication", async () => {
     const data = publishedCustomer();
-    const app = createAdminPortal({ authenticate: async () => admin }, cfg, { registryStore: storeFor(data) });
+    const app = createAdminPortal({ authenticate: async () => admin }, configuredCfg, { registryStore: storeFor(data) });
     const response = await app.request("/portal/north");
     expect(response.status).toBe(200);
     const html = await response.text();
@@ -122,6 +123,10 @@ describe("shared multi-tenant customer portal", () => {
     expect(html).toContain("#112233");
     expect(html).toContain("https://assets.example.test/north.svg");
     expect(html).toContain('data-agent-id="v2_agt_north"');
+    expect(html).toContain('data-customer-slug="north"');
+    expect(html).toContain('data-authenticated-only hidden');
+    expect(html).toContain('/customer-portal/assets/session.js');
+    expect(html).toContain('clerk.browser.js');
     expect(html).not.toContain("KTH Biblioteket");
     expect(html).not.toContain("412");
 
@@ -137,9 +142,13 @@ describe("shared multi-tenant customer portal", () => {
     expect(JSON.stringify(context)).not.toContain("ck_north_domain_key");
 
     const loginHtml = await (await app.request("/portal/north/login")).text();
-    expect(loginHtml).toContain("https://content-online-customer-login.vercel.app/");
+    expect(loginHtml).toContain("https://content-online-platform.vercel.app/?portal=north");
+    expect(loginHtml).not.toContain("content-online-customer-login.vercel.app");
     expect(loginHtml).not.toContain("returnUrl");
     expect(loginHtml).not.toContain("session_token");
+
+    const customDomainHtml = await (await app.request("https://north.portal.contentonline.se/")).text();
+    expect(customDomainHtml).not.toContain('/customer-portal/assets/session.js');
   });
 
   it("keeps primary button text accessible for middle-luminance customer colors", async () => {
