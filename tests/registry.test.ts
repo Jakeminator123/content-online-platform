@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { Script } from "node:vm";
-import { applyRegistryCommand, commandSchema, initialRegistry, publicPortal, type Registry, type RegistryStore } from "../src/admin/registry.js";
+import { applyRegistryCommand, commandSchema, initialRegistry, publicPortal, registrySchema, type Registry, type RegistryStore } from "../src/admin/registry.js";
 import { NeonRegistryStore, REGISTRY_SQL, neonQuery } from "../src/admin/registry-store.js";
 import { registryClient } from "../src/admin/registry-client.js";
 import { createAdminPortal } from "../src/admin/portal.js";
@@ -15,6 +15,56 @@ function memoryStore(): RegistryStore {
   } };
 }
 describe("Persistent registry domain", () => {
+  it("migrates legacy snapshots to an empty portal-member allowlist", () => {
+    const { portalMembers: _missingLegacyField, ...legacy } = initialRegistry();
+
+    expect(registrySchema.parse(legacy).portalMembers).toEqual([]);
+  });
+  it("preserves portal members through an existing command and storage parse", async () => {
+    const member = {
+      id: "member-example-reader",
+      customerId: "customer-kth-demo",
+      verifiedEmail: "Reader@Example.Test ",
+      displayName: " Example Reader ",
+      role: "customer_reader" as const,
+      status: "inactive" as const,
+    };
+    const data = registrySchema.parse({ ...initialRegistry(), portalMembers: [member] });
+    const afterCommand = applyRegistryCommand(data, { action: "rename_publisher", id: "ieee", name: "IEEE Xplore" }, actor);
+    const query = vi.fn(async (sql: string, params: string[]) => {
+      if (sql === REGISTRY_SQL.write) return [["2", params[0]!]];
+      return [];
+    });
+
+    const written = await new NeonRegistryStore(query).write(1, afterCommand);
+
+    expect(written.data.portalMembers).toEqual([{
+      id: "member-example-reader",
+      customerId: "customer-kth-demo",
+      verifiedEmail: "reader@example.test",
+      externalUserId: null,
+      displayName: "Example Reader",
+      role: "customer_reader",
+      status: "inactive",
+    }]);
+    expect(written.data.publishers[0]?.name).toBe("IEEE Xplore");
+  });
+  it("rejects duplicate portal-member emails within one customer after normalization", () => {
+    const member = {
+      id: "member-one",
+      customerId: "customer-kth-demo",
+      verifiedEmail: "reader@example.test",
+      externalUserId: null,
+      displayName: "Reader One",
+      role: "customer_reader" as const,
+      status: "active" as const,
+    };
+
+    expect(() => registrySchema.parse({
+      ...initialRegistry(),
+      portalMembers: [member, { ...member, id: "member-two", verifiedEmail: " READER@EXAMPLE.TEST " }],
+    })).toThrow("duplicate_portal_member_email");
+  });
   it("creates unpublished empty customer tenants without inheriting KTH data", () => {
     const next = applyRegistryCommand(initialRegistry(), { action: "add_customer", name: "Example University", slug: "example-university" }, actor);
     expect(next.customers[1]).toMatchObject({
