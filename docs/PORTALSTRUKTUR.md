@@ -72,6 +72,12 @@ rapportgenerering är separata förmågor och är ännu inte live för riktiga k
 Tomläget ska säga exakt vilken av dessa delar som saknas och får aldrig visas som
 noll användning eller fyllas med KTH:s syntetiska data.
 
+Den verifierade arbetsytan får innehålla en separat, visuellt avgränsad
+dashboardförhandsvisning för presentation. Varje sådant värde ska märkas
+`Demo · exempeldata · inte kunddata`, får inte användas i agent-context eller
+exporter och ska visas samtidigt som den verkliga aktiveringsstatusen. Det är
+en produktillustration, inte en kundkälla eller statistikleverans.
+
 ## Vad Content Online kan styra
 
 Det skyddade registret lagrar per kund:

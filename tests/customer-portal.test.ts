@@ -129,6 +129,9 @@ describe("shared multi-tenant customer portal", () => {
     expect(html).toContain('data-authenticated-only hidden');
     expect(html).toContain('/customer-portal/assets/session.js');
     expect(html).toContain('clerk.browser.js');
+    expect(html).toContain("DEMO · EXEMPELDATA · INTE KUNDDATA");
+    expect(html).toContain("Nytt i portalen".toUpperCase());
+    expect(html).toContain("Från portfölj till tydlig trend");
     expect(html).not.toContain("KTH Biblioteket");
     expect(html).not.toContain("412");
 
