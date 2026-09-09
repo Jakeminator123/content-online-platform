@@ -16,7 +16,7 @@ const profile = {
 };
 const config = { allowedEmail: email, secretKey: "test-not-a-secret", publishableKey: `pk_test_${Buffer.from("example.clerk.accounts.dev$").toString("base64")}` };
 const appFor = (result: AdminAuthentication, options: Parameters<typeof createAdminPortal>[2] = {}) =>
-  createAdminPortal({ authenticate: async () => result }, config, options);
+  createAdminPortal({ authenticate: async () => result }, config, { presentationFixtures: true, ...options });
 
 const customerAuthenticatorFor = (result: CustomerAuthentication): CustomerAuthenticator => ({
   authenticate: async () => result,
@@ -581,27 +581,28 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(admin).not.toContain("D-ID-agenten finns i kundportalen");
   });
 
-  it("routes legacy customer selectors to customer login and preserves only a valid portal slug", async () => {
+  it("keeps the landing canonical and leaves legacy selectors unavailable", async () => {
     const app = appFor({ status: "unauthenticated" });
-    for (const path of ["/kundportal?redirect=https://evil.example", "/portal/login?portal=%2F%2Fevil.example"]) {
-      const response = await app.request(path);
-      expect(response.status).toBe(302);
-      expect(response.headers.get("location")).toBe("/login");
-      expect(response.headers.get("set-cookie")).toBeNull();
-    }
-    for (const path of ["/kundportal?portal=alpha", "/portal/login?portal=alpha"]) {
-      const response = await app.request(path);
-      expect(response.status).toBe(302);
-      expect(response.headers.get("location")).toBe("/login?portal=alpha");
+    for (const path of [
+      "/kundportal",
+      "/portal/login",
+      "/portal/alpha/login",
+      "/portal-directory/alpha",
+      "/content-online",
+      "/content-online/login",
+    ]) {
+      const response = await app.request(`${PLATFORM_ORIGIN}${path}`);
+      expect(response.status, path).toBe(404);
       expect(response.headers.get("set-cookie")).toBeNull();
     }
 
-    const preferredPortal = await app.request("/?portal=alpha");
-    expect(preferredPortal.status).toBe(302);
-    expect(preferredPortal.headers.get("location")).toBe("/login?portal=alpha");
+    const preferredPortal = await app.request(`${PLATFORM_ORIGIN}/?portal=alpha`);
+    expect(preferredPortal.status).toBe(200);
+    expect(preferredPortal.headers.get("location")).toBeNull();
     expect(preferredPortal.headers.get("set-cookie")).toBeNull();
+    expect(await preferredPortal.text()).toContain('data-page="customer-landing"');
 
-    const invalidPortal = await app.request("/?portal=%2F%2Fevil.example");
+    const invalidPortal = await app.request(`${PLATFORM_ORIGIN}/?portal=%2F%2Fevil.example`);
     expect(invalidPortal.status).toBe(200);
     expect(invalidPortal.headers.get("set-cookie")).toBeNull();
     const invalidPortalBody = await invalidPortal.text();
@@ -619,7 +620,14 @@ describe("Hosted portal entry and guarded admin API", () => {
   });
 });
 
-describe('public presentation demo', () => {
+describe('local presentation fixture harness', () => {
+  it('is disabled by default in the production portal router', async () => {
+    const app = createAdminPortal({ authenticate: async () => ({ status: 'unauthenticated' }) }, config);
+    for (const path of ['/demo', '/demo/workspace', '/demo/customer/kth']) {
+      expect((await app.request(path)).status).toBe(404);
+    }
+  });
+
   it('serves synthetic fixtures without creating an admin session or accepting writes', async () => {
     const app = appFor({ status: 'unauthenticated' });
     const response = await app.request('/demo/workspace');

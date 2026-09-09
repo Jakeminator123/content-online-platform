@@ -163,7 +163,7 @@ function portalPage(customer: RegistryCustomer, registry: Registry, options: Cus
   const agentPolicy = customerAgentPolicy(customer);
   const products = demoPortfolio(customer, registry);
   const base = options.basePath || "/";
-  const login = options.basePath ? `${options.basePath}/login` : "/login";
+  const login = customerLoginUrl(customer);
   const isDemo = customer.kind === "demo";
   const insights = isDemo ? buildPortalInsights(products) : null;
   const config = {

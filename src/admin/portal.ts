@@ -12,7 +12,7 @@ import { PLATFORM_ORIGIN } from "./identity.js";
 import type { AdminAuthenticator, AdminConfig, AdminIdentity } from "./identity.js";
 import { adminJobs, runAdminJob } from "./jobs.js";
 import { z } from "zod";
-import { applyRegistryCommand, bindPortalIdentity, commandSchema, initialRegistry, publicPortal, publishedCustomer, resolvePortalEntries, RegistryError, type Registry, type RegistrySnapshot, type RegistryStore } from "./registry.js";
+import { applyRegistryCommand, bindPortalIdentity, commandSchema, initialRegistry, publishedCustomer, resolvePortalEntries, RegistryError, type Registry, type RegistrySnapshot, type RegistryStore } from "./registry.js";
 import { registryStoreFromEnvironment } from "./registry-store.js";
 import { registryClient } from "./registry-client.js";
 import {
@@ -56,6 +56,7 @@ type AdminPortalOptions = {
   fetchImpl?: typeof fetch;
   now?: () => Date;
   askAssistant?: (question: string, adminId: string) => Promise<AssistantAnswer>;
+  presentationFixtures?: boolean;
 };
 type AdminPortalEnvironment = { Variables: { adminIdentity: AdminIdentity } };
 export function clerkFrontendHost(key: string): string | null {
@@ -74,6 +75,7 @@ export function createAdminPortal(
   const host = clerkFrontendHost(config.publishableKey);
   const configured = !!(host && config.secretKey && config.allowedEmail);
   const customerConfigured = !!(host && config.secretKey);
+  const presentationFixtures = options.presentationFixtures === true;
   const customerAuthenticator = options.customerAuthenticator ?? new ClerkCustomerAuthenticator(config);
   const portalRootDomain = options.portalRootDomain ?? process.env.CUSTOMER_PORTAL_ROOT_DOMAIN ?? "portal.contentonline.se";
   const portalWildcardReady = options.portalWildcardReady ?? ["1", "true"].includes((process.env.CUSTOMER_PORTAL_WILDCARD_READY ?? "").toLowerCase());
@@ -107,10 +109,6 @@ export function createAdminPortal(
 
   const registry = () => options.registryStore ?? registryStoreFromEnvironment();
   const domainService = () => options.domainService ?? customerDomainServiceFromEnvironment(options.fetchImpl, portalRootDomain);
-  const customerAccessLocation = (requestUrl: string) => {
-    const preference = new URL(requestUrl).searchParams.get("portal") ?? "";
-    return isCustomerSlug(preference) ? `/login?portal=${encodeURIComponent(preference)}` : "/login";
-  };
   const adminRegistrySnapshot = (snapshot: RegistrySnapshot) => ({
     ...snapshot,
     runtime: {
@@ -237,9 +235,9 @@ export function createAdminPortal(
       return c.json({ error: "portal_directory_unavailable" }, 503);
     }
   });
-  app.get("/portal/login", (c) => c.redirect(customerAccessLocation(c.req.url), 302));
+  // Reserve the former selector path so it cannot be interpreted as a customer slug.
+  app.get("/portal/login", (c) => c.text("Sidan finns inte.", 404));
   app.get("/portal/:slug", (c) => portalPageResponse(c, c.req.param("slug"), "portal", `/portal/${c.req.param("slug")}`));
-  app.get("/portal/:slug/login", (c) => portalPageResponse(c, c.req.param("slug"), "login", `/portal/${c.req.param("slug")}`));
   app.get("/portal/:slug/api/agent-context", async (c) => {
     try {
       const portal = await loadPortal(c.req.param("slug"));
@@ -248,64 +246,52 @@ export function createAdminPortal(
   });
   const salesforceStore = () => options.salesforceStore ?? salesforceStoreFromEnvironment();
   app.get("/admin/assets/registry.js", (c) => c.body(registryClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
-  app.get("/portal-directory/:slug", async (c) => {
-    try {
-      const slug = c.req.param("slug");
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 63) return c.json({ error: "not_found" }, 404);
-      const portal = publicPortal((await registry().read()).data, slug);
-      return portal ? c.json(portal) : c.json({ error: "not_found" }, 404);
-    } catch { return c.json({ error: "portal_directory_unavailable" }, 503); }
-  });
   app.get("/admin/assets/style.css", (c) => c.body(workspaceCss, 200, { "content-type": "text/css; charset=utf-8" }));
   app.get("/admin/assets/workspace.js", (c) => c.body(workspaceClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   app.get("/admin/assets/assistant.css", (c) => c.body(assistantCss, 200, { "content-type": "text/css; charset=utf-8" }));
   app.get("/admin/assets/assistant.js", (c) => c.body(assistantClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
-  // This public route returns only immutable presentation fixtures. It never authenticates or saves.
-  app.get("/demo/workspace", (c) => c.json(demoWorkspace));
-  app.get("/demo/customer/kth", (c) => {
-    const data = initialRegistry();
-    const customer = publishedCustomer(data, "kth");
-    if (!customer) return c.text("Demokundportalen saknas.", 404);
-    const didAgent = resolveCustomerAgent(customer, fallbackDidAgent);
-    return c.html(renderCustomerPortal(customer, data, {
-      basePath: "/demo/customer/kth",
-      contextUrl: "/demo/customer/kth/api/agent-context",
-      page: "portal",
-      didAgent,
-    }));
-  });
-  app.get("/demo/customer/kth/login", (c) => {
-    const data = initialRegistry();
-    const customer = publishedCustomer(data, "kth");
-    if (!customer) return c.text("Demokundportalen saknas.", 404);
-    const didAgent = resolveCustomerAgent(customer, fallbackDidAgent);
-    return c.html(renderCustomerPortal(customer, data, {
-      basePath: "/demo/customer/kth",
-      contextUrl: "/demo/customer/kth/api/agent-context",
-      page: "login",
-      didAgent,
-    }));
-  });
-  app.get("/demo/customer/kth/api/agent-context", (c) => {
-    const data = initialRegistry();
-    const customer = publishedCustomer(data, "kth");
-    return customer ? c.json(customerPortalContext(customer, data)) : c.json({ error: "not_found" }, 404);
-  });
-  app.get("/demo", (c) => c.html(page("demo", null, "", false)));
-  app.get("/", (c) => {
-    const preference = new URL(c.req.url).searchParams.get("portal") ?? "";
-    if (isCustomerSlug(preference)) return c.redirect(`/login?portal=${encodeURIComponent(preference)}`, 302);
-    return c.html(renderCustomerLanding({
+  // Presentation fixtures are available only to explicit local/CI harnesses.
+  // Production never opts into these routes.
+  if (presentationFixtures) {
+    app.get("/demo/workspace", (c) => c.json(demoWorkspace));
+    app.get("/demo/customer/kth", (c) => {
+      const data = initialRegistry();
+      const customer = publishedCustomer(data, "kth");
+      if (!customer) return c.text("Demokundportalen saknas.", 404);
+      const didAgent = resolveCustomerAgent(customer, fallbackDidAgent);
+      return c.html(renderCustomerPortal(customer, data, {
+        basePath: "/demo/customer/kth",
+        contextUrl: "/demo/customer/kth/api/agent-context",
+        page: "portal",
+        didAgent,
+      }));
+    });
+    app.get("/demo/customer/kth/login", (c) => {
+      const data = initialRegistry();
+      const customer = publishedCustomer(data, "kth");
+      if (!customer) return c.text("Demokundportalen saknas.", 404);
+      const didAgent = resolveCustomerAgent(customer, fallbackDidAgent);
+      return c.html(renderCustomerPortal(customer, data, {
+        basePath: "/demo/customer/kth",
+        contextUrl: "/demo/customer/kth/api/agent-context",
+        page: "login",
+        didAgent,
+      }));
+    });
+    app.get("/demo/customer/kth/api/agent-context", (c) => {
+      const data = initialRegistry();
+      const customer = publishedCustomer(data, "kth");
+      return customer ? c.json(customerPortalContext(customer, data)) : c.json({ error: "not_found" }, 404);
+    });
+    app.get("/demo", (c) => c.html(page("demo", null, "", false)));
+  }
+  app.get("/", (c) => c.html(renderCustomerLanding({
       configured: customerConfigured,
       host,
       publishableKey: config.publishableKey,
-    }));
-  });
+    })));
   app.get("/login", (c) => c.html(customerAccessPage("login", host, config.publishableKey, customerConfigured)));
   app.get("/registrera", (c) => c.html(customerAccessPage("register", host, config.publishableKey, customerConfigured)));
-  app.get("/kundportal", (c) => c.redirect(customerAccessLocation(c.req.url), 302));
-  app.get("/content-online", (c) => c.redirect("/admin", 302));
-  app.get("/content-online/login", (c) => c.redirect("/admin/login", 302));
   app.get("/admin/login", (c) => c.html(page("login", host, config.publishableKey, configured)));
   app.get("/admin/registrera", (c) => c.html(page("register", host, config.publishableKey, configured)));
   // Public HTML contains no user/customer data. All identity and admin data comes from guarded APIs.

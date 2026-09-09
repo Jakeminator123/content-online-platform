@@ -62,7 +62,7 @@ export function defaultCustomerSite(overrides: Partial<CustomerSite> = {}): Cust
     heading: "Välkommen till er kundportal",
     tagline: "Informationsprodukter, användning och kundservice i en samlad yta.",
     agent: {
-      // The shared, origin-restricted D-ID demo is available without copying
+      // The shared, origin-restricted D-ID agent is available without copying
       // credentials, but staff must explicitly enable it for each new tenant.
       enabled: false,
       agentId: "",

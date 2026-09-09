@@ -231,6 +231,23 @@ describe("customer portal access client", () => {
     expect(result.Clerk.mountSignIn).toHaveBeenCalledOnce();
   });
 
+  it("preserves a validated portal preference across the overlay authentication return", async () => {
+    const result = await runClient([alpha, beta], "?portal=beta", false, true);
+    const open = result.windowListeners.get("customer-access:open");
+    result.elements["customer-access"].dataset.customerAccessRequested = "true";
+    open?.();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(result.Clerk.load).toHaveBeenCalledWith(expect.objectContaining({
+      signInForceRedirectUrl: "/?login=1&portal=beta",
+      signUpForceRedirectUrl: "/?login=1&portal=beta",
+    }));
+    expect(result.Clerk.mountSignIn.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      forceRedirectUrl: "/?login=1&portal=beta",
+      fallbackRedirectUrl: "/?login=1&portal=beta",
+    }));
+  });
+
   it("cancels an in-flight overlay login when the dialog closes", async () => {
     let finishLoading: (() => void) | undefined;
     const pendingLoad = new Promise<void>((resolve) => { finishLoading = resolve; });

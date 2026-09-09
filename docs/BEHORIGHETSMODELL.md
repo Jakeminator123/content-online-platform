@@ -1,74 +1,144 @@
 # Behörighetsmodell
 
-**Version:** 0.1
+**Version:** 0.2
 
-**Datum:** 2026-09-04
+**Datum:** 2026-09-09
 
-**Status:** Roller är arbetsbeslut; rättighetsmatrisen är föreslagen säker standard tills Content Online godkänner detaljerna
+**Status:** Identitets- och tenantgränsen är implementerad för pilotflödet.
+Detaljerade rättigheter till framtida livefunktioner är fortfarande föreslagna.
 
-## Roller
+## Separata identitetsdomäner
 
-Kundportalen har två nivåer:
+Plattformen skiljer strikt mellan kundmedlemskap och Content Onlines interna
+administration.
 
-1. **Kundadmin** – bibliotekarien i pilotresan.
-2. **Läsare** – en kundanvändare med begränsad åtkomst.
+| Domän | Ingång | Roller |
+| --- | --- | --- |
+| Kund | `/` med login-overlay, eller `/login` som fallback | Kundadmin, Läsare |
+| Content Online | `/admin` och `/admin/login` | Content Online-administratör; framtida kundscopad operatör |
 
-Content Online-personal hanteras som **Content Online-operatör** i en separat intern säkerhetsdomän. Operatören är inte en högre kundroll och blir inte medlem i alla kundorganisationer.
+En Content Online-administratör är inte en högre kundroll och blir inte
+automatiskt medlem i kundorganisationerna. På motsvarande sätt ger ett
+kundmedlemskap aldrig intern adminbehörighet.
 
-### Förtydligande 2026-09-05: företagsadministration
+Det finns inga publika `/demo`-inloggningar eller äldre login-alias i
+produktionsmodellen. Testidentiteter och fixtures används bara lokalt och i CI
+och får aldrig godtas som session eller behörighetsbevis i Production.
 
-**Content Online-administratör (`content_admin`)** är en separat intern administrativ roll, inte KTH:s Kundadmin och inte automatiskt samma sak som en kundtilldelad operatör. Uppdraget omfattar att Content Online ska kunna hantera kundorganisationer, användare, sitt publicistregister och kundernas produkt-/publicisttilldelningar.
+KTH är en uttryckligen syntetisk pilot på `/portal/kth`. Den ska inte få verkliga
+portalmedlemmar, är inte en källa till livekunddata och kan inte användas som
+fallback för en annan tenant.
 
-Den första interna inloggningen använder Clerk och serververifierad primär e-post på en uttrycklig allowlist. En skyddad, skrivskyddad intern arbetsyta finns för pilotkonfigurationen. En separat publik `/demo` visar enbart syntetiska fixtures och ger ingen adminsession eller rätt till `/admin/api/*`. Kundförhandsvisningar härleds från varje fiktiv organisations produkt-ID:n. CRUD-funktionerna och databaslagringen är ännu inte implementerade. Tabellen nedan beskriver fortfarande kund-/operatörskontraktet, inte en levererad fullständig skrivande administrationsyta. Se [aktuell drift och återstående arbete](ADMIN_DRIFT.md).
+## Levererad kundidentitet
 
-Tilldelning i kundportalen ska skiljas från faktisk licens-/accessprovisionering hos en publisher. Att Content Online ändrar vad kunden ser i portalen får inte påstås ändra ett externt avtal eller publisherkonto.
+Kundflödet fungerar i följande ordning:
 
-## Kundadminens föreslagna överblick
+1. Clerk verifierar identiteten.
+2. Backend läser aktiva serverägda medlemskap.
+3. `/v1/portal-entries` returnerar bara publicerade portaler som identiteten får
+   använda.
+4. `/portal/{slug}` verifierar samma medlemskap innan skyddad kundstatus eller
+   data får visas.
 
-Bibliotekariens uppgift förtydligas som en organisationsomfattande överblick över allt som Content Online har gjort tillgängligt för den egna kunden:
+En e-postadress används bara för en väntande inbjudan. Vid första godkända
+inloggningen binds medlemskapet till identitetsleverantörens stabila användar-ID.
+Slug, queryparameter, kunddomän och frontendval är aldrig behörighetsbevis.
 
-- produkter, abonnemang, publishers och accessläge,
-- användningsdata med källa, period, definition och datatäckning,
-- godkända kostnads-KPI:er och deras beräkning,
-- tillåtna dokument och avtalsmetadata,
-- förnyelsedatum och icke-bindande status,
-- organisationens tickets och historik,
-- organisationens portalanvändare och deras roller.
+Samma person kan ha en separat roll i flera organisationer. Ett konto utan aktivt
+medlemskap ser ingen kundportal. Inaktivering av ett medlemskap ska slå igenom
+server-side även om användaren fortfarande har en giltig Clerk-session.
 
-Kundadmin får inte se en annan kundorganisation, ändra källdata eller credentials, provisionera publisheraccess eller göra juridiskt bindande renewal-godkännanden. Ändring av portalmedlem, roll eller publisheraccess skapar i V1 en ticket till Content Online i stället för att verkställas direkt.
+## Levererad intern adminidentitet
 
-## Läsare – föreslagen säker standard
+Content Online-personal använder `/admin/login`. Servern kräver:
 
-Läsaren får se den egna organisationens aktiva portfölj, publicerade usage-översikt och dokument som är märkta för vanliga användare. Läsaren får skapa och följa sina egna tickets.
+- giltig token från rätt Clerk-origin;
+- aktiv och icke spärrad session;
+- verifierad primär e-post;
+- matchning mot den serverkonfigurerade interna allowlisten.
 
-Som säker utgångspunkt ser Läsaren inte kostnader, CPD, avtal eller andra användares tickets. Detta kan öppnas senare genom ett uttryckligt beslut.
+Publik admin-HTML innehåller inga person- eller kunduppgifter. De hämtas först
+från skyddade `/admin/api/*` efter serververifiering. Kundcookies,
+kundadministratörsroller och klientredigerbar metadata accepteras aldrig som
+intern behörighet.
 
-## Content Online-operatör – föreslagen säker standard
+## Kundroller
 
-En operatör kan arbeta med tilldelade kundorganisationer, hantera tickets, verkställa godkända användarändringar, följa imports/synkfel och administrera publisher- och affärssystemsanslutningar.
+### Kundadmin
 
-Operatören måste välja ett aktivt kundscope innan kunddata öppnas. Valet, ändamålet och åtgärden auditloggas. Det finns ingen dold global `isAdmin` som automatiskt ger obegränsad åtkomst.
+Kundadmin är en roll inom en specifik kundorganisation. Målbilden är en
+organisationsomfattande överblick över de informationsprodukter och flöden som
+Content Online har gjort tillgängliga för just den kunden:
 
-## Föreslagen enkel behörighetsmatris
+- produkter, abonnemang, publicister och accessläge;
+- användningsdata med källa, period, definition och täckning;
+- godkända kostnads-KPI:er och deras beräkning;
+- dokument och avtalsmetadata som rollen får läsa;
+- förnyelsedatum och icke-bindande status;
+- organisationens ärenden och historik;
+- organisationens portalmedlemmar och roller.
+
+Kundadmin får inte se en annan kund, ändra källdata eller credentials,
+provisionera publisheraccess eller göra juridiskt bindande förnyelsebeslut.
+Ändringar av medlemskap eller publisheraccess ska gå genom ett kontrollerat
+Content Online-flöde när detta byggs; medlemskap i portalen ändrar inte ett
+externt avtal.
+
+### Läsare
+
+Läsaren ska kunna se den egna organisationens tillåtna portfölj,
+usage-översikt och allmänna kunddokument samt skapa och följa egna ärenden.
+
+Som säker utgångspunkt ser Läsaren inte kostnader, CPD, avtal eller andra
+användares ärenden. Detta kan öppnas först genom ett uttryckligt produktbeslut.
+
+## Interna roller
+
+### Content Online-administratör
+
+Den levererade `content_admin`-rollen hanterar det beständiga registret:
+kundorganisationer, portalmedlemmar, publicister, publicering, arkivering,
+domänstatus och portalinställningar. Rollen och dess autentisering är separerade
+från kundportalen.
+
+### Kundscopad operatör
+
+En framtida operatörsroll kan arbeta med uttryckligen tilldelade
+kundorganisationer, hantera ärenden och följa importer. Operatören ska välja ett
+aktivt kundscope innan kunddata öppnas. Denna mer detaljerade delegering är en
+målbild och ska inte beskrivas som levererad enbart för att `content_admin`
+finns.
+
+## Föreslagen rättighetsmatris för livefunktioner
+
+Tabellen beskriver målbilden när verkliga produkter, statistik, kostnader,
+dokument och ärenden har anslutits. Dessa datakällor är inte live ännu.
 
 | Förmåga | Läsare | Kundadmin | CO-operatör |
-|---|---:|---:|---:|
+| --- | ---: | ---: | ---: |
 | Se egen aktiv portfölj | Ja | Ja, komplett tillåten bild | Vid tilldelat kundscope |
 | Se usage | Översikt | Full organisationsvy | Data och importkvalitet |
 | Se kostnad/CPD | Nej som standard | Ja | Ja, inom tilldelat scope |
 | Se dokument | Allmänna kunddokument | Alla tillåtna kunddokument | Publicerar/klassificerar |
-| Se tickets | Egna | Organisationens | Tilldelade kunder |
-| Skapa ticket | Ja | Ja | Ja |
-| Ändra portalmedlem/roll direkt | Nej | Nej; begär via ticket | Verkställer godkänd ändring |
-| Ändra publisheraccess direkt | Nej | Nej; begär via ticket | Nej i V1; ticketflöde |
+| Se ärenden | Egna | Organisationens | Tilldelade kunder |
+| Skapa ärende | Ja | Ja | Ja |
+| Ändra portalmedlem/roll direkt | Nej | Kontrollerat kundflöde | Verkställer godkänd ändring |
+| Ändra publisheraccess direkt | Nej | Nej; begär ändring | Nej i första versionen; kontrollerat flöde |
 | Hantera källkopplingar | Nej | Nej | Ja |
 
 ## Backendregler
 
-- Identitetsleverantören bevisar vem personen är; Content Online-backend beslutar vad personen får göra.
-- Varje kundägd post bär `tenantId`: medlemskap, portfölj, usage, kostnad, dokument, ticket, export, cache och synkjobb.
-- Tenant-scope härleds från ett aktivt medlemskap eller en uttrycklig intern operatörstilldelning. Ett `tenantId` från frontend är aldrig behörighetsbevis.
-- Backend returnerar minsta tillåtna data. Frontendfiltrering är inte en säkerhetsmekanism.
-- En person kan ha ett separat medlemskap och en roll per organisation; byte av organisation är explicit och auditloggat.
-- Audit events är append-only och innehåller aktör, roll, tenant, åtgärd, resurs-ID, UTC-tid, resultat och request-ID, men aldrig lösenord, tokens eller råa secrets.
-- Alla negativa tenant- och rollfall får regressionstest.
+- Identitetsleverantören bevisar vem personen är; Content Online-backend beslutar
+  vad personen får göra.
+- Varje kundägd post bär ett tenant-ID: medlemskap, portfölj, usage, kostnad,
+  dokument, ärende, export, cache och synkjobb.
+- Tenant-scope härleds från aktivt medlemskap eller uttrycklig intern
+  operatörstilldelning. Ett tenant-ID från frontend är aldrig behörighetsbevis.
+- Backend returnerar minsta tillåtna data. Frontendfiltrering är inte en
+  säkerhetsmekanism.
+- Organisationbyte är explicit och ska auditloggas.
+- Audit-händelser innehåller aktör, roll, tenant, åtgärd, resurs-ID, UTC-tid,
+  resultat och request-ID, men aldrig lösenord, tokens eller råa hemligheter.
+- Alla negativa tenant-, sessions- och rollfall ska regressionstestas.
+- Saknad livekälla ska ge ett låst, ej anslutet eller otillgängligt läge. Den får
+  aldrig ersättas med testfixtures i Production.

@@ -1,88 +1,116 @@
-# Content Online customer platform
+# Content Online-plattformen
 
-Detta repository är dokumentations- och utvecklingsytan för Content Onlines planerade B2B-kundplattform.
+Detta repository är den enda driftauktoriteten för Content Onlines interna
+administration och gemensamma kundportal. Samma kodbas och Vercel-projekt driver
+en publik ingång, kundinloggning, personaladministration och alla publicerade
+kundportaler. En kund är en tenant-konfiguration i registret, inte ett eget
+repository eller Vercel-projekt.
 
-**GitHub:** [Jakeminator123/content-online-platform](https://github.com/Jakeminator123/content-online-platform) (publikt repository)
+**GitHub:** [Jakeminator123/content-online-platform](https://github.com/Jakeminator123/content-online-platform)
 
-Projektet är en publicerad pilot med intern admininloggning, skyddade API:er, det beständiga kundregistret och en gemensam multikundsportal. Kundportalen använder plattformens inbyggda standardmall i samma repository och samma Vercel-projekt som Content Online-plattformen. Den första pilotpersonan är en bibliotekarie på KTH med rollen Kundadmin. KTH visar uttryckligt märkt demodata; verklig kund-, publisher- och affärssystemsdata är inte ansluten.
+Plattformen är en publicerad pilot. KTH är den uttryckligen syntetiska piloten på
+`/portal/kth`; dess produkter, användare och mätvärden är presentationsdata.
+Verklig kundstatistik, publisherdata och andra livekällor är ännu inte anslutna.
 
-## Publicerade ingångar och aktuell gräns
+## Kanoniska adresser
 
-- [Publik ingång](https://content-online-platform.vercel.app): presenterar Content Online och leder vidare till kundinloggningen utan att själv hantera identitet eller medlemskap.
-- [Kundinloggning](https://content-online-platform.vercel.app/login): verifierar kundidentitet och visar endast de publicerade portaler som ett aktivt serverägt medlemskap medger.
-- [Aktivera kundkonto](https://content-online-platform.vercel.app/registrera): använder den verifierade e-postadress som Content Online har kopplat till kundorganisationen.
-- Kundsida `https://content-online-platform.vercel.app/portal/{url-namn}`: den gemensamma portalmallen med en rimlig, kundspecifik slug.
-- Designgranskning `/demo/customer/kth`: oföränderlig, tydligt märkt KTH-fixture som fungerar även när en PR-preview avsiktligt saknar produktionsdatabas.
-- Valfri kunddomän `https://{url-namn}.portal.contentonline.se`: kan kopplas senare till samma Vercel-projekt; den behövs inte för att publicera kundsidan.
-- [Content Online-admin](https://content-online-platform.vercel.app/admin/login): Clerk-inloggning, separat från kundkonton.
-- [Första aktiveringen](https://content-online-platform.vercel.app/admin/registrera): endast tillåten e-postadress; användaren måste själv verifiera den.
+| Adress | Funktion |
+| --- | --- |
+| [`/`](https://content-online-platform.vercel.app/) | Publik Content Online-ingång. Kundinloggningen öppnas som en dialog ovanpå sidan. |
+| [`/login`](https://content-online-platform.vercel.app/login) | Direkt reservlänk till samma kundinloggning, exempelvis efter en extern omdirigering. |
+| [`/registrera`](https://content-online-platform.vercel.app/registrera) | Aktivering av kundkonto för en adress som Content Online har kopplat till en organisation. |
+| [`/admin`](https://content-online-platform.vercel.app/admin) | Separat arbetsyta för Content Online-personal. `/admin/login` är dess inloggning. |
+| `/portal/{url-namn}` | Den gemensamma, kundanpassade portalruntimen. |
 
-Admin kräver en giltig Clerk-session från plattformens origin, en aktiv session och ett icke spärrat konto med verifierad primär e-post som matchar serverns `CONTENT_ONLINE_ADMIN_EMAIL`. Adressen ligger endast i Vercel och Clerk, aldrig i Git. Kundcookies, kundadminroller och klientredigerbar metadata ger inte intern adminbehörighet. Se [driftsinstruktionerna](docs/ADMIN_DRIFT.md).
+Det finns inga publika `/demo`-rutter eller äldre kompatibilitetsalias i den
+kanoniska modellen. Okända adresser ska ge 404 i stället för att öppna en
+parallell inloggning eller portal.
 
-Clerk är anslutet på gratisplanen men använder ännu sin **utvecklingsinstans**. Egen domän och produktionsinstans återstår före skarp drift. En interaktiv **visningsdemo** finns på `/demo`, med samma arbetsytedesign som skyddade `/admin`. Det skyddade Neon-registret kan hantera, publicera, arkivera och permanent radera kundsajter samt arkivera publicister. Det lagrar även kundens portalinställningar och en minimal medlemsallowlist per riktig kund. Medlemskapet ger bara rätt att välja en publicerad portal; verklig kundstatistik och övriga livekällor är fortfarande inte anslutna. Se [portalstruktur och lagring](docs/PORTALSTRUKTUR.md). Den dokumentbaserade D-ID-agenten med video, chatt och valfri mikrofon hör till respektive kundportal, inte den interna adminportalen. Content Online styr agentens hälsning, positivitetsnivå och tillåtna verktyg, men nivån får aldrig påverka faktauppgifterna. [Prompt, Knowledge och verifieringsinstruktioner](docs/d-id/README.md) är versionshanterade; Studio synkroniseras inte automatiskt. Content Onlines skyddade interna textchatt finns kvar i admin.
+En valfri verifierad kunddomän kan peka på samma tenant i samma Vercel-projekt.
+Den behövs inte för att publicera kundens `/portal/{url-namn}`-adress.
 
-## Produktmål
+## Identitet och datagräns
 
-Kundplattformen ska ge behöriga personer hos Content Onlines kunder en samlad och spårbar bild av köpta informationsprodukter, användning, förnyelser, accessinformation, dokument och ärenden. MPS är IEEE:s verktyg för att bearbeta och visa dess siffror. Andra publishers kan ha ett annat verktyg, ett API, en fil eller inget motsvarande verktyg alls; ingen gemensam extern standard antas. Content Online-backenden får därför ett eget källneutralt konverteringslager och en importadapter per verklig källa. Plattformen kompletterar publishernas egna plattformar och återpublicerar inte skyddat innehåll utan uttrycklig rätt.
+Kundinloggningen använder en Clerk-session och det serverägda medlemsregistret.
+`/v1/portal-entries` returnerar endast publicerade portaler som den verifierade
+identiteten har ett aktivt medlemskap i. En slug eller URL ger aldrig behörighet.
 
-## Dokumentation
+Personalinloggningen under `/admin` har en separat kontroll: aktiv Clerk-session,
+verifierad primär e-post och Content Onlines serverkonfigurerade allowlist.
+Kundmedlemskap, kundcookies och klientmetadata ger inte intern adminbehörighet.
 
-- [Projektbrief](docs/PROJEKTBRIEF.md)
-- [Terminologi](docs/TERMINOLOGI.md)
-- [Backendens ansvar och frontendkontrakt](docs/BACKEND_ANSVAR.md)
-- [Behörighetsmodell](docs/BEHORIGHETSMODELL.md)
-- [Usage-konvertering och datakontrakt](docs/USAGE_KONVERTERING.md)
-- [Publisherintegrationer och verifieringsmatris](docs/PUBLISHER_INTEGRATIONER.md)
-- [Vercel-bedömning för B2B](docs/VERCEL_B2B_BEDOMNING.md)
-- [Frågor till uppdragsgivaren](docs/FRAGOR_TILL_UPPDRAGSGIVAREN.md)
-- [Besluts- och faktalogg](docs/BESLUTSLOGG.md)
-- [Källregister och auktoritet](docs/KALLREGISTER.md)
-- [Bottom-up teststrategi](docs/TESTSTRATEGI.md)
-- [Content Online AI-assistent och kontrolljobb](docs/AI_ASSISTENT.md)
-- [Salesforce-integration och kundkopplingar](docs/SALESFORCE_INTEGRATION.md)
-- [D-ID-agentens Prompt, Knowledge och portalanslutning](docs/d-id/README.md)
+Det beständiga registret lagrar kunder, publicister, portalinställningar,
+publiceringsstatus och en minimal medlemsallowlist. Personal kan publicera,
+avpublicera och arkivera kundportaler. En arkiverad, icke-syntetisk kund kan
+raderas permanent efter uttrycklig bekräftelse; kundsluggen blir då åter
+tillgänglig och en minimal audit-händelse bevaras.
 
-## Kör backend lokalt
+KTH är undantaget från riktiga medlemskonton och permanent radering. Andra
+kundportaler visar säkra tomlägen tills deras verkliga dataflöden har anslutits.
+Publika fixture-rutter är borttagna. Några skyddade adminvyer använder ännu
+tydligt syntetiska platshållare tills motsvarande livekällor har ersatt dem; de
+får aldrig beskrivas som verkliga kundutfall.
+
+## Kundportal och D-ID
+
+Alla kunder använder samma portaltemplate med kundens namn, färger, logotyp,
+publicister och valfria domäninställningar. D-ID-agenten hör till kundportalen,
+inte personaladministrationen, och laddas först när användaren öppnar den.
+Content Online styr hälsning, tonalitet och tillåtna verktyg, men tonaliteten får
+aldrig påverka fakta, kostnader, nedgångar eller osäkerhet.
+
+D-ID API-nycklar och Vercel-automationstokens är serverhemligheter. En D-ID
+client key är webbläsarkonfiguration och ska begränsas till exakt tillåten origin.
+Se [D-ID-dokumentationen](docs/d-id/README.md).
+
+## Produktmål och återstående integrationer
+
+Målet är att ge behöriga personer hos Content Onlines kunder en spårbar bild av
+informationsprodukter, användning, förnyelser, dokument och ärenden. MPS är
+IEEE:s verktyg för dess siffror; andra publicister kan erbjuda API, filimport
+eller inget gemensamt format. Plattformen behöver därför ett källneutralt
+konverteringslager och en adapter per verifierad källa.
+
+Följande ska inte beskrivas som live ännu:
+
+- verklig kundstatistik eller verifierade COUNTER-importer;
+- automatisk synk från MPS, andra publicister eller affärssystem;
+- verkliga kostnader, avtal, förnyelsebeslut eller licensprovisionering;
+- produktionsgodkänd kunddrift innan identitetsmiljö, avtal och datakällor har
+  verifierats för den berörda kunden.
+
+## Utveckling och verifiering
 
 Kräver Node.js 24 och npm.
 
 ```powershell
-npm install
+npm ci
 npm run check
-npm run dev
 ```
 
-Den lokala demotjänsten binder endast till `127.0.0.1:3000`. OpenAPI-kontraktet finns på `http://127.0.0.1:3000/openapi.json`. Demoidentiteterna och all usage är syntetiska. Produktionsingången i `src/index.ts` är avsiktligt låst och returnerar `503` för skyddade routes tills en riktig B2B-identitetsleverantör har kopplats in.
+Lokala och CI-baserade webbläsarkontroller får använda syntetiska fixtures, men
+de ska startas av testharnessen och får inte skapa publika `/demo`-endpoints.
+GitHub Actions kör typkontroll, regressionstester och isolerade registertester
+vid pull requests och push till `main`.
 
-Nu implementerad API-yta:
+Efter merge ska den stabila produktionsadressen verifieras mot en READY
+Vercel-deployment vars Git-SHA är exakt samma som GitHub `main`.
 
-```text
-GET  /health
-GET  /openapi.json
-GET  /v1/me
-GET  /v1/portal-entries
-GET  /v1/organizations/{organizationId}/overview
-GET  /v1/organizations/{organizationId}/portfolio
-GET  /v1/organizations/{organizationId}/usage
-GET  /v1/organizations/{organizationId}/tickets
-POST /v1/organizations/{organizationId}/tickets
-GET  /v1/organizations/{organizationId}/members
-```
+## Dokumentation
 
-GitHub Actions kör typkontroll och regressionstester vid push och pull request, inklusive separata kund- och adminbehörigheter. `/v1/portal-entries` använder Clerk och det beständiga medlemsregistret; övriga kunddata-API:er förblir låsta tills deras produktionsrepository har kopplats in. Admininloggningen ligger under `/admin` och använder varken kundmedlemskap eller demobackendens identiteter.
-
-Den gemensamma portalruntimen i detta repository är enda driftauktoritet för kundsidor. Ett separat kundfrontend-repo eller Vercel-projekt får inte återskapas, och ett nytt repo eller projekt får aldrig skapas per kund.
-
-## Statusord
-
-- **Bekräftat**: uttryckligen uppgett eller godkänt av Content Online i projektets aktuella dialog.
-- **Verifierat**: kontrollerat mot ett verkligt system, avtal, API eller representativ data.
-- **Källuppgift**: står i ett underlag men är ännu inte godkänt som projektbeslut.
-- **Föreslaget**: en möjlig produkt- eller teknikriktning.
-- **Öppet**: kräver svar eller beslut.
+- [Portalstruktur och tenantmodell](docs/PORTALSTRUKTUR.md)
+- [Aktuell drift och återstående arbete](docs/ADMIN_DRIFT.md)
+- [Behörighetsmodell](docs/BEHORIGHETSMODELL.md)
+- [Backendens ansvar och frontendkontrakt](docs/BACKEND_ANSVAR.md)
+- [Usage-konvertering och datakontrakt](docs/USAGE_KONVERTERING.md)
+- [Publisherintegrationer](docs/PUBLISHER_INTEGRATIONER.md)
+- [Salesforce-integration](docs/SALESFORCE_INTEGRATION.md)
+- [Content Online AI-assistent](docs/AI_ASSISTENT.md)
+- [D-ID-agentens portalanslutning](docs/d-id/README.md)
+- [Teststrategi](docs/TESTSTRATEGI.md)
 
 ## Informationssäkerhet
 
-Repositoryt ska inte innehålla credentials, tokens, verkliga kunddata eller licensierat publisherinnehåll. Endast material som hör direkt till uppdraget får påverka kravbilden. Publikt tillhandahållna COUNTER-exempel kan ligga till grund för demo-fixtures när återanvändningsvillkor, ursprung och demo-status framgår.
-
-Eftersom repositoryt är publikt ska även framtida exempeldata vara helt syntetisk och fri från avtals-, kund- och användningsuppgifter som inte redan är avsedda för offentlig publicering.
+Repositoryt får inte innehålla credentials, tokens, verkliga kunddata eller
+licensierat publisherinnehåll. Exempeldata ska vara helt syntetisk, tydligt märkt
+och begränsad till lokala tester, CI och den uttryckliga KTH-piloten.

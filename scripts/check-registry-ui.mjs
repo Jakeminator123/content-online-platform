@@ -25,7 +25,7 @@ try{
   await panel.locator('.list-item').filter({hasText:'Browser Partner'}).waitFor();
   await page.locator('.nav [data-id="customers"]').click();
   assert.equal(await page.locator('#view').innerText(), '', 'Real customer management must not display fictional organizations');
-  assert.ok((await panel.locator('.registry-customer').filter({hasText:'KTH'}).innerText()).includes('Plattformens demoagent'));
+  assert.ok((await panel.locator('.registry-customer').filter({hasText:'KTH'}).innerText()).includes('Gemensam D-ID-agent'));
   await panel.getByLabel('Organisationsnamn',{exact:true}).fill('Browser Customer');
   assert.equal(await panel.getByLabel('Slug efter inloggning').inputValue(),'browser-customer');
   await panel.getByRole('button',{name:'Lägg till kund',exact:true}).click();
@@ -54,10 +54,9 @@ try{
   await row.getByRole('link',{name:'Granska kundsajt'}).waitFor();
   assert.equal(await row.getByRole('link',{name:'Granska kundsajt'}).getAttribute('href'),'https://content-online-platform.vercel.app/portal/browser-customer');
   assert.equal(await row.getByRole('link',{name:'Kundinloggning'}).getAttribute('href'),'https://content-online-platform.vercel.app/login?portal=browser-customer');
-  const directory=await(await fetch(base+'/portal-directory/browser-customer')).json();
-  assert.deepEqual({name:directory.name,slug:directory.slug,mode:directory.mode},{name:'Browser Customer',slug:'browser-customer',mode:'awaiting_accounts'});
-  assert.equal(directory.brand.heading,'Browser kunskapsportal');
-  const customerPortal=await(await fetch(base+'/portal/browser-customer')).text();
+  const publishedPortal=await fetch(base+'/portal/browser-customer');
+  assert.equal(publishedPortal.status,200);
+  const customerPortal=await publishedPortal.text();
   assert.ok(customerPortal.includes('Browser kunskapsportal'));
   assert.ok(customerPortal.includes('data-agent-id="v2_agt_browser"'));
   await page.reload({waitUntil:'networkidle'});
@@ -68,10 +67,10 @@ try{
   await row.getByRole('button',{name:'Arkivera kundsajt',exact:true}).click();
   await row.getByRole('button',{name:'Återställ till utkast'}).waitFor();
   await row.getByRole('button',{name:'Radera permanent',exact:true}).waitFor();
-  assert.equal((await fetch(base+'/portal-directory/browser-customer')).status,404);
+  assert.equal((await fetch(base+'/portal/browser-customer')).status,404);
   await row.getByRole('button',{name:'Återställ till utkast'}).click();
   await row.getByRole('button',{name:'Publicera',exact:true}).waitFor();
-  assert.equal((await fetch(base+'/portal-directory/browser-customer')).status,404);
+  assert.equal((await fetch(base+'/portal/browser-customer')).status,404);
   await row.getByRole('button',{name:'Arkivera kundsajt',exact:true}).click();
   await row.getByRole('button',{name:'Radera permanent',exact:true}).click();
   const deleteForm=panel.locator('form[data-reg-form="delete_customer"]');

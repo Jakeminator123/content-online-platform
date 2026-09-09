@@ -1,134 +1,142 @@
 # Portalstruktur, kundsajter och sparat register
 
-## En kontrollpanel, en Vercel-runtime, många kundsajter
+## En runtime, många kundportaler
 
-`content-online-platform` äger Content Onlines interna kontrollpanel, de skyddade
-API:erna, det beständiga registret och den gemensamma kundportal-runtime som
-deployas i Vercel-projektet `content-online-platform`. Standardportalen är en mall
-i detta repository, inte ett separat kundrepo eller Vercel-projekt. En ny kund
-skapar bara en tenant-konfiguration som samma deployment läser från registret.
+`content-online-platform` äger Content Onlines interna kontrollpanel, skyddade
+API:er, beständiga register och gemensamma kundportalruntime. Allt deployas i
+Vercel-projektet `content-online-platform`. En ny kund skapar en
+tenant-konfiguration som samma deployment läser; den skapar inte ett nytt
+repository, en Git-gren eller ett Vercel-projekt.
 
-| Område | Adress | Behörighet |
+## Kanoniska vägar
+
+| Område | Adress | Funktion och behörighet |
 | --- | --- | --- |
-| Publik ingång | `https://content-online-platform.vercel.app/` | Ingen inloggning; presenterar Content Online och leder vidare till kundinloggningen |
-| Kundinloggning | `https://content-online-platform.vercel.app/login` | Verifierad kundidentitet; medlemskap avgör tillgängliga portalposter |
-| Content Online-admin | `https://content-online-platform.vercel.app/admin` | Intern Clerk-session och serverkontrollerad administratör |
-| Designgranskning | `/demo/customer/kth` | Oföränderlig och tydligt märkt syntetisk fixture, utan databasberoende |
-| Kundsida | `https://content-online-platform.vercel.app/portal/{url-namn}` | Publik, varumärkesmärkt struktur utan verklig kunddata |
-| Valfri kunddomän | `https://{url-namn}.portal.contentonline.se` | Kan senare peka på samma publicerade tenant |
-| KTH | `kth` | Syntetisk pilot; alla exempel märks som demo |
+| Publik ingång | `/` | Content Online-landning. Kundinloggning öppnas som en modal ovanpå sidan. |
+| Kundinloggning, reservväg | `/login` | Direktlänk till samma Clerk-baserade kundflöde. Kan bära en önskad portal som hjälp för valet, aldrig som behörighetsbevis. |
+| Kundaktivering | `/registrera` | Aktiverar ett kundkonto för en serverregistrerad medlemsinbjudan. |
+| Personaladministration | `/admin` | Separat Clerk-session och serverkontrollerad Content Online-administratör. |
+| Kundportal | `/portal/{slug}` | Gemensamt, kundmärkt portalskal. Verklig kunddata kräver verifierat medlemskap. |
+| KTH-pilot | `/portal/kth` | Uttryckligen syntetisk pilot med tydligt märkt presentationsdata. |
+| Valfri kunddomän | Exempelvis `https://kund.portal.contentonline.se/` | Samma publicerade tenant och runtime efter exakt domänverifiering. |
 
-Kundens URL väljer tenant men bevisar aldrig medlemskap. Verklig portfölj,
-statistik, dokument och ärenden kräver senare ett serververifierat kundmedlemskap.
+Det finns inga publika `/demo`-endpoints, öppna tenantkataloger eller äldre
+kompatibilitetsalias i den kanoniska modellen. Okända eller borttagna vägar ska
+ge 404. Lokala och CI-baserade fixtures ska bara nås genom testharnessen.
 
-I målbilden returnerar servern de portalposter som den verifierade identitetens
-aktiva medlemskap tillåter. En väntande e-postinbjudan binds vid första godkända
-inloggningen till leverantörens stabila användar-ID. Klienten får bara välja slug bland dessa poster; en
-manuellt angiven slug ger aldrig åtkomst. Den äldre login-sajten får finnas kvar
-som kompatibilitetslänk till den publika ingången, men riktig autentisering sker
-endast på `/login`; den äldre sajten äger varken session, medlemskap eller kundportal.
+## Kundens inloggningsflöde
 
-Den kanoniska `/portal/{slug}`-sidan verifierar samma session och exakta
-serverreturnerade portalpost innan den visar statusen verifierad åtkomst. Den
-publika, varumärkesmärkta strukturen kan fortfarande visas utan session, men
-innehåller ingen verklig kunddata.
+1. Kunden öppnar `/` och väljer kundinloggning. `/login` finns som direkt
+   fallback för bokmärken och externa returflöden.
+2. Clerk verifierar identiteten.
+3. Servern läser aktiva medlemskap och returnerar tillåtna, publicerade
+   portalposter via `/v1/portal-entries`.
+4. Finns exakt en tillåten portal kan klienten öppna den direkt. Annars väljer
+   användaren bland sina serverreturnerade organisationer.
+5. `/portal/{slug}` verifierar sessionen och medlemskapet innan den visar
+   kundskyddad status eller data.
+
+En manuellt angiven slug, ett kundnamn, en e-postadress i klienten eller en egen
+domän ger aldrig åtkomst. En väntande e-postinbjudan binds vid första godkända
+inloggningen till identitetsleverantörens stabila användar-ID.
+
+Det publika, kundmärkta portalskalet kan visas utan kunddata. Produkter,
+statistik, dokument och ärenden ska däremot förbli låsta eller visa tydliga
+tomlägen tills både medlemskap och verklig källa är verifierade.
 
 ## Vad Content Online kan styra
 
-Det skyddade registret sparar per kund:
+Det skyddade registret lagrar per kund:
 
-- namn, oföränderligt URL-namn, publiceringsstatus och publicister;
-- portal-mall (`standard` är den kompletta mallen; `library` och `minimal` är varianter);
+- namn, oföränderlig slug, typ och publiceringsstatus;
+- valda publicister och portaltemplate;
 - primärfärg, accentfärg, rubrik, ingress och publik HTTPS-logotyp;
-- önskad kunddomän och Vercels verifieringsstatus;
-- om plattformens gemensamma demoagent ska visas, valfri komplett kundunik
-  D-ID-override, hälsning, positivitet 1–10 och exakt allowlistade klientverktyg.
+- valfri kunddomän och dess verifieringsstatus;
+- portalmedlemmar och roller för icke-syntetiska kunder;
+- om den gemensamma D-ID-agenten är aktiverad, en valfri komplett kundunik
+  agentkonfiguration, hälsning, tonalitet och exakt tillåtna klientverktyg.
 
-Nya kunder börjar som utkast med en föreslagen slug, den aktuella gemensamma
-dashboarden, plattformens demoagent tillgänglig men avstängd, inga publicister,
-ingen egen domän, inga konton och inga kundvärden. Personal aktiverar agenten
-uttryckligen per kund. Efter publicering blir sidan tillgänglig på
-`/portal/{url-namn}`. `/login` använder serverns medlemskap för att välja en sådan
-slug; sluggen i sig ger aldrig behörighet. KTH:s data och identiteter kopieras
-aldrig till andra kunder.
+Nya kunder börjar som utkast med föreslagen slug, aktuell standarddashboard,
+inga medlemskap och inga verkliga mätvärden. Publicering gör portalskalet
+tillgängligt på `/portal/{slug}`. Den aktiverar inte automatiskt identitet,
+publisheraccess, statistikimport eller D-ID.
 
-## Publicering och domäner
+KTH är en skyddad syntetisk post. Den kan inte få verkliga portalmedlemmar eller
+raderas permanent. KTH:s produkter, användare och mätvärden återanvänds aldrig
+för andra kunder.
 
-Publicering gör det säkra portalskalet tillgängligt direkt i den redan deployade
-plattformen. Ingen ny build, Git-branch, deployment eller DNS-post behövs per
-kund. Arkivering tar bort den publika sajten vid nästa serverförfrågan men bevarar
-kundposten och inställningarna för återställning.
+## Publicering, arkivering och permanent radering
 
-En egen domän är valfri. Om `*.portal.contentonline.se` senare kopplas till
-Vercel-projektet `content-online-platform` fungerar varje ny
-förstahands-subdomän mot samma runtime utan ett projekt per kund.
+Publicering sker i den redan deployade gemensamma runtimen. Ingen kundspecifik
+build eller deployment behövs. Avpublicering och arkivering gör portalen
+otillgänglig för nya förfrågningar; arkivering bevarar posten för återställning.
 
-Domänstatusen läser servervariablerna:
+Permanent radering är ett separat, destruktivt steg och tillåts bara för en redan
+arkiverad, icke-syntetisk kund efter bekräftelse med kundnamn eller slug. Kunden
+tas bort ur registret, sluggen frigörs och en minimal audit-händelse utan
+kundinnehåll bevaras. En exakt ansluten kunddomän ska först kopplas loss från
+samma Vercel-projekt.
 
-- `CUSTOMER_PORTAL_ROOT_DOMAIN` (publik konfiguration),
-- `CUSTOMER_PORTAL_WILDCARD_READY` (sätts först efter verklig DNS-verifiering).
+## Domäner
 
-Individuella anpassade domäner kan vid behov använda de särskilda
-`CUSTOMER_PORTAL_VERCEL_PROJECT_ID`, `CUSTOMER_PORTAL_VERCEL_TEAM_ID` och en
-server-only `VERCEL_AUTOMATION_TOKEN`. Projekt-ID:t måste då peka på
-`content-online-platform`. Den vanliga `/portal/{url-namn}`-adressen och en
-verifierad wildcard-väg behöver ingen långlivad token. Innan DNS är verifierad
-fungerar register, publicering och plattformens kundadress fortfarande.
+En egen domän är valfri. Både wildcard-subdomäner och individuella kunddomäner
+ska peka på Vercel-projektet `content-online-platform` och mappas server-side
+till exakt en publicerad tenant.
 
-## Gemensam D-ID-demo med valfri kundoverride
+Relevant konfiguration:
 
-D-ID laddas bara i en publicerad kundportal vars agent är aktiverad och har en
-giltig agent/client-key-konfiguration. `DID_AGENT_ID` och `DID_CLIENT_KEY` är den
-gemensamma demostandarden för alla agentaktiverade portaler på plattformens
-origin. Admin visar bara om standarden är giltigt konfigurerad och lämnar aldrig
-ut dess värden. En kundunik override är valfri men måste innehålla både agent-ID
-och client key; en halv konfiguration nekas i stället för att blandas med
-plattformens standard.
+- `CUSTOMER_PORTAL_ROOT_DOMAIN` anger portalernas publika rotdomän;
+- `CUSTOMER_PORTAL_WILDCARD_READY` sätts först efter verklig DNS-verifiering;
+- `CUSTOMER_PORTAL_VERCEL_PROJECT_ID` och `CUSTOMER_PORTAL_VERCEL_TEAM_ID`
+  identifierar samma plattformsprojekt vid individuell domänautomation;
+- `VERCEL_AUTOMATION_TOKEN` är server-only och behövs bara för sådan automation.
 
-Varje D-ID client key ska begränsas till den exakta origin som används. För den
-delade kundadressen är det `https://content-online-platform.vercel.app`; en path
-som `/portal/kth` eller wildcardtext ska inte anges i D-ID Allowed Domains. Om en
-egen kunddomän aktiveras måste även den exakta originen tillåtas av standardens
-client key eller av en komplett kundunik override. En D-ID API key är en
-serverhemlighet och får aldrig lagras som client key.
+Okänd, avpublicerad eller arkiverad kund ska ge 404. Ett register- eller
+leverantörsfel ska ge ett tydligt otillgängligt läge, aldrig KTH-data eller
+fabricerade tomdata som ser verifierade ut.
 
-Portalens klient registrerar bara dessa handler-namn:
+## D-ID-agent
 
-- `get_portal_context`,
-- `navigate_portal`,
-- `get_portfolio_summary`,
-- `get_usage_summary`.
+D-ID hör till kundportalen, inte personaladministrationen. Widgetens script
+laddas först efter att användaren har öppnat den. Agenten visas bara när kunden
+är publicerad, funktionen är aktiverad och en komplett agent/client-key-
+konfiguration kan lösas.
 
-Navigation accepterar fem fasta sektioner och gör inga fria DOM-klick. De övriga
-verktygen returnerar syntetisk demo eller `authentication_required` tills verklig
-kundautentisering finns. D-ID-verktygen måste dessutom skapas och fästas på rätt
-agent i Studio/API; en browser client key kan inte administrera agenten.
+`DID_AGENT_ID` och `DID_CLIENT_KEY` är plattformens gemensamma
+webbläsarkonfiguration. En kundunik override måste innehålla båda värdena; en
+halv konfiguration ska nekas. Admin får visa konfigurationsstatus men aldrig
+värdena.
 
-Positivitet styr språkdräkt, inte fakta. Även vid 10 måste agenten redovisa
-kostnader, nedgångar, luckor, osäkerhet och källstatus. Ekonomisk nytta får aldrig
-påstås utan ett verifierat underlag.
+Varje D-ID client key ska begränsas till exakt tillåten origin. För den delade
+adressen är det `https://content-online-platform.vercel.app`, inte en
+`/portal/{slug}`-path. En egen kunddomän måste tillåtas separat. En D-ID API key
+är en serverhemlighet och får aldrig användas som client key.
 
-## Lagring och säkerhetsgräns
+Agentens verktyg får endast arbeta inom aktuell kundkontext och fasta
+navigeringsmål. Tonalitet påverkar språkdräkt, aldrig fakta. Kostnader,
+nedgångar, dataluckor och osäkerhet ska redovisas även när tonen är positiv.
 
-Neon-tabellen `co_registry_v1` fortsätter använda versionsmärkt JSONB och
-optimistisk samtidighetskontroll. Äldre poster migreras läsmässigt med säkra
-standardvärden för `site`; ingen separat destruktiv databas-migration krävs.
+## Lagring och datagräns
 
-- `/admin/api/registry` och domänautomationen kräver verifierad intern admin.
-- `/portal-directory/{slug}` lämnar endast publicerad presentationsmetadata.
-- Agent-context lämnar aldrig client key och aldrig verklig statistik utan
+Neon-tabellen `co_registry_v1` lagrar versionsmärkt JSONB med optimistisk
+samtidighetskontroll. Äldre poster fylls läsmässigt med säkra standardvärden.
+
+- `/admin/api/registry` och domänautomation kräver verifierad intern admin.
+- `/v1/portal-entries` kräver verifierad kundidentitet och härleder poster från
+  serverägda medlemskap.
+- Agent-context får inte lämna ut client key eller verklig statistik utan
   autentiserat tenantscope.
-- Okänd, avpublicerad eller arkiverad kund ger 404 och får ingen KTH-fallback.
-- Databas- och leverantörsfel ger otillgängligt läge, inte fabricerade tomdata.
+- Testfixtures har inga publika produktionsrutter. Skyddade adminplatshållare
+  som ännu finns kvar ska tas bort när motsvarande registervy är levererad.
+- KTH:s `/portal/kth` är det enda uttryckliga syntetiska kundundantaget.
 
-## Driftsgräns och migration
+Verklig kundstatistik, MPS-/COUNTER-importer, övriga publisherflöden, avtal,
+kostnader och ärenden är inte liveanslutna. Icke-KTH-portaler ska därför visa
+låsta eller tomma produktionslägen i stället för syntetiska exempel.
 
-Admin och kundsidor delar Vercel-projekt men inte behörighetsmodell. Kundroutes
-läser endast publicerade tenantposter; admin-API:er kräver fortsatt verifierad
-Content Online-identitet. Den gemensamma portalruntimen i detta repository är
-enda driftauktoritet och ett parallellt kundfrontend-repo eller Vercel-projekt får
-inte återskapas.
+## Driftsverifiering
 
-`vercel.json` anger Stockholm (`arn1`) som målregion för projektets funktioner.
-Det är konfiguration, inte bevis på live-läge; region och Git-SHA ska verifieras
-på den READY-deployment som senare får produktionsaliaset.
+Vercel Production ska följa GitHub `main`. Efter leverans verifieras att den
+stabila produktionsadressen pekar på en READY deployment med exakt samma Git-SHA
+som aktuell `main`. En Preview eller en lyckad build är inte i sig bevis på
+produktionssättning.
