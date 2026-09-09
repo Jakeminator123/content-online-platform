@@ -57,6 +57,21 @@ Det publika, kundmärkta portalskalet kan visas utan kunddata. Produkter,
 statistik, dokument och ärenden ska däremot förbli låsta eller visa tydliga
 tomlägen tills både medlemskap och verklig källa är verifierade.
 
+Portalen skiljer därför uttryckligen mellan tre tillstånd:
+
+- utan kundsession visas en samlad inloggningsyta, inte upprepade generiska
+  låsmeddelanden;
+- med verifierat medlemskap visas portalens arbetsyta och den verkliga
+  aktiveringsstatusen för produkter, analys och rapporter;
+- först när produktportfölj och tenant-avgränsade källor finns får faktiska
+  produkt-, användnings- eller rapportvärden visas.
+
+En verifierad inloggning är alltså inte samma sak som en färdig dataleverans.
+Produktregister, kundens produkttilldelningar, publisher-/COUNTER-importer och
+rapportgenerering är separata förmågor och är ännu inte live för riktiga kunder.
+Tomläget ska säga exakt vilken av dessa delar som saknas och får aldrig visas som
+noll användning eller fyllas med KTH:s syntetiska data.
+
 ## Vad Content Online kan styra
 
 Det skyddade registret lagrar per kund:

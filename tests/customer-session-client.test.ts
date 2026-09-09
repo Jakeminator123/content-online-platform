@@ -6,6 +6,7 @@ type Entry = {
   slug: string;
   organizationId?: string;
   organizationName?: string;
+  displayName?: string;
   role?: string;
 };
 
@@ -43,13 +44,22 @@ async function runClient(options: HarnessOptions = {}) {
   const footerStatus = fakeNode();
   footerStatus.textContent = "Inloggning krävs";
   const liveStatus = fakeNode();
+  const memberNames = [fakeNode(), fakeNode()];
+  const memberRoles = [fakeNode(), fakeNode()];
+  const memberInitials = [fakeNode(), fakeNode()];
   const document = {
     body,
     querySelectorAll: (selector: string) => selector === "[data-authenticated-only]"
       ? authenticatedOnly
       : selector === "[data-locked-only]"
         ? lockedOnly
-        : [],
+        : selector === "[data-portal-member-name]"
+          ? memberNames
+          : selector === "[data-portal-member-role]"
+            ? memberRoles
+            : selector === "[data-portal-member-initials]"
+              ? memberInitials
+              : [],
     querySelector: (selector: string) => selector === ".sidebar-footer"
       ? footer
       : selector === "[data-portal-access-status]"
@@ -93,6 +103,9 @@ async function runClient(options: HarnessOptions = {}) {
     liveStatus,
     load,
     lockedOnly,
+    memberInitials,
+    memberNames,
+    memberRoles,
   };
 }
 
@@ -107,7 +120,7 @@ function expectLocked(result: Awaited<ReturnType<typeof runClient>>) {
 describe("canonical customer portal session client", () => {
   it("marks the portal authenticated only for an exact server-returned slug", async () => {
     const result = await runClient({
-      entries: [{ slug: "alpha", organizationId: "customer-alpha", role: "unexpected-role-is-ignored" }],
+      entries: [{ slug: "alpha", organizationId: "customer-alpha", displayName: "Anna Andersson", role: "customer_admin" }],
     });
 
     expect(result.body.dataset.portalAccess).toBe("authenticated");
@@ -117,6 +130,9 @@ describe("canonical customer portal session client", () => {
     expect(result.footer.dataset.portalAccess).toBe("authenticated");
     expect(result.footerStatus.textContent).toBe("Verifierad åtkomst");
     expect(result.liveStatus.textContent).toBe("Kundåtkomsten är verifierad.");
+    expect(result.memberNames.every((node) => node.textContent === "Anna Andersson")).toBe(true);
+    expect(result.memberRoles.every((node) => node.textContent === "Kundadministratör")).toBe(true);
+    expect(result.memberInitials.every((node) => node.textContent === "AA")).toBe(true);
     expect(result.fetch).toHaveBeenCalledWith("/v1/portal-entries", {
       headers: { Authorization: "Bearer customer-session-token" },
       cache: "no-store",

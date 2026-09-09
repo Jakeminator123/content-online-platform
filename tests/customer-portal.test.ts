@@ -177,7 +177,11 @@ describe("shared multi-tenant customer portal", () => {
     const portalHtml = await portal.text();
     expect(portalHtml).toContain("North knowledge");
     expect(portalHtml).toContain('data-customer-slug="north"');
-    expect(portalHtml).toContain("Skyddad kundyta");
+    expect(portalHtml).toContain("Logga in för att se produktportföljen");
+    expect(portalHtml).toContain("Produktportföljen är inte upplagd ännu.");
+    expect(portalHtml).toContain("Ingen verifierad data att visa");
+    expect(portalHtml).toContain("Inga rapporter är publicerade ännu.");
+    expect(portalHtml).not.toContain("Skyddad kundyta");
     expect(portalHtml).not.toContain("KTH Biblioteket");
     expect(portalHtml).not.toContain("412");
 
