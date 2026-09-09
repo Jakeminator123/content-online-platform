@@ -30,7 +30,7 @@ Loggen skiljer mellan bekräftad verksamhetsinformation, arbetsbeslut och sådan
 | `DEC-012` | Kundportalen har två kundroller: Kundadmin och Läsare. Bibliotekarien är Kundadmin. Content Online-operatör är en separat intern säkerhetsdomän. | Arbetsbeslut |
 | `DEC-013` | Detta repo äger backend, auth-/användarmodell, tenantisolering, API-kontrakt, integrationer och tester. Frontend byggs separat och kopplas in senare. | Historiskt beslut, ersatt av `DEC-014` |
 | `DEC-014` | `content-online-platform` är den enda kundportalruntimen. Den äldre login-sajten är endast en kompatibilitetslänk till plattformen, inte en parallell runtime. | Arkitekturmål |
-| `DEC-015` | `/` är kundinloggning och `/admin` separat personaladmin. Serverägda medlemskap binds efter verifierad e-postinbjudan till ett stabilt provider-ID; slug får endast väljas bland poster som servern returnerat och ger aldrig i sig behörighet. | Arkitekturmål |
+| `DEC-015` | `/` är publik Content Online-ingång, `/login` kundinloggning och `/admin` separat personaladmin. Serverägda medlemskap binds efter verifierad e-postinbjudan till ett stabilt provider-ID; slug får endast väljas bland poster som servern returnerat och ger aldrig i sig behörighet. | Arkitekturmål |
 
 ## Kräver nästa verifiering
 

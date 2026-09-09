@@ -11,6 +11,12 @@ export const customerAccessClient = String.raw`
   const signOut = document.getElementById('customer-sign-out');
   const requestedPortal = new URL(location.href).searchParams.get('portal') || '';
   const returnUrl = location.pathname + location.search;
+  const customerAppearance = {
+    elements: {
+      headerTitle: { display: 'none' },
+      headerSubtitle: { display: 'none' },
+    },
+  };
 
   function setMessage(value) {
     if (message) message.textContent = value;
@@ -83,12 +89,12 @@ export const customerAccessClient = String.raw`
     try {
       await Clerk.load({
         ui: { ClerkUI: window.__internal_ClerkUICtor },
-        signInUrl: '/',
+        signInUrl: '/login',
         signUpUrl: '/registrera',
         signInForceRedirectUrl: returnUrl,
         signUpForceRedirectUrl: returnUrl,
       });
-      if (signOut) signOut.addEventListener('click', () => Clerk.signOut({ redirectUrl: '/' }));
+      if (signOut) signOut.addEventListener('click', () => Clerk.signOut({ redirectUrl: '/login' }));
       if (Clerk.session) {
         await resolveEntries(Clerk.session);
         return;
@@ -97,10 +103,11 @@ export const customerAccessClient = String.raw`
       if (!widget) return;
       const options = {
         routing: 'hash',
-        signInUrl: '/',
+        signInUrl: '/login',
         signUpUrl: '/registrera',
         forceRedirectUrl: returnUrl,
         fallbackRedirectUrl: returnUrl,
+        appearance: customerAppearance,
       };
       if (document.body.dataset.customerAccessMode === 'register') Clerk.mountSignUp(widget, options);
       else Clerk.mountSignIn(widget, options);

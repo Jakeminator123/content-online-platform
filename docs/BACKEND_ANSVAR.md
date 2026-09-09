@@ -10,7 +10,7 @@
 
 Detta repository äger backend, API-kontrakt, användare, autentiseringsintegration, behörighet, tenantisolering, usage-konvertering, affärsregler, tickets, persistence, tester och den delade kundportalens runtime.
 
-Målbilden är att `/` är kundinloggningen och att `/admin` förblir en separat personaladministration. Den äldre login-sajten får endast länka eller omdirigera hit för kompatibilitet; den är inte en parallell portalruntime eller behörighetskälla.
+Målbilden är att `/` är den publika Content Online-ingången, `/login` kundinloggningen och `/admin` en separat personaladministration. Den äldre login-sajten får endast länka eller omdirigera till den kanoniska plattformen för kompatibilitet; den är inte en parallell portalruntime eller behörighetskälla.
 
 ## Backend äger
 

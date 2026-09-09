@@ -8,7 +8,9 @@ Projektet är en publicerad pilot med intern admininloggning, skyddade API:er, d
 
 ## Publicerade ingångar och aktuell gräns
 
-- [Kundinloggning](https://content-online-platform.vercel.app): verifierar kundidentitet och visar endast de publicerade portaler som ett aktivt serverägt medlemskap medger.
+- [Publik ingång](https://content-online-platform.vercel.app): presenterar Content Online och leder vidare till kundinloggningen utan att själv hantera identitet eller medlemskap.
+- [Kundinloggning](https://content-online-platform.vercel.app/login): verifierar kundidentitet och visar endast de publicerade portaler som ett aktivt serverägt medlemskap medger.
+- [Aktivera kundkonto](https://content-online-platform.vercel.app/registrera): använder den verifierade e-postadress som Content Online har kopplat till kundorganisationen.
 - Kundsida `https://content-online-platform.vercel.app/portal/{url-namn}`: den gemensamma portalmallen med en rimlig, kundspecifik slug.
 - Designgranskning `/demo/customer/kth`: oföränderlig, tydligt märkt KTH-fixture som fungerar även när en PR-preview avsiktligt saknar produktionsdatabas.
 - Valfri kunddomän `https://{url-namn}.portal.contentonline.se`: kan kopplas senare till samma Vercel-projekt; den behövs inte för att publicera kundsidan.

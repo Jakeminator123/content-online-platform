@@ -328,7 +328,7 @@ describe("Hosted portal entry and guarded admin API", () => {
 
   it("keeps public HTML free of admin identity, secret key and customer data", async () => {
     const app = appFor({ status: "unauthenticated" });
-    for (const path of ["/", "/admin", "/admin/login", "/admin/registrera"]) {
+    for (const path of ["/", "/login", "/admin", "/admin/login", "/admin/registrera"]) {
       const response = await app.request(path);
       const body = await response.text();
       expect(response.status).toBe(200);
@@ -362,7 +362,7 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(styles).not.toContain('logo-scan-in');
   });
 
-  it.each(["/", "/admin/login", "/admin/registrera", "/demo"])("keeps the protected assistant out of %s", async (path) => {
+  it.each(["/", "/login", "/admin/login", "/admin/registrera", "/demo"])("keeps the protected assistant out of %s", async (path) => {
     const response = await appFor({ status: "unauthenticated" }).request(path);
     const body = await response.text();
     expect(body).not.toContain('id="assistant-launcher"');
@@ -399,17 +399,46 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(admin).not.toContain('id="assistant-customers"');
     expect(admin).not.toContain('id="assistant-jobs"');
     const start = await (await app.request("/")).text();
-    expect(start).toContain('data-customer-access-mode="login"');
-    expect(start).toContain('id="customer-auth-widget"');
-    expect(start).toContain('href="/admin/login"');
-    expect(start).toContain("Kundåtkomst");
+    expect(start).toContain('data-page="customer-landing"');
+    expect(start).toContain('data-customer-login');
+    expect(start).toContain('href="/login"');
+    expect(start).toContain('src="/customer-landing/hero-wide.png"');
+    expect(start).not.toContain('id="customer-auth-widget"');
+    expect(start).not.toContain('clerk.browser.js');
     expect(start).not.toContain("INTERN ÅTKOMST");
     expect(start).not.toContain("KTH");
+    const customerLogin = await (await app.request("/login")).text();
+    expect(customerLogin).toContain('data-customer-access-mode="login"');
+    expect(customerLogin).toContain('id="customer-auth-widget"');
+    expect(customerLogin).toContain('href="/admin/login"');
+    expect(customerLogin).toContain("Kundåtkomst");
+    expect(customerLogin).not.toContain("INTERN ÅTKOMST");
     const staffLogin = await (await app.request("/admin/login")).text();
     expect(staffLogin).toContain('data-mode="login"');
     expect(staffLogin).toContain('id="auth-widget"');
     expect(staffLogin).toContain("INTERN ÅTKOMST");
     expect(staffLogin).not.toContain('id="customer-auth-widget"');
+  });
+
+  it("serves dependency-free, parseable assets for the public customer landing", async () => {
+    const app = appFor({ status: "unauthenticated" });
+    const clientResponse = await app.request("/customer-landing/assets/client.js");
+    const client = await clientResponse.text();
+    expect(clientResponse.status).toBe(200);
+    expect(clientResponse.headers.get("content-type")).toContain("text/javascript");
+    expect(() => new Script(client)).not.toThrow();
+    expect(client).not.toContain("content-online-customer-login");
+    expect(client).toContain("main.inert = open");
+    expect(client).toContain("Close menu");
+    expect(client).toContain("requestAnimationFrame(() => firstLink.focus())");
+    expect(client).toContain("first && first.focus()");
+
+    const styleResponse = await app.request("/customer-landing/assets/style.css");
+    const styles = await styleResponse.text();
+    expect(styleResponse.status).toBe(200);
+    expect(styleResponse.headers.get("content-type")).toContain("text/css");
+    expect(styles).toContain("prefers-reduced-motion");
+    expect(styles).toContain(".landing-login");
   });
 
   it("does not treat a transient Clerk reconnect as a signed-out session", () => {
@@ -486,15 +515,28 @@ describe("Hosted portal entry and guarded admin API", () => {
     for (const path of ["/kundportal?redirect=https://evil.example", "/portal/login?portal=%2F%2Fevil.example"]) {
       const response = await app.request(path);
       expect(response.status).toBe(302);
-      expect(response.headers.get("location")).toBe("/");
+      expect(response.headers.get("location")).toBe("/login");
       expect(response.headers.get("set-cookie")).toBeNull();
     }
     for (const path of ["/kundportal?portal=alpha", "/portal/login?portal=alpha"]) {
       const response = await app.request(path);
       expect(response.status).toBe(302);
-      expect(response.headers.get("location")).toBe("/?portal=alpha");
+      expect(response.headers.get("location")).toBe("/login?portal=alpha");
       expect(response.headers.get("set-cookie")).toBeNull();
     }
+
+    const preferredPortal = await app.request("/?portal=alpha");
+    expect(preferredPortal.status).toBe(302);
+    expect(preferredPortal.headers.get("location")).toBe("/login?portal=alpha");
+    expect(preferredPortal.headers.get("set-cookie")).toBeNull();
+
+    const invalidPortal = await app.request("/?portal=%2F%2Fevil.example");
+    expect(invalidPortal.status).toBe(200);
+    expect(invalidPortal.headers.get("set-cookie")).toBeNull();
+    const invalidPortalBody = await invalidPortal.text();
+    expect(invalidPortalBody).toContain('data-page="customer-landing"');
+    expect(invalidPortalBody).not.toContain("evil.example");
+    expect(invalidPortalBody).not.toContain('id="customer-auth-widget"');
   });
 
   it("validates the Clerk frontend host before putting it in HTML", () => {

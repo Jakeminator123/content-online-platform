@@ -10,7 +10,7 @@ export type CustomerPortalRenderOptions = {
   customerAuth?: { host: string; publishableKey: string };
 };
 
-const CUSTOMER_LOGIN_URL = "https://content-online-platform.vercel.app/";
+const CUSTOMER_LOGIN_URL = "https://content-online-platform.vercel.app/login";
 const PORTAL_SECTIONS = [
   { id: "overview", label: "Överblick" },
   { id: "products", label: "Produkter" },
