@@ -424,8 +424,12 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(start).toContain('srcset="/customer-landing/lab-640.jpg 640w');
     expect(start).toContain('aria-label="Customer log in"');
     expect(start.match(/<h1\b/g)).toHaveLength(1);
-    expect(start).not.toContain('id="customer-auth-widget"');
-    expect(start).not.toContain('clerk.browser.js');
+    expect(start).toContain('id="customer-login-dialog"');
+    expect(start).toContain('id="customer-auth-widget"');
+    expect(start).toContain('data-customer-access-autostart="false"');
+    expect(start).toContain('data-customer-access-return-url="/?login=1"');
+    expect(start).toContain('clerk.browser.js');
+    expect(start).toContain('src="/customer-portal/assets/access.js"');
     expect(start).not.toContain('content-online-customer-login');
     expect(start).not.toContain("<iframe");
     expect(start).not.toMatch(/6M\+|250K\+|Head Librarian|webinar/i);
@@ -477,6 +481,10 @@ describe("Hosted portal entry and guarded admin API", () => {
     expect(client).toContain("resourceTabs[nextIndex]");
     expect(client).toContain("dataset.resourceHotspot === resource");
     expect(client).toContain("hotspot.addEventListener('pointerenter'");
+    expect(client).toContain("loginDialog.showModal()");
+    expect(client).toContain("new Event('customer-access:open')");
+    expect(client).toContain("url.searchParams.set('login', '1')");
+    expect(client).toContain("event.target === loginDialog");
     expect(client).toContain("const initCleanReveal = () =>");
     expect(client).toContain("const maxBackingPixels = 1600000");
     expect(client).toContain("points.length > 52");
@@ -599,7 +607,8 @@ describe("Hosted portal entry and guarded admin API", () => {
     const invalidPortalBody = await invalidPortal.text();
     expect(invalidPortalBody).toContain('data-page="customer-landing"');
     expect(invalidPortalBody).not.toContain("evil.example");
-    expect(invalidPortalBody).not.toContain('id="customer-auth-widget"');
+    expect(invalidPortalBody).toContain('id="customer-login-dialog"');
+    expect(invalidPortalBody).toContain('id="customer-auth-widget"');
   });
 
   it("validates the Clerk frontend host before putting it in HTML", () => {

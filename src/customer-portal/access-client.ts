@@ -9,8 +9,11 @@ export const customerAccessClient = String.raw`
   const list = document.getElementById('portal-entry-list');
   const account = document.getElementById('customer-account');
   const signOut = document.getElementById('customer-sign-out');
+  const mode = root.dataset.customerAccessMode || document.body.dataset.customerAccessMode || 'login';
+  const deferred = root.dataset.customerAccessAutostart === 'false';
   const requestedPortal = new URL(location.href).searchParams.get('portal') || '';
-  const returnUrl = location.pathname + location.search;
+  const configuredReturnUrl = root.dataset.customerAccessReturnUrl || '';
+  const returnUrl = /^\/(?!\/)/.test(configuredReturnUrl) ? configuredReturnUrl : location.pathname + location.search;
   const customerAppearance = {
     elements: {
       headerTitle: { display: 'none' },
@@ -65,27 +68,39 @@ export const customerAccessClient = String.raw`
     chooser.hidden = false;
   }
 
-  async function resolveEntries(session) {
+  async function resolveEntries(session, isActive = () => true) {
     setMessage('Verifierar medlemskap…');
     const token = await session.getToken();
+    if (!isActive()) return false;
     const response = await fetch('/v1/portal-entries', {
       headers: { Authorization: 'Bearer ' + token },
       cache: 'no-store',
       credentials: 'omit',
     });
+    if (!isActive()) return false;
     if (!response.ok) {
       showAccount();
       if (widget) widget.hidden = true;
       if (response.status === 403) setMessage('Kontot kan inte användas för kundåtkomst.');
       else if (response.status === 503) setMessage('Kundinloggningen är tillfälligt otillgänglig.');
       else setMessage('Sessionen kunde inte verifieras. Logga ut och försök igen.');
-      return;
+      return true;
     }
     const payload = await response.json();
+    if (!isActive()) return false;
     renderEntries(payload.entries);
+    return true;
   }
 
+  let starting = false;
+  let ready = false;
+  let runVersion = 0;
+  let signOutBound = false;
+  const isRunActive = (run) => run === runVersion && (!deferred || root.dataset.customerAccessRequested === 'true');
   async function start() {
+    if (starting || ready) return;
+    starting = true;
+    const run = ++runVersion;
     try {
       await Clerk.load({
         ui: { ClerkUI: window.__internal_ClerkUICtor },
@@ -94,13 +109,27 @@ export const customerAccessClient = String.raw`
         signInForceRedirectUrl: returnUrl,
         signUpForceRedirectUrl: returnUrl,
       });
-      if (signOut) signOut.addEventListener('click', () => Clerk.signOut({ redirectUrl: '/login' }));
+      if (!isRunActive(run)) {
+        if (run === runVersion) starting = false;
+        return;
+      }
+      if (signOut && !signOutBound) {
+        signOutBound = true;
+        signOut.addEventListener('click', () => Clerk.signOut({ redirectUrl: returnUrl }));
+      }
       if (Clerk.session) {
-        await resolveEntries(Clerk.session);
+        const resolved = await resolveEntries(Clerk.session, () => isRunActive(run));
+        if (run !== runVersion) return;
+        ready = resolved;
+        starting = false;
         return;
       }
       setMessage('');
-      if (!widget) return;
+      if (!widget) {
+        ready = true;
+        starting = false;
+        return;
+      }
       const options = {
         routing: 'hash',
         signInUrl: '/login',
@@ -109,13 +138,26 @@ export const customerAccessClient = String.raw`
         fallbackRedirectUrl: returnUrl,
         appearance: customerAppearance,
       };
-      if (document.body.dataset.customerAccessMode === 'register') Clerk.mountSignUp(widget, options);
+      if (mode === 'register') Clerk.mountSignUp(widget, options);
       else Clerk.mountSignIn(widget, options);
+      ready = true;
+      starting = false;
     } catch (_) {
+      if (run !== runVersion) return;
+      starting = false;
+      if (!isRunActive(run)) return;
       setMessage('Inloggningstjänsten kunde inte laddas. Ladda om sidan och försök igen.');
     }
   }
 
-  start();
+  if (deferred) {
+    window.addEventListener('customer-access:open', start);
+    window.addEventListener('customer-access:close', () => {
+      if (!starting) return;
+      runVersion += 1;
+      starting = false;
+    });
+    if (root.dataset.customerAccessRequested === 'true') start();
+  } else start();
 })();
 `;

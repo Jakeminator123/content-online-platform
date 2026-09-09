@@ -1,4 +1,29 @@
-export function renderCustomerLanding(): string {
+export type CustomerLandingAccess = {
+  configured: boolean;
+  host: string | null;
+  publishableKey: string;
+};
+
+function escapeHtml(value: string): string {
+  const entities: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  return value.replace(/[&<>"']/g, (character) => entities[character] ?? character);
+}
+
+export function renderCustomerLanding(access: CustomerLandingAccess = {
+  configured: false,
+  host: null,
+  publishableKey: "",
+}): string {
+  const customerAccessConfigured = Boolean(access.configured && access.host && access.publishableKey);
+  const customerAccessScripts = customerAccessConfigured
+    ? `<script defer crossorigin="anonymous" src="https://${escapeHtml(access.host!)}/npm/@clerk/ui@1/dist/ui.browser.js"></script><script defer crossorigin="anonymous" data-clerk-publishable-key="${escapeHtml(access.publishableKey)}" src="https://${escapeHtml(access.host!)}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script><script defer src="/customer-portal/assets/access.js"></script>`
+    : "";
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -11,6 +36,7 @@ export function renderCustomerLanding(): string {
     <link rel="preload" href="/customer-landing/hero-wide.jpg" as="image" imagesrcset="/customer-landing/hero-wide-640.jpg 640w, /customer-landing/hero-wide.jpg 1024w" imagesizes="100vw" fetchpriority="high">
     <link rel="stylesheet" href="/customer-landing/assets/style.css">
     <script defer src="/customer-landing/assets/client.js"></script>
+    ${customerAccessScripts}
   </head>
   <body data-page="customer-landing">
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -179,6 +205,29 @@ export function renderCustomerLanding(): string {
       </div>
       <div class="landing-footer-row"><p>© 2026 Content Online</p><p>Knowledge connected.</p></div>
     </footer>
+
+    <dialog class="landing-auth-dialog" id="customer-login-dialog" aria-labelledby="customer-login-title">
+      <div class="landing-auth-shell">
+        <form method="dialog" class="landing-auth-close-form">
+          <button class="landing-auth-close" type="submit" aria-label="Close customer login"><span aria-hidden="true">×</span></button>
+        </form>
+        <div class="landing-auth-brand" aria-hidden="true">
+          <span><img src="/admin/assets/co-logo.png" alt="" width="96" height="96"></span>
+          <strong>CONTENT <em>online</em></strong>
+        </div>
+        <section class="landing-auth-card" id="customer-access" data-customer-access-mode="login" data-customer-access-autostart="false" data-customer-access-return-url="/?login=1">
+          <p class="landing-auth-kicker">CUSTOMER PORTAL</p>
+          <h2 id="customer-login-title">Welcome back.</h2>
+          <p class="landing-auth-intro">Sign in with the account connected to your organisation.</p>
+          <p class="customer-access-message" id="customer-access-message" role="status">${customerAccessConfigured ? "Loading secure sign-in…" : "Customer sign-in is not configured."}</p>
+          ${customerAccessConfigured ? `<div id="customer-auth-widget"></div>` : ""}
+          <section class="portal-chooser" id="portal-chooser" aria-labelledby="portal-chooser-title" hidden><h3 id="portal-chooser-title">Your customer portals</h3><div class="portal-entry-list" id="portal-entry-list"></div></section>
+          <div class="customer-account" id="customer-account" hidden><button class="landing-auth-secondary" id="customer-sign-out" type="button" hidden>Sign out and switch account</button></div>
+          <div class="customer-access-switch"><a href="/registrera">Activate your customer account</a></div>
+          <div class="landing-auth-trust"><span aria-hidden="true">✓</span><p>Access is verified on the server for every account.</p></div>
+        </section>
+      </div>
+    </dialog>
   </body>
 </html>`;
 }
