@@ -77,7 +77,7 @@ try{
   await row.getByRole('button',{name:'Återställ till utkast'}).click();
   await row.getByRole('button',{name:'Publicera',exact:true}).waitFor();
   assert.equal((await fetch(base+'/portal/browser-customer')).status,404);
-  await row.getByRole('button',{name:'Arkivera kundsajt',exact:true}).click();
+  await row.getByRole('button',{name:'Ta bort utkast…',exact:true}).click();
   await row.getByRole('button',{name:'Radera permanent',exact:true}).click();
   const deleteForm=panel.locator('form[data-reg-form="delete_customer"]');
   await deleteForm.getByLabel('Exakt slug').fill('browser-customer');
