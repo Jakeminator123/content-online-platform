@@ -34,8 +34,9 @@ fallback för en annan tenant.
 
 Kundflödet fungerar i följande ordning:
 
-1. Content Online sparar medlemskapet i Neon. För en publicerad portal skapar
-   backend samtidigt en personlig Clerk-inbjudan till den registrerade adressen.
+1. Content Online sparar medlemskapet i Neon. För en publicerad portal synkar
+   backend adressen till Clerk-instansens signup-allowlist utan separat mejl och
+   skapar därefter en personlig Clerk-inbjudan till samma adress.
 2. Inbjudningslänken öppnar `/registrera`; fri registrering utan inbjudan erbjuds
    inte.
 3. Clerk verifierar identiteten.

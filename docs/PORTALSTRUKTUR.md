@@ -27,7 +27,8 @@ ge 404. Lokala och CI-baserade fixtures ska bara nås genom testharnessen.
 ## Kundens inloggningsflöde
 
 1. Content Online lägger till portalmedlemmen i Neon. Om portalen är publicerad
-   skickar backend automatiskt en personlig Clerk-inbjudan. En misslyckad
+   synkar backend adressen till den nuvarande Clerk-instansens signup-allowlist
+   och skickar automatiskt en personlig Clerk-inbjudan. En misslyckad synk eller
    e-postleverans rullar inte tillbaka medlemskapet och kan skickas igen från
    adminvyn.
 2. Kunden aktiverar kontot via inbjudningslänken till `/registrera`. Sidan
