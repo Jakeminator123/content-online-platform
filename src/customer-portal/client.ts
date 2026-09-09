@@ -1,3 +1,5 @@
+import { customerPortalInsightsClient } from "./insights-client.js";
+
 export const customerPortalClient = String.raw`
 (() => {
   'use strict';
@@ -30,6 +32,7 @@ export const customerPortalClient = String.raw`
   const liveStatus = document.getElementById('portal-live-status');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const mobileLayout = matchMedia('(max-width: 980px)');
+  const compactAgentLayout = matchMedia('(max-width: 640px)');
 
   const setSidebarAccess = (open) => {
     if (!sidebar) return;
@@ -93,6 +96,7 @@ export const customerPortalClient = String.raw`
 
   menu?.addEventListener('click', () => {
     const open = sidebar?.classList.toggle('open');
+    if (open) window.DID_AGENTS_API?.configure?.({ openMode: 'compact' });
     scrim?.classList.toggle('visible', Boolean(open));
     menu.setAttribute('aria-expanded', String(Boolean(open)));
     document.body.classList.toggle('portal-nav-open', Boolean(open));
@@ -153,19 +157,33 @@ export const customerPortalClient = String.raw`
   };
 
   let didBound = false;
+  const configureDidLayout = () => {
+    const api = window.DID_AGENTS_API;
+    if (!api?.configure) return false;
+    api.configure({
+      position: 'right',
+      orientation: compactAgentLayout.matches ? 'vertical' : 'horizontal',
+      openMode: 'compact',
+      showRestartButton: false,
+    });
+    return true;
+  };
   const bindDid = () => {
     if (didBound) return true;
     const api = window.DID_AGENTS_API;
     if (!api?.events?.on) return false;
     didBound = true;
+    configureDidLayout();
     api.events.on('connection', (event) => {
-      setAgentStatus(event?.state);
-      if (event?.state === 'Connected') registerTools();
+      const state = String(event?.state || '').toLowerCase();
+      setAgentStatus(state);
+      if (state === 'connected') registerTools();
     });
     return true;
   };
 
   if (config.agentEnabled) {
+    compactAgentLayout.addEventListener('change', configureDidLayout);
     if (!bindDid()) {
       let attempts = 0;
       const timer = setInterval(() => {
@@ -175,4 +193,4 @@ export const customerPortalClient = String.raw`
     }
   }
 })();
-`;
+` + customerPortalInsightsClient;
