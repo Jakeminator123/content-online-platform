@@ -15,7 +15,7 @@ repository, en Git-gren eller ett Vercel-projekt.
 | Publik ingång | `/` | Content Online-landning. Kundinloggning öppnas som en modal ovanpå sidan. |
 | Kundinloggning, reservväg | `/login` | Direktlänk till samma Clerk-baserade kundflöde. Kan bära en önskad portal som hjälp för valet, aldrig som behörighetsbevis. |
 | Kundaktivering | `/registrera` | Aktiverar ett kundkonto för en serverregistrerad medlemsinbjudan. |
-| Personaladministration | `/admin` | Separat Clerk-session och serverkontrollerad Content Online-administratör. |
+| Personaladministration | `/admin` | Separat serverkontrollerad behörighetsprövning för Content Online-personal. Den nuvarande piloten delar Clerk-webbläsarsession med kundflödet. |
 | Kundportal | `/portal/{slug}` | Gemensamt, kundmärkt portalskal. Verklig kunddata kräver verifierat medlemskap. |
 | KTH-pilot | `/portal/kth` | Uttryckligen syntetisk pilot med tydligt märkt presentationsdata. |
 | Valfri kunddomän | Exempelvis `https://kund.portal.contentonline.se/` | Samma publicerade tenant och runtime efter exakt domänverifiering. |
@@ -35,6 +35,12 @@ ge 404. Lokala och CI-baserade fixtures ska bara nås genom testharnessen.
    användaren bland sina serverreturnerade organisationer.
 5. `/portal/{slug}` verifierar sessionen och medlemskapet innan den visar
    kundskyddad status eller data.
+
+Kund- och personalbehörighet är separerade server-side, men den nuvarande
+piloten använder samma Clerk-webbläsarsession för båda ingångarna. Utloggning i
+det ena flödet loggar därför även ut det andra i samma webbläsarprofil. Den
+kända test- och UX-begränsningen beskrivs närmare i
+[`ADMIN_DRIFT.md`](./ADMIN_DRIFT.md#känd-sessionsbegränsning-i-pilotflödet).
 
 En manuellt angiven slug, ett kundnamn, en e-postadress i klienten eller en egen
 domän ger aldrig åtkomst. En väntande e-postinbjudan binds vid första godkända

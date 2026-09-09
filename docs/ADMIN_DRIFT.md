@@ -41,8 +41,8 @@ som ännu inte är anslutna.
 
 ### Intern administration
 
-- `/admin/login` och `/admin/registrera` använder en separat Clerk-konfiguration
-  för Content Online-personal.
+- `/admin/login` och `/admin/registrera` har separata ingångar och en separat
+  serverkontrollerad behörighetsprövning för Content Online-personal.
 - Servern kräver aktiv session, icke spärrat konto, verifierad primär e-post och
   matchning mot Content Onlines serverkonfigurerade allowlist.
 - Det skyddade registret är beständigt och hanterar kunder, publicister,
@@ -60,6 +60,21 @@ som ännu inte är anslutna.
 - Content Onlines interna textassistent är separerad från kundportalens valfria
   D-ID-agent. Den får endast aggregerade registertal, inte namn, e-postadresser
   eller identitets-ID:n.
+
+#### Känd sessionsbegränsning i pilotflödet
+
+Kundåtkomsten och personaladministrationen använder för närvarande samma
+Clerk-konfiguration och därmed samma webbläsarsession. Roller och tenantåtkomst
+är fortfarande strikt separerade server-side: en Content Online-administratör
+blir inte kundmedlem och en kundmedlem får inte intern adminbehörighet.
+
+Den delade sessionen innebär däremot att **Logga ut och byt konto** i
+kundflödet även avslutar den aktiva personalsessionen i samma webbläsarprofil.
+En redan öppen `/admin`-flik skickas då till `/admin/login`; det är inte en
+kundinloggning. Vid test med ett personalkonto och ett separat kundkonto ska en
+annan webbläsarprofil eller privat session användas tills identitetssessionerna
+har isolerats. Detta är en känd UX- och sessionsbegränsning, inte ett
+behörighetsöverskridande.
 
 ### Kundportal
 
