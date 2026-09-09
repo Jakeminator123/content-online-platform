@@ -19,7 +19,7 @@ describe("Content Online backend API", () => {
   });
 
   it("exports a Vercel-compatible production app without enabling demo auth", async () => {
-    const health = await productionApp.request("/health");
+    const health = await productionApp.request("https://content-online-platform.vercel.app/health");
     expect(health.status).toBe(200);
 
     const protectedRoute = await productionApp.request("/v1/me", {
@@ -29,6 +29,15 @@ describe("Content Online backend API", () => {
     await expect(protectedRoute.json()).resolves.toMatchObject({
       error: "identity_provider_not_configured",
     });
+  });
+
+  it("keeps backend routes off customer and unknown external hosts", async () => {
+    for (const hostname of ["north.portal.contentonline.se", "unknown.example.edu"]) {
+      for (const path of ["/health", "/openapi.json", "/v1/me"]) {
+        const response = await productionApp.request(`https://${hostname}${path}`);
+        expect(response.status).toBe(404);
+      }
+    }
   });
 
   it("keeps health and OpenAPI public but protects every v1 route", async () => {

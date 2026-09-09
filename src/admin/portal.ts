@@ -32,7 +32,7 @@ import { customerAccessClient } from "../customer-portal/access-client.js";
 import { customerPortalClient } from "../customer-portal/client.js";
 import { CustomerDomainError, customerDomainServiceFromEnvironment, type CustomerDomainService } from "../customer-portal/domains.js";
 import { ClerkCustomerAuthenticator, type CustomerAuthenticator } from "../customer-portal/identity.js";
-import { customerSlugFromHostname, isCustomerSlug } from "../customer-portal/routing.js";
+import { customerSlugFromHostname, isCustomerSlug, isPlatformHostname, normalizeCustomerHostname } from "../customer-portal/routing.js";
 import { customerSessionClient } from "../customer-portal/session-client.js";
 import { customerPortalCss } from "../customer-portal/style.js";
 import { customerPortalContext, renderCustomerPortal, type CustomerPortalPage } from "../customer-portal/template.js";
@@ -136,22 +136,41 @@ export function createAdminPortal(
     const customer = publishedCustomer(data, slug);
     return customer ? { registry: data, customer } : null;
   };
+  const loadPortalByExactHostname = async (hostname: string): Promise<{ registry: Registry; customer: NonNullable<ReturnType<typeof publishedCustomer>> } | null> => {
+    const requestedHostname = normalizeCustomerHostname(hostname);
+    if (!requestedHostname) return null;
+    const data = (await registry().read()).data;
+    const customer = data.customers.find((candidate) =>
+      candidate.status === "published"
+      && candidate.site.domainStatus === "ready"
+      && normalizeCustomerHostname(candidate.site.domain) === requestedHostname,
+    ) ?? null;
+    return customer ? { registry: data, customer } : null;
+  };
+  const renderPortalPageResponse = (
+    c: Context<AdminPortalEnvironment>,
+    portal: { registry: Registry; customer: NonNullable<ReturnType<typeof publishedCustomer>> },
+    page: CustomerPortalPage,
+    basePath: string,
+  ) => {
+    const didAgent = resolveCustomerAgent(portal.customer, fallbackDidAgent);
+    const contextUrl = basePath ? `${basePath}/api/agent-context` : "/api/agent-context";
+    const customerAuth = page === "portal" && basePath && customerConfigured && host
+      ? { host, publishableKey: config.publishableKey }
+      : undefined;
+    return c.html(renderCustomerPortal(portal.customer, portal.registry, {
+      basePath,
+      contextUrl,
+      page,
+      didAgent,
+      ...(customerAuth ? { customerAuth } : {}),
+    }));
+  };
   const portalPageResponse = async (c: Context<AdminPortalEnvironment>, slug: string, page: CustomerPortalPage, basePath: string) => {
     try {
       const portal = await loadPortal(slug);
       if (!portal) return c.text("Kundportalen finns inte eller är inte publicerad.", 404);
-      const didAgent = resolveCustomerAgent(portal.customer, fallbackDidAgent);
-      const contextUrl = basePath ? `${basePath}/api/agent-context` : "/api/agent-context";
-      const customerAuth = page === "portal" && basePath && customerConfigured && host
-        ? { host, publishableKey: config.publishableKey }
-        : undefined;
-      return c.html(renderCustomerPortal(portal.customer, portal.registry, {
-        basePath,
-        contextUrl,
-        page,
-        didAgent,
-        ...(customerAuth ? { customerAuth } : {}),
-      }));
+      return renderPortalPageResponse(c, portal, page, basePath);
     } catch { return c.text("Kundportalen är tillfälligt otillgänglig.", 503); }
   };
 
@@ -161,19 +180,30 @@ export function createAdminPortal(
   app.get("/customer-portal/assets/session.js", (c) => c.body(customerSessionClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
   app.get("/customer-landing/assets/style.css", (c) => c.body(customerLandingCss, 200, { "content-type": "text/css; charset=utf-8" }));
   app.get("/customer-landing/assets/client.js", (c) => c.body(customerLandingClient, 200, { "content-type": "text/javascript; charset=utf-8" }));
-  // A verified wildcard domain maps the first host label to one published tenant.
+  // A verified wildcard maps its first label to a slug. A separately verified
+  // customer domain instead resolves through the persisted exact hostname.
   app.use("*", async (c, next) => {
-    const slug = customerSlugFromHostname(new URL(c.req.url).hostname, portalRootDomain);
-    if (!slug) return next();
-    if (c.req.path === "/") return portalPageResponse(c, slug, "portal", "");
-    if (c.req.path === "/login") return portalPageResponse(c, slug, "login", "");
-    if (c.req.path === "/api/agent-context") {
-      try {
-        const portal = await loadPortal(slug);
-        return portal ? c.json(customerPortalContext(portal.customer, portal.registry)) : c.json({ error: "not_found" }, 404);
-      } catch { return c.json({ error: "portal_unavailable" }, 503); }
+    const requestHostname = normalizeCustomerHostname(new URL(c.req.url).hostname);
+    const slug = customerSlugFromHostname(requestHostname, portalRootDomain);
+    if (!slug && isPlatformHostname(requestHostname, new URL(PLATFORM_ORIGIN).hostname, portalRootDomain)) return next();
+    if (!["/", "/login", "/api/agent-context"].includes(c.req.path)) {
+      return c.text("Sidan finns inte i kundportalen.", 404);
     }
-    return c.text("Sidan finns inte i kundportalen.", 404);
+    try {
+      const portal = slug ? await loadPortal(slug) : await loadPortalByExactHostname(requestHostname);
+      if (!portal) {
+        return c.req.path === "/api/agent-context"
+          ? c.json({ error: "not_found" }, 404)
+          : c.text("Kundportalen finns inte eller är inte publicerad.", 404);
+      }
+      if (c.req.path === "/") return renderPortalPageResponse(c, portal, "portal", "");
+      if (c.req.path === "/login") return renderPortalPageResponse(c, portal, "login", "");
+      return c.json(customerPortalContext(portal.customer, portal.registry));
+    } catch {
+      return c.req.path === "/api/agent-context"
+        ? c.json({ error: "portal_unavailable" }, 503)
+        : c.text("Kundportalen är tillfälligt otillgänglig.", 503);
+    }
   });
   app.get("/v1/portal-entries", async (c) => {
     let authentication;

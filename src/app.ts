@@ -342,7 +342,10 @@ const membersRoute = createRoute({
   },
 });
 
-export function createApp(dependencies: BackendDependencies) {
+export function createApp(
+  dependencies: BackendDependencies,
+  leadingPortal?: ReturnType<typeof createAdminPortal>,
+) {
   const app = new OpenAPIHono<AppEnvironment>({
     defaultHook: (result, c) => {
       if (result.success) {
@@ -359,6 +362,10 @@ export function createApp(dependencies: BackendDependencies) {
       );
     },
   });
+
+  // Production supplies the portal router here so its host boundary runs
+  // before public backend routes. Isolated backend callers omit it.
+  if (leadingPortal) app.route("/", leadingPortal);
 
   app.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
     type: "http",
@@ -776,14 +783,12 @@ function notFound(c: Context<AppEnvironment>) {
   return error(c, 404, "not_found", "Resursen hittades inte.");
 }
 
+const adminConfig = readAdminConfig();
 const productionApp = createApp({
   identityProvider: new UnconfiguredIdentityProvider(),
   repository: new InMemoryPortalRepository(),
   clock: () => new Date(),
   createId: () => crypto.randomUUID(),
-});
-
-const adminConfig = readAdminConfig();
-productionApp.route("/", createAdminPortal(new ClerkAdminAuthenticator(adminConfig), adminConfig));
+}, createAdminPortal(new ClerkAdminAuthenticator(adminConfig), adminConfig));
 
 export default productionApp;
